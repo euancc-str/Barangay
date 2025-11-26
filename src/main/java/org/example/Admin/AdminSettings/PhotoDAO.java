@@ -1,0 +1,44 @@
+package org.example.Admin.AdminSettings; // Use your package
+
+import javax.imageio.ImageIO;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+
+public class PhotoDAO {
+
+    public void updateResidentPhoto(int residentId, String newPhotoPath) {
+        String sql = "UPDATE resident SET photoPath = ? WHERE residentId = ?";
+
+        try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, newPhotoPath);
+            stmt.setInt(2, residentId);
+            stmt.executeUpdate();
+
+            System.out.println("Photo updated for Resident ID: " + residentId);
+
+        } catch (java.sql.SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public String getPhotoPath(int residentId) {
+        String sql = "SELECT photoPath FROM resident WHERE residentId = ?";
+        try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, residentId);
+            java.sql.ResultSet rs = stmt.executeQuery();
+            if(rs.next()) {
+                return rs.getString("photoPath");
+            }
+        } catch (java.sql.SQLException e) { e.printStackTrace(); }
+        return null;
+    }
+}

@@ -1,0 +1,40 @@
+    private void updateResidentInfoFields(Resident resident) {
+        if (resident != null) {
+            firstNameField.setText(resident.getFirstName() != null ? resident.getFirstName() : "");
+            middleNameField.setText(resident.getMiddleName() != null ? resident.getMiddleName() : "");
+            lastNameField.setText(resident.getLastName() != null ? resident.getLastName() : "");
+            addressField.setText(resident.getAddress() != null ? resident.getAddress() : "");
+
+            System.out.println("Updated fields with:");
+            System.out.println("First Name: " + resident.getFirstName());
+            System.out.println("Middle Name: " + resident.getMiddleName());
+            System.out.println("Last Name: " + resident.getLastName());
+            System.out.println("Address: " + resident.getAddress());
+        }
+    }
+
+    private Resident collectResidentData() {
+        return Resident.builder()
+                .firstName(firstNameField.getText())
+                .lastName(lastNameField.getText())
+                .middleName(middleNameField.getText())
+                .address(addressField.getText())
+                .build();
+    }
+
+    //instantiate a new resident object and get collectResidentData()
+    private Resident moreData(Resident r) {
+        return r.toBuilder()
+                .age(r.getAge())
+                .civilStatus(r.getCivilStatus())
+                .dob(r.getDob())
+                .civilStatus(r.getCivilStatus())
+                .build();
+    }
+
+    private DocumentRequest fillUpFormData(Resident r) {
+        return DocumentRequest.builder()
+                .residentId(r.getResidentId())
+
+                .build();
+    }
