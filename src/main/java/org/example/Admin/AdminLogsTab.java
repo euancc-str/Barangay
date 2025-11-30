@@ -3,6 +3,7 @@ package org.example.Admin;
 import java.awt.*;
 import java.awt.event.*;
 import java.text.MessageFormat;
+import java.util.List;
 import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.table.*;
@@ -14,12 +15,13 @@ public class AdminLogsTab extends JPanel {
     private TableRowSorter<DefaultTableModel> sorter;
     private JLabel lblRecordCount;
 
+    // Class-level variable for filter access
+    private JComboBox<String> dateFilterBox;
 
     // --- VISUAL STYLE VARIABLES ---
     private final Color BG_COLOR = new Color(229, 231, 235);
     private final Color HEADER_BG = new Color(40, 40, 40);
     private final Color TABLE_HEADER_BG = new Color(34, 197, 94);
-    private final Color BTN_PRINT_COLOR = new Color(60, 60, 60); // Dark Gray
 
     public AdminLogsTab() {
         setLayout(new BorderLayout(0, 0));
@@ -28,28 +30,51 @@ public class AdminLogsTab extends JPanel {
         add(createHeaderPanel(), BorderLayout.NORTH);
         add(new JScrollPane(createContentPanel()), BorderLayout.CENTER);
 
+        // Load data initially
         loadLogData();
     }
-    private JComboBox<String> dateFilterBox;
 
     // =========================================================================
-    // DATA SIMULATION (The Audit Trail)
+    //  THE FIX: USE SWINGWORKER (Background Thread)
     // =========================================================================
     public void loadLogData() {
+        // 1. Get current filter (safely)
         String filter = (dateFilterBox != null) ? (String) dateFilterBox.getSelectedItem() : "All Time";
 
-        tableModel.setRowCount(0);
-        SystemLogDAO logDao = new SystemLogDAO();
-        java.util.List<Object[]> logs = logDao.getLogsByFilter(filter);
+        // 2. Run Database Fetch in Background
+        // This prevents the UI from freezing!
+        new SwingWorker<List<Object[]>, Void>() {
+            @Override
+            protected List<Object[]> doInBackground() throws Exception {
+                // HEAVY TASK: Connects to DB
+                SystemLogDAO logDao = new SystemLogDAO();
+                return logDao.getLogsByFilter(filter);
+            }
 
-        for (Object[] row : logs) {
-            tableModel.addRow(row);
-        }
+            @Override
+            protected void done() {
+                // 3. Update UI when finished
+                try {
+                    List<Object[]> logs = get();
 
-        updateRecordCount();
-        if (logsTable != null) {
-            logsTable.repaint();
-        }
+                    // Wipe the board only when data is ready
+                    if (tableModel != null) {
+                        tableModel.setRowCount(0);
+
+                        if (logs != null) {
+                            for (Object[] row : logs) {
+                                tableModel.addRow(row);
+                            }
+                        }
+                    }
+
+                    updateRecordCount();
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute(); // Don't forget .execute()!
     }
 
     // =========================================================================
@@ -84,7 +109,7 @@ public class AdminLogsTab extends JPanel {
         topPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 45));
 
         // Left: Search + Filter
-        JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5)); // Added gap
+        JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         leftPanel.setBackground(BG_COLOR);
 
         // A. Search
@@ -119,10 +144,10 @@ public class AdminLogsTab extends JPanel {
 
         leftPanel.add(searchLabel);
         leftPanel.add(searchField);
-        leftPanel.add(filterLabel); // Add Label
-        leftPanel.add(dateFilterBox); // Add Box
+        leftPanel.add(filterLabel);
+        leftPanel.add(dateFilterBox);
 
-        // Right: Print Button (Same as before)
+        // Right: Print Button
         JPanel rightPrint = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         rightPrint.setBackground(BG_COLOR);
         JButton btnPrint = createRoundedButton("🖨 Print Report", new Color(60, 60, 60));
@@ -138,23 +163,28 @@ public class AdminLogsTab extends JPanel {
         contentPanel.add(Box.createVerticalStrut(15));
 
         // --- TABLE ---
-        String[] columnNames = {"Log ID", "Action Type", "Target", "Performed By (Staff)", "Date & Time"};
+        String[] columnNames = {"Log ID", "Action Type", "Target", "Performed By", "Date & Time"};
 
         tableModel = new DefaultTableModel(columnNames, 0) {
-            public boolean isCellEditable(int row, int column) { return false; } // Read-only logs
+            public boolean isCellEditable(int row, int column) { return false; }
         };
 
         logsTable = new JTable(tableModel);
         logsTable.setFont(new Font("Arial", Font.PLAIN, 14));
         logsTable.setRowHeight(45);
         logsTable.setGridColor(new Color(200, 200, 200));
-        logsTable.setSelectionBackground(new Color(220, 220, 220)); // Grey selection for read-only feel
+        logsTable.setSelectionBackground(new Color(220, 220, 220));
         logsTable.setSelectionForeground(Color.BLACK);
         logsTable.setShowVerticalLines(true);
         logsTable.setShowHorizontalLines(true);
 
         sorter = new TableRowSorter<>(tableModel);
         logsTable.setRowSorter(sorter);
+
+        // Default Sort: Newest Logs First (Column 4)
+        List<RowSorter.SortKey> sortKeys = new java.util.ArrayList<>();
+        sortKeys.add(new RowSorter.SortKey(4, SortOrder.DESCENDING));
+        sorter.setSortKeys(sortKeys);
 
         JTableHeader header = logsTable.getTableHeader();
         header.setFont(new Font("Arial", Font.BOLD, 15));
@@ -185,23 +215,16 @@ public class AdminLogsTab extends JPanel {
     }
 
     private void updateRecordCount() {
-        int count = logsTable.getRowCount();
-        lblRecordCount.setText("Total Logs: " + count);
+        if (lblRecordCount != null && logsTable != null) {
+            int count = logsTable.getRowCount();
+            lblRecordCount.setText("Total Logs: " + count);
+        }
     }
 
     private JPanel createHeaderPanel() {
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(HEADER_BG);
-        headerPanel.setBorder(BorderFactory.createCompoundBorder(
-                new AbstractBorder() {
-                    @Override
-                    public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
-                        Graphics2D g2 = (Graphics2D) g;
-                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                        g2.setColor(HEADER_BG);
-                        g2.fillRoundRect(x, y, width, height, 30, 30);
-                    }
-                }, new EmptyBorder(25, 40, 25, 40)));
+        headerPanel.setBorder(new EmptyBorder(25, 40, 25, 40));
 
         JPanel titlePanel = new JPanel();
         titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));

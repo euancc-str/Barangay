@@ -90,7 +90,7 @@ public class areyousureyouwantorequestbformframe extends JDialog {
 
                 // successyourinformationframe suc = new successyourinformationframe(null);
                 // suc.setVisible(true);
-
+                dispose();
                 BClearanceForm bc=new BClearanceForm();
                 bc.setVisible(true);
 

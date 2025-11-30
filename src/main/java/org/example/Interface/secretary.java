@@ -1,5 +1,6 @@
 package org.example.Interface;
 
+import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.UserDataManager;
 import org.example.Users.BarangayStaff;
 import org.example.Users.Resident;
@@ -158,7 +159,7 @@ public class secretary extends JFrame {
             }
         }
     }
-
+    private static SystemConfigDAO dao;
     private JPanel createSidebar() {
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
@@ -170,9 +171,11 @@ public class secretary extends JFrame {
         JPanel logoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 25));
         logoPanel.setBackground(Color.BLACK);
         logoPanel.setMaximumSize(new Dimension(260, 90));
-
+        dao = new SystemConfigDAO();
+        String logoPath = dao.getConfig("logoPath");
             JPanel logoCircle = new JPanel() {
-            private Image logoImage = new ImageIcon("src/main/java/org/example/resources/logo.jpg").getImage(); // 🔹 path to your logo image
+
+            private Image logoImage = new ImageIcon("resident_photos/"+logoPath).getImage(); // 🔹 path to your logo image
 
             @Override
             protected void paintComponent(Graphics g) {
@@ -220,7 +223,7 @@ public class secretary extends JFrame {
         sidebar.add(createMenuItem("dashboard", "Dashboard", true));
         sidebar.add(createMenuItem("total", "Total Request", false));
         sidebar.add(createMenuItem("profile", "Barangay Official Profile", false));
-        sidebar.add(createMenuItem("secretary","Search",false));
+        sidebar.add(createMenuItem("secretary","Search/Document Request",false));
         sidebar.add(createMenuItem("document","Print",false));
 
         sidebar.add(Box.createVerticalGlue());

@@ -30,8 +30,10 @@ public class AdminPositionTab extends JPanel {
         setLayout(new BorderLayout(0, 0));
         setBackground(BG_COLOR);
 
+
         add(createHeaderPanel(), BorderLayout.NORTH);
         add(new JScrollPane(createContentPanel()), BorderLayout.CENTER);
+
 
         refreshTableData();
     }

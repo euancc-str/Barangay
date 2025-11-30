@@ -9,9 +9,10 @@ import java.util.Properties;
 
 public class DatabaseConnection {
 
-    private static Connection connection;
 
     public static Connection getConnection() {
+        Connection connection = null;
+
         try {
             // 1. THE ZOMBIE CHECK: Check if null OR closed
             if (connection == null || connection.isClosed()) {

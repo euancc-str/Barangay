@@ -1,11 +1,16 @@
 package org.example.Captain;
 
 import org.example.Admin.AdminDashboard;
+import org.example.Admin.AdminSettings.SystemConfigDAO;
+import org.example.StaffDAO;
+import org.example.Users.BarangayStaff;
+import org.example.treasurer.TreasurerReportsTab;
 
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.geom.Ellipse2D;
 import java.lang.reflect.Method;
 
 public class CaptainDashboard extends JFrame {
@@ -13,6 +18,7 @@ public class CaptainDashboard extends JFrame {
     private JPanel contentContainer;
     private CardLayout cardLayout;
     private JPanel sidebar;
+    private TreasurerReportsTab treasurerReportsTab;
 
     public CaptainDashboard() {
         setTitle("Documentary Request - Captain Dashboard");
@@ -41,9 +47,11 @@ public class CaptainDashboard extends JFrame {
         art = new ApprovedRequestTab();
         contentContainer.add(new PersonalInformation(), "personal_info");
         contentContainer.add(art, "approved");
-        contentContainer.add(createPlaceholderPanel("Total Request"), "total");
+        treasurerReportsTab = new TreasurerReportsTab();
+        contentContainer.add(treasurerReportsTab, "total");
         contentContainer.add(new BarangayOfficialProfile(), "profile");
-        contentContainer.add(createPlaceholderPanel("Barangay Population"), "population");
+        String population = ""+new StaffDAO().countPopulationFromDb();
+        contentContainer.add(createPlaceholderPanel("Barangay Population: " + population), "population");
 
         contentArea.add(contentContainer, BorderLayout.CENTER);
         mainPanel.add(contentArea, BorderLayout.CENTER);
@@ -51,8 +59,9 @@ public class CaptainDashboard extends JFrame {
         add(mainPanel);
 
         // Show personal info by default
-        cardLayout.show(contentContainer, "personal_info");
+        cardLayout.show(contentContainer, "total");
     }
+    private SystemConfigDAO dao;
 
     private JPanel createSidebar() {
         JPanel sidebar = new JPanel();
@@ -66,17 +75,35 @@ public class CaptainDashboard extends JFrame {
         logoPanel.setBackground(Color.BLACK);
         logoPanel.setMaximumSize(new Dimension(260, 90));
 
+        dao = new SystemConfigDAO();
+        String logoPath = dao.getConfig("logoPath");
         JPanel logoCircle = new JPanel() {
+
+            private Image logoImage = new ImageIcon("resident_photos/"+logoPath).getImage(); // 🔹 path to your logo image
+
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
+                Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(100, 150, 100));
-                g2.fillOval(0, 0, 45, 45);
+
+                int diameter = Math.min(getWidth(), getHeight());
+
+                // 🟢 Draw circular clipping area
+                g2.setClip(new Ellipse2D.Float(0, 0, diameter, diameter));
+
+                // 🖼️ Draw the logo image scaled to the panel size
+                g2.drawImage(logoImage, 0, 0, diameter, diameter, this);
+
+                // ⚪ Optional: Add a white circular border
+                g2.setClip(null);
                 g2.setColor(Color.WHITE);
-                g2.drawOval(0, 0, 45, 45);
+                g2.setStroke(new BasicStroke(2f));
+                g2.drawOval(0, 0, diameter - 1, diameter - 1);
+
+                g2.dispose();
             }
+
             @Override
             public Dimension getPreferredSize() {
                 return new Dimension(45, 45);
@@ -95,9 +122,9 @@ public class CaptainDashboard extends JFrame {
         sidebar.add(Box.createVerticalStrut(10));
 
         // Menu Items
-        sidebar.add(createMenuItem("personal_info", "Personal Information", true));
+        sidebar.add(createMenuItem("personal_info", "Personal Information", false));
         sidebar.add(createMenuItem("approved", "Approved Request", false));
-        sidebar.add(createMenuItem("total", "Total Request", false));
+        sidebar.add(createMenuItem("total", "Total Request", true));
         sidebar.add(createMenuItem("profile", "Barangay Official Profile", false));
         sidebar.add(createMenuItem("population", "Barangay Population", false));
 
@@ -275,7 +302,7 @@ public class CaptainDashboard extends JFrame {
         contentPanel.setBackground(Color.WHITE);
         contentPanel.setBorder(new EmptyBorder(50, 50, 50, 50));
 
-        JLabel label = new JLabel(title + " - Coming Soon");
+        JLabel label = new JLabel(title);
         label.setFont(new Font("Arial", Font.BOLD, 24));
         label.setForeground(new Color(100, 100, 100));
         contentPanel.add(label);
@@ -311,8 +338,9 @@ public class CaptainDashboard extends JFrame {
 
         JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         userPanel.setBackground(new Color(40, 40, 40));
+        BarangayStaff staff = new StaffDAO().findStaffByPosition("Brgy.Captain");
 
-        JLabel lblUser = new JLabel("Hi Mr. Dalisay");
+        JLabel lblUser = new JLabel("Hi Mr. "+staff.getFirstName());
         lblUser.setFont(new Font("Arial", Font.PLAIN, 15));
         lblUser.setForeground(Color.WHITE);
 

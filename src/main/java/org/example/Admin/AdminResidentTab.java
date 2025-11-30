@@ -1,5 +1,6 @@
 package org.example.Admin;
 
+import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.Documents.DocumentRequest;
 import org.example.ResidentDAO;
 import org.example.StaffDAO;
@@ -190,28 +191,8 @@ public class AdminResidentTab extends JPanel {
         detailsPanel.add(lblSec);
         detailsPanel.add(Box.createVerticalStrut(10));
 
-        // --- EMAIL (PRE-FILLED DATA) ---
-        JTextField txtNewEmail = createStyledTextField(email); // Use the retrieved email
-        addStyledRow(detailsPanel, "Username:", txtNewEmail);
-
-        // --- PASSWORD (EMPTY) ---
-        JPasswordField txtNewPass = new JPasswordField("");
-        txtNewPass.setFont(new Font("Arial", Font.PLAIN, 14));
-        txtNewPass.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(200, 200, 200)),
-                new EmptyBorder(5, 10, 5, 10)
-        ));
 
         // Add Hint for Password
-        JPanel passPanel = new JPanel(new BorderLayout());
-        passPanel.setBackground(Color.WHITE);
-        passPanel.add(txtNewPass, BorderLayout.CENTER);
-        JLabel lblHint = new JLabel(" (Leave blank to keep current)");
-        lblHint.setFont(new Font("Arial", Font.ITALIC, 11));
-        lblHint.setForeground(Color.GRAY);
-        passPanel.add(lblHint, BorderLayout.SOUTH);
-
-        addStyledRow(detailsPanel, "New Password:", passPanel);
 
         mainPanel.add(new JScrollPane(detailsPanel), BorderLayout.CENTER);
 
@@ -246,8 +227,7 @@ public class AdminResidentTab extends JPanel {
                         .name(txtName.getText())
                         .address(txtAddress.getText())
                         .status(cbAccStatus.getSelectedItem().toString())
-                        .username(txtNewEmail.getText())
-                        .password(txtNewPass.getText())
+
                         .residentId(Integer.parseInt(id))
 
                         .build();
@@ -283,15 +263,17 @@ public class AdminResidentTab extends JPanel {
         // --- 1. CREATE FIELDS ---
         JTextField txtName = createStyledTextField("");
         JTextField lastName = createStyledTextField("");
+        JTextField middleName = createStyledTextField("");
 
         String[] genders = {"Male", "Female"};
         JComboBox<String> cbGender = new JComboBox<>(genders);
         cbGender.setBackground(Color.WHITE);
 
         JTextField txtAddress = createStyledTextField("");
-        JTextField txtUsername = createStyledTextField("");
-        JTextField txtPassword = createStyledTextField(""); // Should be JPasswordField in real app
-        JTextField txtEmail = createStyledTextField("");
+        String [] dao = new SystemConfigDAO().getOptionsNature("purok");
+
+        JComboBox<String> purok = new JComboBox<>(dao);
+        JTextField street = createStyledTextField("");
 
         // --- 2. DATE OF BIRTH & AUTO AGE LOGIC ---
 
@@ -301,6 +283,7 @@ public class AdminResidentTab extends JPanel {
         JTextField txtAge = createStyledTextField("");
         txtAge.setEditable(false); // Prevent manual typing
         txtAge.setBackground(new Color(245, 245, 245)); // Grey out slightly
+
 
         // Date Components
         String[] months = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
@@ -365,9 +348,13 @@ public class AdminResidentTab extends JPanel {
 
         // Trigger once to set initial age based on defaults
         dateListener.actionPerformed(null);
+        String[] civilStatus = {"Single", "Married"};
+        JComboBox<String> cbcivilStatus = new JComboBox<>(civilStatus);
+        cbcivilStatus.setBackground(Color.WHITE);
 
         // --- 3. ADD TO PANEL ---
         addStyledRow(formPanel, "First Name:", txtName);
+        addStyledRow(formPanel, "Middle Name:", middleName);
         addStyledRow(formPanel, "Last Name:", lastName);
         addStyledRow(formPanel, "Gender:", cbGender);
         addStyledRow(formPanel,"Contact Number:", txtContact);
@@ -376,9 +363,10 @@ public class AdminResidentTab extends JPanel {
         addStyledRow(formPanel, "Age:", txtAge);
 
         addStyledRow(formPanel, "Address:", txtAddress);
-        addStyledRow(formPanel, "Username:", txtUsername);
-        addStyledRow(formPanel, "Password:", txtPassword);
-        addStyledRow(formPanel, "Email:", txtEmail);
+        addStyledRow(formPanel,"Purok",purok);
+        addStyledRow(formPanel,"Street",street);
+        addStyledRow(formPanel, "Civil status:",cbcivilStatus);
+
 
         // --- 4. SAVE BUTTON ---
         JButton btnSave = createRoundedButton("Register", BTN_ADD_COLOR);
@@ -442,10 +430,7 @@ public class AdminResidentTab extends JPanel {
                         .age(Integer.parseInt(ageText))
                         .dob(birthDate)
                         .address(txtAddress.getText())
-                        .username(txtUsername.getText())
                         .phoneNumber(txtContact.getText())
-                        .password(txtPassword.getText())
-                        .email(txtEmail.getText())
                         .position("Resident")
                         .status("Active")
                         .createdAt(java.time.LocalDateTime.now())

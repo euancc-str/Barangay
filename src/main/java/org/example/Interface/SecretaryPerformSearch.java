@@ -61,17 +61,11 @@ public class SecretaryPerformSearch extends JPanel {
         for(Resident resident : residentsList){
             String name = resident.getFirstName() + " "+ resident.getLastName();
             if(resident != null) {
-                String filterAddress = "Alawihao";
-
-                String status = "Not qualified";
-                if(Pattern.compile(filterAddress,Pattern.CASE_INSENSITIVE).matcher(resident.getAddress()).find()){
-                    status = "Qualified for request";
-                }
                 tableModel.addRow(new Object[]{""+resident.getResidentId(),
                         name,
                         resident.getGender(),
                         ""+resident.getAge(),
-                        resident.getAddress(),status
+                        resident.getAddress()
                         });
             }
         }
@@ -279,7 +273,7 @@ public class SecretaryPerformSearch extends JPanel {
         contentPanel.add(Box.createVerticalStrut(10));
 
         // --- TABLE SETUP ---
-        String[] columnNames = {"ID", "Full Name", "Gender", "Age", "Address", "Status"};
+        String[] columnNames = {"ID", "Full Name", "Gender", "Age", "Address"};
         tableModel = new DefaultTableModel(columnNames, 0) {
             public boolean isCellEditable(int row, int column) { return false; }
         };

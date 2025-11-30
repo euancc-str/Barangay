@@ -1,9 +1,14 @@
 package org.example.treasurer;
 
+import org.example.UserDataManager;
+import org.example.Users.BarangayStaff;
+import org.example.Users.Resident;
+
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.time.LocalDate;
 
 public class TreasurerPersonalInformation extends JPanel {
 
@@ -12,7 +17,51 @@ public class TreasurerPersonalInformation extends JPanel {
     private JTextField txtCitizenship, txtAge, txtPosition;
     private JTextField txtStreet, txtPhone, txtEmail, txtUniqueId, txtIdType;
     private JButton btnProfilePic, btnPhotoId, btnDone;
+    private void loadUserDataIntoForm() {
+        // Try to get current staff first
+        BarangayStaff currentStaff = UserDataManager.getInstance().getCurrentStaff();
 
+        if (currentStaff != null) {
+            // Populate fields from staff data
+            txtFirstName.setText(currentStaff.getFirstName() != null ? currentStaff.getFirstName() : "");
+            txtLastName.setText(currentStaff.getLastName() != null ? currentStaff.getLastName() : "");
+            txtPosition.setText(currentStaff.getPosition() != null ? currentStaff.getPosition() : "");
+            txtEmail.setText(currentStaff.getEmail() != null ? currentStaff.getEmail() : "");
+            txtPhone.setText(currentStaff.getContactNo() != null ? currentStaff.getContactNo() : "");
+
+
+            String uniqueId = ""+currentStaff.getStaffId();
+            txtUniqueId.setText(uniqueId);
+            LocalDate dob = currentStaff.getDob();
+            if (dob != null) {
+                System.out.println("Loading DOB: " + dob); // Debug
+
+                int monthIndex = dob.getMonthValue() - 1; // Use getMonthValue() instead of getMonth()
+                if (monthIndex >= 0 && monthIndex < 12) {
+                    cmbMonth.setSelectedIndex(monthIndex);
+                }
+                int day = dob.getDayOfMonth()-1;
+                cmbDay.setSelectedIndex(day);
+                int yr = dob.getYear();
+
+                cmbYear.setSelectedItem(""+yr);
+                String  age = "" +(LocalDate.now().getYear() - yr);
+                txtAge.setText(age);
+                System.out.println("Set day: " + dob.getDayOfMonth() + ", month index: " + monthIndex + ", year: " + dob.getYear());
+            } else {
+                System.out.println("DOB is null!");
+            }
+            if (currentStaff.getAddress() != null) {
+                txtStreet.setText(currentStaff.getAddress());
+            }
+            if (currentStaff.getMiddleName() != null) {
+                txtMiddleName.setText(currentStaff.getMiddleName());
+            }
+
+            System.out.println("Loaded staff data: " + currentStaff.getFirstName() + " " + currentStaff.getLastName());
+            return;
+        }
+    }
     public TreasurerPersonalInformation() {
         setLayout(new BorderLayout(0, 0));
         setBackground(new Color(229, 231, 235));
@@ -28,6 +77,7 @@ public class TreasurerPersonalInformation extends JPanel {
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         scrollPane.setBackground(new Color(243, 244, 246));
         add(scrollPane, BorderLayout.CENTER);
+
     }
 
     private JPanel createHeaderPanel() {
@@ -271,7 +321,7 @@ public class TreasurerPersonalInformation extends JPanel {
 
         buttonPanel.add(btnDone);
         formPanel.add(buttonPanel);
-
+        loadUserDataIntoForm();
         return formPanel;
     }
 

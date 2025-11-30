@@ -1,5 +1,6 @@
 package org.example.SerbisyongBarangay;
 
+import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.Interface.secretary;
 import org.example.Users.BarangayStaff;
 
@@ -8,6 +9,7 @@ import javax.swing.border.Border;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.geom.Ellipse2D;
 
 /**
  * A Java Swing application replicating the "Serbisyong Barangay" (Barangay
@@ -27,9 +29,49 @@ public class requestaDocumentFrame extends JFrame {
     private static final Color CONTENT_BG_COLOR = Color.WHITE;
     private static final Color BUTTON_BORDER_COLOR = Color.BLACK;
     private static final Color PRIMARY_BLUE = new Color(0, 0, 139); // Darker Blue for accent
-
+    private SystemConfigDAO dao;
     public requestaDocumentFrame() {
         // 1. Frame Setup
+        JPanel logoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 25));
+        logoPanel.setBackground(Color.BLACK);
+        logoPanel.setMaximumSize(new Dimension(260, 90));
+
+        dao = new SystemConfigDAO();
+        String logoPath = dao.getConfig("logoPath");
+        JPanel logoCircle = new JPanel() {
+
+            private Image logoImage = new ImageIcon("resident_photos/"+logoPath).getImage(); // 🔹 path to your logo image
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                int diameter = Math.min(getWidth(), getHeight());
+
+                // 🟢 Draw circular clipping area
+                g2.setClip(new Ellipse2D.Float(0, 0, diameter, diameter));
+
+                // 🖼️ Draw the logo image scaled to the panel size
+                g2.drawImage(logoImage, 0, 0, diameter, diameter, this);
+
+                // ⚪ Optional: Add a white circular border
+                g2.setClip(null);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(2f));
+                g2.drawOval(0, 0, diameter - 1, diameter - 1);
+
+                g2.dispose();
+            }
+
+            @Override
+            public Dimension getPreferredSize() {
+                return new Dimension(45, 45);
+            }
+        };
+        logoCircle.setOpaque(false);
+
         setTitle("Serbisyong Barangay - Document Request");
         setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -43,6 +85,8 @@ public class requestaDocumentFrame extends JFrame {
         // 3. Build the Main Content Area
         JPanel contentArea = createContentArea();
         add(contentArea, BorderLayout.CENTER);
+
+
 
         // Center the frame on the screen
         setLocationRelativeTo(null);
@@ -66,7 +110,7 @@ public class requestaDocumentFrame extends JFrame {
         // Placeholder for Logo/Seal (Replaced with text/icon since image loading is
         // complex in a single file)
         JLabel logoLabel = new JLabel(); // Unicode for shield/badge icon
-        String logolink = "C:\\Users\\HP\\Documents\\NetBeansProjects\\SerbisyongBarangay\\app\\src\\main\\resources\\serbisyongBarangayLogo.jpg";
+        String logolink = new SystemConfigDAO().getConfig("logoPath");
         Image logoImage = new ImageIcon(logolink).getImage().getScaledInstance(50, 50, Image.SCALE_SMOOTH);
         logoLabel.setIcon(new ImageIcon(logoImage));
         leftPanel.add(logoLabel);
@@ -209,7 +253,6 @@ public class requestaDocumentFrame extends JFrame {
                     //         JOptionPane.INFORMATION_MESSAGE);
                     // BClearanceForm clearance = new BClearanceForm();
                     // clearance.setVisible(true);
-
                     areyousureyouwantorequestbformframe ar=new areyousureyouwantorequestbformframe(null);
                     ar.setVisible(true);
 
@@ -220,6 +263,7 @@ public class requestaDocumentFrame extends JFrame {
                             "Opening Another Document Form!",
                             "Document Selected",
                             JOptionPane.INFORMATION_MESSAGE);
+                    dispose();
                     BusinessClearanceForm bs = new BusinessClearanceForm();
                     bs.createAndShowGUI();
                 } else if (text.equals("Certificate of Indigency")) {
@@ -228,20 +272,16 @@ public class requestaDocumentFrame extends JFrame {
                             "Opening Another Document Form!",
                             "Document Selected",
                             JOptionPane.INFORMATION_MESSAGE);
-
+                    dispose();
                     IndigencyFormDialog ig = new IndigencyFormDialog(null);
                     ig.setVisible(true);
 
                 } else {
                     // Certificate of Residency
                     // Fallback for any other button
-                    JOptionPane.showMessageDialog(null,
-                            "Requested: " + text,
-                            "Document Selected",
-                            JOptionPane.INFORMATION_MESSAGE);
-
-                          //  areyousureyouwantorequestbformframe ajhjae=new areyousureyouwantorequestbformframe(null,"Certificate of Residency");
-
+                    dispose();
+                    ResidencyFormDialog dialog = new ResidencyFormDialog(null);
+                    dialog.setVisible(true);
                 }
             }
         });

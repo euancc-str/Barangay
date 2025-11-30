@@ -79,6 +79,7 @@ public class DashboardPanel extends JPanel {
         // Initial Load
         loadDataFromFile();
         switchSection("Pending"); // Default view
+        startAutoRefresh();
     }
 
     // =========================================================================
@@ -245,7 +246,27 @@ public class DashboardPanel extends JPanel {
 
         tablePanel.add(scrollPane, BorderLayout.CENTER);
         return tablePanel;
+    }private void startAutoRefresh() {
+        autoRefreshTimer = new javax.swing.Timer(5000, e -> {
+            // Only refresh if user is NOT selecting a row (to avoid disruption)
+            if (documentTable != null && documentTable.getSelectedRow() == -1) {
+                // Run DB fetch in background to prevent UI freeze
+                new SwingWorker<Void, Void>() {
+                    @Override
+                    protected Void doInBackground() throws Exception {
+                        loadDataFromFile(); // Fetch fresh data
+                        return null;
+                    }
+                    @Override
+                    protected void done() {
+                        switchSection(currentFilter); // Update Table UI
+                    }
+                }.execute();
+            }
+        });
+        autoRefreshTimer.start();
     }
+    private javax.swing.Timer autoRefreshTimer;
 
     // =========================================================================
     //  LOGIC METHODS
@@ -268,67 +289,69 @@ public class DashboardPanel extends JPanel {
         System.out.println("✅ Loaded " + allData.size() + " records.");
     }
 
-    // Switch tabs (Pending, Approved, Rejected)
     private void switchSection(String status) {
         currentFilter = status;
-
-        // Highlight buttons
         highlightButton(status.equals("Pending") ? pendingBtn : (status.equals("Approved") ? verifiedBtn : rejectBtn));
 
+        if (model == null) return;
+
         model.setRowCount(0);
-
         for (Object[] row : allData) {
-            // row[3] is Status, row[4] is Date
             String rowStatus = (String) row[3];
-
             boolean matchesStatus = false;
+
             if (rowStatus != null) {
                 if (status.equals("Approved")) {
-                    matchesStatus = rowStatus.equalsIgnoreCase("Paid") || rowStatus.equalsIgnoreCase("Released") || rowStatus.equalsIgnoreCase("Approved");
+                    matchesStatus = rowStatus.equalsIgnoreCase("Paid") || rowStatus.equalsIgnoreCase("Released") || rowStatus.equalsIgnoreCase("Approved") || rowStatus.equalsIgnoreCase("Confirmed Payment");
                 } else {
                     matchesStatus = rowStatus.equalsIgnoreCase(status);
                 }
             }
 
             if (matchesStatus) {
-                // >>> 5-MINUTE RULE LOGIC <<<
                 if (status.equals("Pending")) {
+                    // ONLY show if Recent (5-minute rule)
                     if (isRecent(row[4])) {
                         model.addRow(row);
                     }
                 } else {
-                    // Approved/Rejected don't have time limits
                     model.addRow(row);
                 }
             }
         }
-
         applyFilters();
     }
     private boolean isRecent(Object dateObj) {
         if (dateObj == null) return false;
         try {
             String dateStr = dateObj.toString();
-            // Normalize format: remove millis if present, ensure space between date/time
+            // Clean up string
             if (dateStr.contains(".")) dateStr = dateStr.split("\\.")[0];
             dateStr = dateStr.replace("T", " ");
 
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            DateTimeFormatter formatter;
+
+            // Check format based on length
+            if (dateStr.length() == 19) {
+                formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            } else if (dateStr.length() == 16) {
+                // THIS FIXES YOUR CRASH: Handle missing seconds
+                formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            } else {
+                return false; // Invalid format
+            }
+
             LocalDateTime reqTime = LocalDateTime.parse(dateStr, formatter);
             LocalDateTime now = LocalDateTime.now();
 
-            // Calculate difference in minutes
             long diff = ChronoUnit.MINUTES.between(reqTime, now);
-
-            // Allow if difference is between 0 and 5 minutes
-            return diff >= 0 && diff <= 5;
+            return diff >= 0 && diff <= 5; // 5 Minute Rule
 
         } catch (Exception e) {
-            e.printStackTrace();
-            return false; // If parsing fails, assume it's old/invalid
+            // e.printStackTrace(); // Hide parsing errors
+            return false;
         }
     }
-
     // Apply Dropdown Filters
     private void applyFilters() {
         if (sorter == null) return;

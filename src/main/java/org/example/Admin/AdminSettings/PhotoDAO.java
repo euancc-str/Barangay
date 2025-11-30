@@ -21,7 +21,7 @@ public class PhotoDAO {
             stmt.setInt(2, residentId);
             stmt.executeUpdate();
 
-            System.out.println("Photo updated for Resident ID: " + residentId);
+            System.out.println("Photo updated for Resident ID: " + residentId + " path:" + newPhotoPath);
 
         } catch (java.sql.SQLException e) {
             e.printStackTrace();

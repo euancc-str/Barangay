@@ -14,7 +14,15 @@ public class TestConnection {
         } else {
             System.out.println("⚠️ Connection test failed.");
         }
-        printReceipt("Jonaz","Certificate of indigency");
+        String val = "Purok 10";
+        int len = 7;
+        if(val.length() == 7){
+            String num = String.valueOf(val.charAt(len-1));
+            System.out.println(Integer.parseInt(num));
+        } else if (val.length() == 8){
+            String num = val.substring(len - 1, len + 1);
+            System.out.println(Integer.parseInt(num));
+        }
 
     }
     private static void printReceipt(String residentName, String docType) {

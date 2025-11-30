@@ -1,5 +1,7 @@
 package org.example.Interface; // Change to your package
 
+import org.example.Admin.AdminSettings.SystemConfigDAO;
+
 import java.awt.*;
 import java.awt.print.*;
 import java.text.SimpleDateFormat;
@@ -14,7 +16,9 @@ public class DocumentPrinter implements Printable {
     private final String captainName;
 
     // Adjust this path to your actual logo
-    private final String LOGO_PATH = "src/main/java/org/example/resources/logo.jpg";
+    private static SystemConfigDAO dao= new SystemConfigDAO();
+    String logoPath = dao.getConfig("logoPath");
+    private final String LOGO_PATH = "resident_photos/"+logoPath;
 
     public DocumentPrinter(String residentName, String docType, String purpose, String captainName) {
         this.residentName = residentName;
@@ -46,10 +50,11 @@ public class DocumentPrinter implements Printable {
 
         // Header Text
         g2d.setColor(Color.BLACK);
+        String dao = new SystemConfigDAO().getConfig("barangay_name");
         drawCenteredText(g2d, "Republic of the Philippines", new Font("Serif", Font.PLAIN, 12), centerX, y); y += 15;
         drawCenteredText(g2d, "Province of Camarines Norte", new Font("Serif", Font.PLAIN, 12), centerX, y); y += 15;
         drawCenteredText(g2d, "Municipality of Daet", new Font("Serif", Font.PLAIN, 12), centerX, y); y += 20;
-        drawCenteredText(g2d, "BARANGAY ALAWIHAO", new Font("Serif", Font.BOLD, 16), centerX, y); y += 20;
+        drawCenteredText(g2d, dao, new Font("Serif", Font.BOLD, 16), centerX, y); y += 20;
 
         g2d.setStroke(new BasicStroke(2));
         g2d.drawLine(50, y, width - 50, y); // Horizontal Line
@@ -70,10 +75,10 @@ public class DocumentPrinter implements Printable {
         // Dynamic Text Construction
         String paragraph1 = "TO WHOM IT MAY CONCERN:";
         String paragraph2 = "This is to certify that " + residentName.toUpperCase() + ", of legal age, " +
-                "is a bonafide resident of Barangay Alawihao, Daet, Camarines Norte.";
+                "is a bonafide resident of "+ dao+", Daet, Camarines Norte.";
         String paragraph3 = "This certification is issued upon the request of the above-named person " +
                 "for the purpose of: " + purpose.toUpperCase() + ".";
-        String paragraph4 = "Issued this " + dateStr + " at Barangay Alawihao, Daet, Camarines Norte.";
+        String paragraph4 = "Issued this " + dateStr + " at "+ dao +", Daet, Camarines Norte.";
 
         g2d.drawString(paragraph1, leftMargin, y); y += 30;
         y = drawParagraph(g2d, paragraph2, leftMargin, rightMargin, y); y += 20;
@@ -90,10 +95,6 @@ public class DocumentPrinter implements Printable {
         g2d.setFont(new Font("Serif", Font.PLAIN, 12));
         drawCenteredText(g2d, "Punong Barangay", new Font("Serif", Font.PLAIN, 12), sigX + 40, y);
 
-        // --- 5. THUMB & SEAL (Optional Visuals) ---
-        g2d.setColor(Color.LIGHT_GRAY);
-        g2d.drawRect(50, y, 100, 100); // Box for Thumbprint
-        g2d.drawString("Thumbmark", 65, y + 55);
 
         return PAGE_EXISTS;
     }

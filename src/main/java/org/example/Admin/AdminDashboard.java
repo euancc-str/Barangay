@@ -1,7 +1,10 @@
 package org.example.Admin;
 
+import org.example.Admin.AdminSettings.AdminSystemConfigTab;
+
 import java.awt.*;
 import java.awt.event.*;
+import java.lang.reflect.Method;
 import javax.swing.*;
 import javax.swing.border.*;
 
@@ -14,6 +17,7 @@ public class AdminDashboard extends JFrame {
     private AdminRequestTab adminRequestTab;
     private AdminResidentTab adminResidentTab;
     private AdminStaffTab adminStaffTab;
+    private AdminSystemConfigTab tab;
 
     // Visual Colors
     private final Color SIDEBAR_BG = new Color(30, 30, 30); // Darker Black/Grey
@@ -44,6 +48,8 @@ public class AdminDashboard extends JFrame {
         adminLogsTab = new AdminLogsTab();
         contentContainer.add(adminLogsTab, "logs");
         // 2. Create Sidebar
+        tab = new AdminSystemConfigTab();
+        contentContainer.add(tab,"settings");
         sidebar = createSidebar();
 
         // 3. Add to Main Panel
@@ -100,6 +106,7 @@ public class AdminDashboard extends JFrame {
         sidebarPanel.add(createMenuItem("staff", "Staff Management", false));
         sidebarPanel.add(createMenuItem("request", "Document Requests", false));
         sidebarPanel.add(createMenuItem("logs", "System Audit Logs", false));
+        sidebarPanel.add(createMenuItem("settings", "System Settings", false));
 
         // Spacer to push Logout to bottom
         sidebarPanel.add(Box.createVerticalGlue());
@@ -119,8 +126,8 @@ public class AdminDashboard extends JFrame {
             public void mouseClicked(MouseEvent e) {
                 int confirm = JOptionPane.showConfirmDialog(null, "Are you sure you want to logout?", "Logout", JOptionPane.YES_NO_OPTION);
                 if(confirm == JOptionPane.YES_OPTION) {
-                    dispose(); // Close Admin Dashboard
-                    // new LoginFrame().setVisible(true); // Open Login Screen
+                    dispose();
+                   openMainWindow();
                 }
             }
         });
@@ -128,6 +135,18 @@ public class AdminDashboard extends JFrame {
         sidebarPanel.add(logoutPanel);
 
         return sidebarPanel;
+    }
+    private void openMainWindow() {
+        try {
+            Class<?> mainClass = Class.forName("org.example.Interface.Main");
+            Method main = mainClass.getMethod("main", String[].class);
+            main.invoke(null, (Object) new String[]{});
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Could not open Login (Main).\nMake sure Main.java exists.",
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     // Helper to create consistent Menu Buttons

@@ -34,6 +34,7 @@ public class AdminSettingsTab extends JPanel {
 
         // --- THE MERGE: JTabbedPane ---
         JTabbedPane tabbedPane = new JTabbedPane();
+
         tabbedPane.setFont(new Font("Arial", Font.BOLD, 14));
         tabbedPane.setBackground(Color.WHITE);
 
@@ -43,13 +44,14 @@ public class AdminSettingsTab extends JPanel {
         // Tab 2: Positions
         tabbedPane.addTab("Positions & Roles", createPositionsPanel());
 
+
         add(tabbedPane, BorderLayout.CENTER);
     }
 
     // =================================================================
     // PANEL 1: DOCUMENTS LOGIC
     // =================================================================
-    private JPanel createDocumentsPanel() {
+    public JPanel createDocumentsPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(BG_COLOR);
         panel.setBorder(new EmptyBorder(20, 40, 20, 40));
@@ -126,7 +128,7 @@ public class AdminSettingsTab extends JPanel {
     // =================================================================
     // PANEL 2: POSITIONS LOGIC
     // =================================================================
-    private JPanel createPositionsPanel() {
+    public JPanel createPositionsPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(BG_COLOR);
         panel.setBorder(new EmptyBorder(20, 40, 20, 40));

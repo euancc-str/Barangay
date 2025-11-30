@@ -76,43 +76,54 @@ public class ApprovedRequestTab extends JPanel {
     //  DATA LOADING
     // =========================================================================
     public void loadData() {
-        // 1. Clear existing rows
-        if (tableModel != null) {
-            tableModel.setRowCount(0);
-        }
+        // Use SwingWorker to run the DB call in the background
+        new SwingWorker<List<DocumentRequest>, Void>() {
+            @Override
+            protected List<DocumentRequest> doInBackground() throws Exception {
+                // THIS RUNS IN THE BACKGROUND (No UI Freeze!)
+                ResidentDAO rd = new ResidentDAO();
+                return rd.getAllResidentsDocument();
+            }
 
-        // 2. Fetch fresh data
-        ResidentDAO rd = new ResidentDAO();
-        List<DocumentRequest> residents = rd.getAllResidentsDocument();
+            @Override
+            protected void done() {
+                // THIS RUNS ON THE UI THREAD (Once data is ready)
+                try {
+                    List<DocumentRequest> residents = get();
 
-        if (residents != null) {
-            for (DocumentRequest res : residents) {
-                String requestId = "" + res.getRequestId();
-                String fullName = res.getFullName();
-                String docTypeName = res.getName();
-                String status = res.getStatus();
-                Object date = res.getRequestDate(); // Keep as Object
+                    // 1. Clear existing rows
+                    if (tableModel != null) {
+                        tableModel.setRowCount(0);
+                    }
 
-                if (tableModel != null) {
-                    // Columns: RequestID, Name, DocType, Status, Date
-                    tableModel.addRow(new Object[]{requestId, fullName, docTypeName, status, date});
+                    // 2. Populate Table
+                    if (residents != null) {
+                        for (DocumentRequest res : residents) {
+                            String requestId = "" + res.getRequestId();
+                            String fullName = res.getFullName();
+                            String docTypeName = res.getName();
+                            String status = res.getStatus();
+                            Object date = res.getRequestDate();
+
+                            if (tableModel != null) {
+                                tableModel.addRow(new Object[]{requestId, fullName, docTypeName, status, date});
+                            }
+                        }
+                    }
+
+                    // 3. Refresh UI logic
+                    if (statusFilterBox != null) {
+                        applyFilters(); // Re-apply filters to new data
+                    } else {
+                        updateRecordCount();
+                    }
+
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
-        }
-
-        // 3. Refresh UI
-        if (requestTable != null) {
-            requestTable.repaint();
-        }
-
-        // 4. Re-apply filters/update count
-        if (statusFilterBox != null) {
-            applyFilters();
-        } else {
-            updateRecordCount();
-        }
+        }.execute(); // Don't forget this!
     }
-
     // =========================================================================
     // FILTER LOGIC (FIXED: TODAY, THIS WEEK, THIS MONTH)
     // =========================================================================
@@ -684,8 +695,9 @@ public class ApprovedRequestTab extends JPanel {
 
         JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         userPanel.setBackground(new Color(40, 40, 40));
+        BarangayStaff staff = new StaffDAO().findStaffByPosition("Brgy.Captain");
 
-        JLabel lblUser = new JLabel("Hi Mr. Dalisay");
+        JLabel lblUser = new JLabel("Hi Mr. "+staff.getFirstName());
         lblUser.setFont(new Font("Arial", Font.PLAIN, 15));
         lblUser.setForeground(Color.WHITE);
 

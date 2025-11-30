@@ -1,6 +1,7 @@
 package org.example;
 
 import org.example.Documents.DocumentRequest;
+import org.example.Documents.Payment;
 import org.example.Users.Resident;
 import java.sql.*;
 import java.time.LocalDate;
@@ -55,7 +56,7 @@ public class ResidentDAO {
 
         String sql = "SELECT \n" +
                 "    CONCAT(resident.firstName, ' ', resident.lastName) AS fullName,\n" +
-                "    document_request.status,document_request.requestId,document_request.purpose,\n" +
+                "    photoPath,document_request.status,document_request.requestId,document_request.purpose,\n" +
                 "    document_request.requestDate,document_request.remarks,document_type.name  AS documentType\n" +
                 "FROM resident\n" +
                 "JOIN document_request \n" +
@@ -74,6 +75,7 @@ public class ResidentDAO {
                 r.setRequestId(Integer.parseInt(rs.getString("requestId")));
                 r.setPurpose(rs.getString("purpose"));
                 Timestamp requestDate = rs.getTimestamp("requestDate");
+                r.setPhotoPath(rs.getString("photoPath"));
                 r.setRequestDate(requestDate.toLocalDateTime());
                 r.setRemarks(rs.getString("remarks"));
                 residents.add(r);
@@ -213,6 +215,12 @@ public class ResidentDAO {
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
+                    java.sql.Date birthDateSql = rs.getDate("birthDate");
+                    LocalDate dob = (birthDateSql != null) ? birthDateSql.toLocalDate() : null;
+
+                    // 2. Handle CTC Date safely
+                    java.sql.Date ctcDateSql = rs.getDate("ctcDateIssued");
+                    LocalDate ctcDate = (ctcDateSql != null) ? ctcDateSql.toLocalDate() : null;
                     Date stamp = rs.getDate("birthDate");
                    resident = Resident.builder()
                            .firstName(rs.getString("firstName"))
@@ -221,11 +229,15 @@ public class ResidentDAO {
                            .age(rs.getInt("age"))
                            .address(rs.getString("address"))
                            .dob(stamp.toLocalDate())
+                           .purok(rs.getString("purok"))
+                           .street(rs.getString("street"))
                            .civilStatus(rs.getString("civilStatus") != null ? rs.getString("civilStatus"):"Empty")
                            .gender(rs.getString("gender"))
                            .middleName(rs.getString("middleName")!= null ? rs.getString("middleName"):"Empty")
                            .suffix(rs.getString("suffix"))
 
+                           .ctcNumber(rs.getString("ctcNumber") != null ? rs.getString("ctcNumber") : "")
+                           .ctcDateIssued(String.valueOf(ctcDate)) // Pass the safe LocalDate or null
                            .build();
 
 
@@ -240,6 +252,74 @@ public class ResidentDAO {
         }
 
         return resident;
+    }
+    public int findResidentsIdByFullName(String fullName) {
+        String sql = """
+        SELECT residentId
+        FROM resident
+        WHERE CONCAT(firstName, ' ',lastName) = ?
+    """;
+
+        int name = 0;
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1,fullName);
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    name = rs.getInt("residentId");
+
+                } else {
+                    System.out.println("⚠️ No id found: " + fullName);
+                }
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ Error retrieving purpose: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return name;
+    }
+    public Payment findResidentReceiptById(int requestId){
+        String sql = "SELECT amount,orNumber,p.referenceNo " +
+                "FROM payment p " +
+                "JOIN document_request dr " +
+                "ON p.requestId = dr.requestId WHERE p.requestId =?";
+        try (Connection conn = DatabaseConnection.getConnection();
+            PreparedStatement pstmt = conn.prepareStatement(sql)){
+            pstmt.setInt(1,requestId);
+            ResultSet rs = pstmt.executeQuery();
+            if(rs.next()){
+                return Payment.builder()
+                        .amount(rs.getDouble("amount"))
+                        .orNumber(rs.getString("orNumber"))
+                        .referenceNo(rs.getString("referenceNo"))
+                        .build();
+            }
+        }catch (SQLException e){
+            System.out.println("error finding payment for request id: "+requestId +"\n" + e.getMessage());
+            e.printStackTrace();
+        }
+        return null;
+    }
+    public void updateResidentCedula(int residentId, String ctcNum, String ctcDate, String ctcPlace) {
+        String sql = "UPDATE resident SET ctcNumber=?, ctcDateIssued=?, ctcPlaceIssued=? WHERE residentId=?";
+        try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, ctcNum);
+
+            if (ctcDate.isEmpty()) stmt.setNull(2, java.sql.Types.DATE);
+            else stmt.setDate(2, java.sql.Date.valueOf(ctcDate)); // Ensure format is yyyy-MM-dd
+
+            stmt.setString(3, ctcPlace);
+            stmt.setInt(4, residentId);
+
+            stmt.executeUpdate();
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
 }

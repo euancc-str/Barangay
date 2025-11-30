@@ -1,32 +1,42 @@
 package org.example.SerbisyongBarangay;
 
+import java.util.List;
+import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.Documents.DocumentType;
+import org.example.ResidentDAO;
 import org.example.UserDataManager;
 import org.example.Users.Resident;
 
 import javax.swing.*;
 import javax.swing.border.Border;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.io.File;
 import java.time.LocalDate;
 
 public class BusinessClearanceForm extends JPanel {
 
-    // --- 1. CLASS LEVEL VARIABLES (So we can access them in the Button) ---
     private JTextField txtFirstName;
     private JTextField txtLastName;
     private JTextField txtMiddleName;
     private JTextField txtSuffix;
     private JTextField txtAge;
     private JTextField txtCivilStatus;
-    private JTextField txtBirthDate; // If you want to retrieve the text part
+    private JTextField txtBirthDate;
     private JTextField txtBusinessNature;
     private JTextField txtCurrentAddress;
     private JTextField txtBusinessAddress;
+    private JTextField street;
+    private JComboBox<String> txtPurok;
 
-    private JComboBox<String> cbSex;
+
+    private JTextField cbSex;
     private JComboBox<String> cbOwnership;
-    private JComboBox<String> cbBirthYear; // The dropdown part of date
-
+    private JComboBox<String> cbBirthYear;
+    private JTextField txtCtcNumber;
+    private JTextField txtCtcDateIssued;
+    private JTextField txtCtcPlaceIssued;
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new BusinessClearanceForm().createAndShowGUI());
     }
@@ -93,7 +103,7 @@ public class BusinessClearanceForm extends JPanel {
     // -----------------------------------------------------------------------
     // --- FORM FIELDS CONSTRUCTION ---
     // -----------------------------------------------------------------------
-
+    private SystemConfigDAO dao;
     private JPanel createFormFieldsPanel() {
         JPanel formPanel = new JPanel();
         formPanel.setBackground(Color.WHITE);
@@ -137,13 +147,14 @@ public class BusinessClearanceForm extends JPanel {
         topWrapper.add(namePanel, gbc);
 
         // Initialize Sex Dropdown
-        cbSex = createDropdown(new String[]{resident.getGender()});
+        cbSex =  createStyledTextField(resident.getGender());
+        namePanel.add(wrapFieldWithLabel("Sex:", cbSex));
+
 
         gbc.gridx = 1; gbc.gridy = 0;
         gbc.weightx = 0.01; gbc.weighty = 0.01;
         gbc.gridheight = 1;
         gbc.anchor = GridBagConstraints.NORTHEAST;
-        topWrapper.add(wrapDropdownWithLabel("Sex:", cbSex), gbc); // Use helper
 
         formPanel.add(topWrapper);
         formPanel.add(Box.createVerticalStrut(15));
@@ -169,8 +180,10 @@ public class BusinessClearanceForm extends JPanel {
         // 6. Ownership
         JPanel ownershipRow = new JPanel(new GridLayout(1, 1));
         ownershipRow.setBackground(Color.WHITE);
+        dao = new SystemConfigDAO();
+        String [] nature =  dao.getOptionsNature("natureOfBusiness");
 
-        cbOwnership = createDropdown(new String[]{"Sole Proprietorships", "Partnership", "Corporation"});
+        cbOwnership = createDropdown(nature);
         cbOwnership.setPreferredSize(new Dimension(150, 25));
 
         // Custom wrapping for ownership line
@@ -198,9 +211,59 @@ public class BusinessClearanceForm extends JPanel {
         formPanel.add(wrapFieldWithLabel("Current Address:", txtCurrentAddress));
         formPanel.add(Box.createVerticalStrut(10));
 
+        String [] puroks = dao.getOptionsNature("purok");
+        txtPurok = createDropdown(puroks);
+        txtPurok.setSelectedItem(resident.getPurok());
+        formPanel.add(wrapFieldWithLabel("Purok:", txtPurok));
+        formPanel.add(Box.createVerticalStrut(10));
+
+        street = createStyledTextField(resident.getStreet());
+        formPanel.add(wrapFieldWithLabel("Street:", street));
+        formPanel.add(Box.createVerticalStrut(10));
+
         txtBusinessAddress = createStyledTextField("");
         formPanel.add(wrapFieldWithLabel("Business Address:", txtBusinessAddress));
-        formPanel.add(Box.createVerticalStrut(20));
+        formPanel.add(Box.createVerticalStrut(20)); JPanel stackPanel = new JPanel();
+        stackPanel.setLayout(new BoxLayout(stackPanel, BoxLayout.Y_AXIS));
+        stackPanel.setBackground(Color.WHITE);
+        JPanel ctcPanel = new JPanel(new GridLayout(0, 2, 10, 10)); // 2 Columns
+        ctcPanel.setBackground(Color.WHITE);
+        ctcPanel.setBorder(BorderFactory.createTitledBorder("Community Tax Certificate (Cedula)"));
+
+        // 1. CTC Number
+        txtCtcNumber = new JTextField();
+        // Retrieve existing data if available
+        txtCtcNumber.setText(resident != null && resident.getCtcNumber() != null ? resident.getCtcNumber() : "");
+        ctcPanel.add(new JLabel("CTC Number:"));
+        ctcPanel.add(txtCtcNumber);
+
+        txtCtcDateIssued = new JTextField();
+        String ctcDate = (resident != null && resident.getCtcDateIssued() != null)
+                ? resident.getCtcDateIssued().toString() : "";
+        txtCtcDateIssued.setText(ctcDate);
+        ctcPanel.add(new JLabel("Date Issued (yyyy-MM-dd):"));
+        ctcPanel.add(txtCtcDateIssued);
+
+        // 3. Place Issued
+        txtCtcPlaceIssued = new JTextField();
+        String ctcPlace = new SystemConfigDAO().getConfig("defaultCtcPlace");
+        txtCtcPlaceIssued.setText(ctcPlace);
+        ctcPanel.add(new JLabel("Place Issued:"));
+        ctcPanel.add(txtCtcPlaceIssued);
+
+        // Add this new panel to your main form layout
+        gbc.gridx = 0;
+
+        gbc.gridwidth = 4; // Span full width
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        formPanel.add(ctcPanel, gbc);
+        cbSex.setEditable(false);
+        txtPurok.setEditable(false);
+        txtAge.setEditable(false);
+        txtBirthDate.setEditable(false);
+        txtFirstName.setEditable(false);
+        txtLastName.setEditable(false);
+        txtMiddleName.setEditable(false);
 
         return formPanel;
     }
@@ -287,6 +350,8 @@ public class BusinessClearanceForm extends JPanel {
         cancelButton.addActionListener(e -> {
             JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(cancelButton);
             parentFrame.dispose();
+            requestaDocumentFrame frame = new requestaDocumentFrame();
+            frame.setVisible(true);
         });
 
         JButton proceedButton = new JButton("PROCEED");
@@ -303,7 +368,7 @@ public class BusinessClearanceForm extends JPanel {
             String age = txtAge.getText();
             String busNature = txtBusinessNature.getText();
             String busAddr = txtBusinessAddress.getText();
-            String sex = (String) cbSex.getSelectedItem();
+            String sex = cbSex.getText();
             String ownership = (String) cbOwnership.getSelectedItem();
 
             // 2. Basic Validation
@@ -318,10 +383,14 @@ public class BusinessClearanceForm extends JPanel {
             System.out.println("Sex: " + sex);
             System.out.println("Business: " + busNature + " (" + ownership + ")");
             System.out.println("Location: " + busAddr);
-            String purpose = "Applicant: " + fName + " " + lName + " (" + age + ")"+"\n"
-                    +"Sex: " + sex +"\n"+"Business: " + busNature + " (" + ownership + ")"
-                    +"\n" +"Location: " + busAddr
-                    ;
+            String purpose = busNature +
+                    " Ownership Type: " + ownership;
+            String ctcNum = txtCtcNumber.getText().trim();
+            String ctcDate = txtCtcDateIssued.getText().trim();
+            String ctcPlace = txtCtcPlaceIssued.getText().trim();
+            ResidentDAO dao = new ResidentDAO();
+
+            dao.updateResidentCedula(UserDataManager.getInstance().getCurrentResident().getResidentId(), ctcNum, ctcDate, ctcPlace);
             DocumentType certificateOfIndigency = UserDataManager.getInstance().getDocumentTypeByName("Business Clearance");
 
             UserDataManager.getInstance().residentRequestsDocument(UserDataManager.getInstance().getCurrentResident(), null,certificateOfIndigency,purpose);

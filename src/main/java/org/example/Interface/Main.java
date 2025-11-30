@@ -1,5 +1,6 @@
 package org.example.Interface;
 
+import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.Admin.AdminSystemSettings;
 import org.example.Users.BarangayStaff;
 import org.example.Users.Resident;
@@ -164,6 +165,8 @@ public class Main {
         }
     }
 
+    private static SystemConfigDAO dao;
+
     public static void main(String[] args) {
 
         JFrame frame = new JFrame("Serbisyong Barangay");
@@ -173,14 +176,16 @@ public class Main {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         // Set frame icon (optional)
+        dao = new SystemConfigDAO();
+        String logoPath = dao.getConfig("logoPath");
+        System.out.println(logoPath);
+
         try {
-            ImageIcon icon = new ImageIcon("src/main/java/org/example/resources/logo.jpg");
+            ImageIcon icon = new ImageIcon("resident_photos/"+logoPath);
             frame.setIconImage(icon.getImage());
         } catch (Exception e) {
             System.out.println("Icon not found");
         }
-
-        // Use GridBagLayout for responsive 65/35 ratio
         frame.setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
 
@@ -204,17 +209,15 @@ public class Main {
         // Add Logo Image at the top
         leftGbc.gridy = 0;
         try {
-            // Load and resize the logo
-            ImageIcon originalIcon = new ImageIcon("src/main/java/org/example/resources/roundLogo.jpg");
+            String bigLogo = dao.getConfig("bigLogoPath");
+            ImageIcon originalIcon = new ImageIcon("resident_photos/"+bigLogo);
             Image originalImage = originalIcon.getImage();
-            // Resize the image (adjust the dimensions as needed)
             Image resizedImage = originalImage.getScaledInstance(80, 80, Image.SCALE_SMOOTH);
             ImageIcon resizedIcon = new ImageIcon(resizedImage);
             JLabel logoLabel = new JLabel(resizedIcon);
             leftPanel.add(logoLabel, leftGbc);
         } catch (Exception e) {
             System.out.println("Logo not found, using placeholder");
-            // Fallback: create a placeholder if image is not found
             JLabel placeholder = new JLabel("[LOGO]");
             placeholder.setFont(new Font("Arial", Font.BOLD, 16));
             placeholder.setForeground(Color.WHITE);
@@ -383,36 +386,6 @@ public class Main {
         // Sign Up Link
         rightGbc.gridy = 8;
         rightGbc.insets = new Insets(10, 20, 30, 20);
-        JPanel signUpPanel = new JPanel(new FlowLayout());
-        signUpPanel.setBackground(new Color(240, 240, 240));
-        JLabel signUpText = new JLabel("Don't have an Account?");
-        signUpText.setFont(new Font("Arial", Font.PLAIN, 12));
-        JLabel signUpLink = new JLabel("Sign Up");
-        signUpLink.setFont(new Font("Arial", Font.BOLD, 12));
-        signUpLink.setForeground(Color.BLUE);
-        signUpLink.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); // Change cursor to hand
-
-        // Add click listener to Sign Up link
-        signUpLink.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                openRegisterWindow(frame); // Pass the main frame to close it
-            }
-
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                signUpLink.setForeground(new Color(0, 0, 200)); // Darker blue on hover
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                signUpLink.setForeground(Color.BLUE); // Original blue when not hovering
-            }
-        });
-
-        signUpPanel.add(signUpText);
-        signUpPanel.add(signUpLink);
-        rightPanel.add(signUpPanel, rightGbc);
         loginButton.addActionListener(e -> {
             String username = usernameField.getText().trim();
             String password = new String(passwordField.getPassword()).trim();

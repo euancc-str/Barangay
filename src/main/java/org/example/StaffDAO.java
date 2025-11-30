@@ -53,7 +53,7 @@ public class StaffDAO {
     }
 
     public List<BarangayStaff> getAllStaff(){
-        String sql = "SELECT CONCAT(firstName, ' ',lastName) AS fullName, staffId, position, contactNo, status,lastLogin FROM barangay_staff";
+        String sql = "SELECT CONCAT(firstName, ' ',lastName) AS fullName, staffId, position, contactNo, status,lastLogin,username,password FROM barangay_staff";
         List<BarangayStaff> staffList = new ArrayList<>();
         try(Connection conn = DatabaseConnection.getConnection();
         PreparedStatement pstmt = conn.prepareStatement(sql)){
@@ -67,6 +67,8 @@ public class StaffDAO {
                 staff.setStatus(rs.getString("status"));
                 Timestamp lastLogin = rs.getTimestamp("lastLogin");
                 staff.setLastLogin(lastLogin.toLocalDateTime());
+                staff.setPassword(rs.getString("password"));
+                staff.setUsername(rs.getString("username"));
                 staffList.add(staff);
 
             }
@@ -156,7 +158,7 @@ public class StaffDAO {
         }
     }
     public BarangayStaff findStaffByPosition(String position){
-        String sql = "SELECT firstName,lastName,middleName FROM barangay_staff WHERE position = ?";
+        String sql = "SELECT firstName,lastName,middleName,position,password,username FROM barangay_staff WHERE position = ?";
         BarangayStaff staff = null;
         try(Connection conn = DatabaseConnection.getConnection();
             PreparedStatement pstmt = conn.prepareStatement(sql)){
@@ -167,6 +169,9 @@ public class StaffDAO {
                         .firstName(rs.getString("firstName"))
                         .lastName(rs.getString("lastName"))
                         .middleName(rs.getString("middleName"))
+                        .username(rs.getString("username"))
+                        .password(rs.getString("password"))
+                        .role("position")
                         .build();
             }
         }catch(SQLException e) {
@@ -174,5 +179,45 @@ public class StaffDAO {
             e.printStackTrace();
         }
         return staff;
+    }
+    public BarangayStaff findStaffById(int id){
+        String sql = "SELECT firstName,lastName,middleName,position,password,username FROM barangay_staff WHERE staffId = ?";
+        BarangayStaff staff = null;
+        try(Connection conn = DatabaseConnection.getConnection();
+            PreparedStatement pstmt = conn.prepareStatement(sql)){
+            pstmt.setInt(1,id);
+            ResultSet rs = pstmt.executeQuery();
+            if(rs.next()){
+                staff = BarangayStaff.builder()
+                        .firstName(rs.getString("firstName"))
+                        .lastName(rs.getString("lastName"))
+                        .middleName(rs.getString("middleName"))
+                        .username(rs.getString("username"))
+                        .password(rs.getString("password"))
+                        .role("position")
+                        .build();
+            }
+        }catch(SQLException e) {
+            System.out.printf("Error finding staff ");
+            e.printStackTrace();
+        }
+        return staff;
+    }
+    public String staffFullName(BarangayStaff staff){
+        return staff.getFirstName() + " " + staff.getMiddleName()+  " "+ staff.getLastName();
+    }
+    public int countPopulationFromDb(){
+        String sql = "SELECT COUNT(*) AS count FROM resident";
+        try(Connection conn = DatabaseConnection.getConnection();
+            PreparedStatement pstmt = conn.prepareStatement(sql)){
+            ResultSet rs = pstmt.executeQuery();
+            if(rs.next())
+                return rs.getInt("count");
+
+        }catch (SQLException e){
+            System.out.println("Error");
+            e.printStackTrace();
+        }
+        return 0;
     }
 }

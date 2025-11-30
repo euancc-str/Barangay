@@ -158,6 +158,7 @@ public class AdminStaffTab extends JPanel {
         addStyledRow(detailsPanel, "Contact No:", txtContact);
 
         // Status (ComboBox)
+
         String[] statuses = {"Active", "Inactive", "Suspended"};
         JComboBox<String> cbStatus = new JComboBox<>(statuses);
         cbStatus.setSelectedItem(currentStatus);
@@ -165,11 +166,13 @@ public class AdminStaffTab extends JPanel {
 
         cbStatus.setBackground(Color.WHITE);
         addStyledRow(detailsPanel, "Account Status:", cbStatus);
-
+        BarangayStaff staff = new StaffDAO().findStaffById(Integer.parseInt(id));
         JTextField txtUser = createStyledTextField("");
+
         addStyledRow(detailsPanel,"Set new username:",txtUser);
 
         JTextField txtPass = createStyledTextField("");
+
         addStyledRow(detailsPanel,"Set new password",txtPass);
         mainPanel.add(new JScrollPane(detailsPanel), BorderLayout.CENTER);
 
@@ -188,7 +191,16 @@ public class AdminStaffTab extends JPanel {
         btnSave.addActionListener(e -> {
             String newName = txtName.getText().trim();
             String newContact = txtContact.getText().trim();
-
+            String pass = txtPass.getText().trim();
+            String user = txtUser.getText().trim();
+            if(pass.isEmpty() || user.isEmpty()){
+                JOptionPane.showMessageDialog(dialog, "User or pass cannot be empty!!!!!", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            if(pass.length() < 5 && user.length() <5){
+                JOptionPane.showMessageDialog(dialog, "pass or username's length cant be less than 5", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
             // ERROR PREVENTION
             if (newName.isEmpty() || newContact.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "Name and Contact Number cannot be empty.", "Validation Error", JOptionPane.ERROR_MESSAGE);

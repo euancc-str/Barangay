@@ -7,7 +7,6 @@ import java.util.List;
 
 public class AdminSystemSettings {
 
-    // --- 1. GET LIST ---
     public List<Object[]> getAllDocumentTypes() {
         List<Object[]> list = new ArrayList<>();
         String sql = "SELECT docTypeId, name, fee FROM document_type";
@@ -20,8 +19,6 @@ public class AdminSystemSettings {
         } catch (SQLException e) { e.printStackTrace(); }
         return list;
     }
-
-    // --- 2. ADD DOCUMENT (New!) ---
     public boolean addDocumentType(String name, double fee) {
         String sql = "INSERT INTO document_type (name, fee, processingTime, validityPeriod, renewable, copiesAllowed) VALUES (?, ?, 1, 1, 1, 1)";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -35,7 +32,6 @@ public class AdminSystemSettings {
         }
     }
 
-    // --- 3. UPDATE FEE ---
     public void updateDocumentFee(int docId, double newFee) {
         String sql = "UPDATE document_type SET fee = ? WHERE docTypeId = ?";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -56,7 +52,7 @@ public class AdminSystemSettings {
         } catch (SQLException e) { e.printStackTrace(); }
     }
     public String[] getLoginOptions() {
-        // Use a temporary list because we don't know how many rows there are yet
+
         java.util.List<String> tempOptions = new java.util.ArrayList<>();
 
         // Your SQL
@@ -117,7 +113,6 @@ public class AdminSystemSettings {
         return list;
     }
 
-    // --- 2. ADD POSITION ---
     public boolean addPosition(String name, String uniqueId) {
         String sql = "INSERT INTO setting_position (positionName, uniqueId) VALUES (?, ?)";
 
@@ -137,8 +132,6 @@ public class AdminSystemSettings {
             return false;
         }
     }
-
-    // --- 3. UPDATE POSITION ---
     public boolean updatePosition(int id, String name, String uniqueId) {
         String sql = "UPDATE setting_position SET positionName = ?, uniqueId = ? WHERE id = ?";
 

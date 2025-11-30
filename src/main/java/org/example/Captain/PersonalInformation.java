@@ -1,5 +1,6 @@
 package org.example.Captain;
 
+import org.example.StaffDAO;
 import org.example.UserDataManager;
 import org.example.Users.BarangayStaff;
 import org.example.Users.Resident;
@@ -144,8 +145,9 @@ public class PersonalInformation extends JPanel {
 
         JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         userPanel.setBackground(new Color(40, 40, 40));
+        BarangayStaff staff = new StaffDAO().findStaffByPosition("Brgy.Captain");
 
-        JLabel lblUser = new JLabel("Hi Mr. Dalisay");
+        JLabel lblUser = new JLabel("Hi Mr. "+staff.getFirstName());
         lblUser.setFont(new Font("Arial", Font.PLAIN, 15));
         lblUser.setForeground(Color.WHITE);
 

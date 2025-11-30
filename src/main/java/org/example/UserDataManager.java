@@ -218,8 +218,8 @@ public class UserDataManager {
         String sql = "INSERT INTO resident (" +
                 "firstName, lastName, gender, username, contactNo, email, password, " +
                 "age, phoneNumber, voterStatus, householdNo, nationalId, photoID, " +
-                "position, createdAt, updatedAt, status, address,birthDate" +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)";
+                "position, createdAt, updatedAt, status, address,birthDate,purok,street" +
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -243,6 +243,8 @@ public class UserDataManager {
             pstmt.setString(17, resident.getStatus());
             pstmt.setString(18, resident.getAddress());
             pstmt.setDate(19, Date.valueOf(resident.getDob()));
+            pstmt.setString(20,resident.getPurok());
+            pstmt.setString(21,resident.getStreet());
             pstmt.executeUpdate();
             System.out.println("✅ Resident saved successfully!");
 

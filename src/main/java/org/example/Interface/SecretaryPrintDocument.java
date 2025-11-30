@@ -2,27 +2,28 @@ package org.example.Interface;
 
 import org.example.Admin.AdminSettings.ImageUtils;
 import org.example.Admin.AdminSettings.PhotoDAO;
+import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.Documents.DocumentRequest;
 import org.example.Documents.DocumentType;
 import org.example.ResidentDAO;
 import org.example.StaffDAO;
 import org.example.UserDataManager;
 import org.example.Users.BarangayStaff;
-import org.example.treasurer.ReceiptPrinter;
+ // Assuming this is where your printer class is
+// import org.example.treasurer.ReceiptPrinter; // Keep if used elsewhere
 
 import java.awt.*;
 import java.awt.event.*;
-import java.awt.print.Printable;
-import java.awt.print.PrinterException;
-import java.awt.print.PrinterJob;
+import java.awt.print.*;
 import java.io.File;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.table.*;
-import java.awt.print.PageFormat;
+import java.time.format.DateTimeFormatter;
 
 public class SecretaryPrintDocument extends JPanel {
 
@@ -33,6 +34,9 @@ public class SecretaryPrintDocument extends JPanel {
     // New Fields for Filtering
     private JTextField searchField;
     private JComboBox<String> statusFilterBox;
+    private JComboBox<String> dateFilterBox; // Date Filter
+
+    private JLabel lblRecordCount;
 
     // --- VISUAL STYLE VARIABLES ---
     private final Color BG_COLOR = new Color(229, 231, 235);
@@ -47,7 +51,7 @@ public class SecretaryPrintDocument extends JPanel {
 
         add(createHeaderPanel(), BorderLayout.NORTH);
         add(new JScrollPane(createContentPanel()), BorderLayout.CENTER);
-        updateRecordCount();
+
         loadRequestData();
     }
 
@@ -63,27 +67,30 @@ public class SecretaryPrintDocument extends JPanel {
         for(DocumentRequest document : documentRequestList){
             if(document != null) {
                 String id = "" + document.getRequestId();
+                // Columns: ID, Name, DocType, Purpose, Status, Date
                 tableModel.addRow(new Object[]{
                         id,
                         document.getFullName(),
                         document.getName(),
                         document.getPurpose(),
-                        document.getRemarks(),
-                        document.getRequestDate()
+                        document.getStatus(),
+                        document.getRequestDate() // Can be String, Date, or Timestamp
                 });
             }
         }
         if (requestTable!=null){
             requestTable.repaint();
         }
+        updateRecordCount();
     }
 
     // =========================================================================
-    // NEW: FILTER LOGIC
+    // NEW: FILTER LOGIC (FIXED DATE PARSING)
     // =========================================================================
     private void applyFilters() {
         String text = searchField.getText();
         String status = (String) statusFilterBox.getSelectedItem();
+        String dateFilter = (String) dateFilterBox.getSelectedItem();
 
         List<RowFilter<Object, Object>> filters = new ArrayList<>();
 
@@ -94,49 +101,57 @@ public class SecretaryPrintDocument extends JPanel {
 
         // 2. Status Filter (Specific to Status Column, index 4)
         if (status != null && !status.equals("All Status")) {
-            // The "^...$" ensures exact match (e.g., "Pending" won't match "Spending")
             filters.add(RowFilter.regexFilter("(?i)^" + status + "$", 4));
         }
 
+        // 3. Date Filter (Specific to Date Column, index 5)
+        if (dateFilter != null && !dateFilter.equals("All Time")) {
+            filters.add(new RowFilter<Object, Object>() {
+                @Override
+                public boolean include(Entry<?, ?> entry) {
+                    try {
+                        Object val = entry.getValue(5); // Index 5 is Date
+                        if (val == null) return false;
+
+                        String dateStr = val.toString();
+
+                        // >>> ROBUST CLEANING <<<
+                        // Handle "2025-04-24T00:40" or "2025-04-24 00:40" or "2025-04-24"
+                        if (dateStr.contains("T")) {
+                            dateStr = dateStr.split("T")[0];
+                        } else if (dateStr.contains(" ")) {
+                            dateStr = dateStr.split(" ")[0];
+                        }
+
+                        LocalDate rowDate = LocalDate.parse(dateStr); // Expects yyyy-MM-dd
+                        LocalDate today = LocalDate.now();
+
+                        if (dateFilter.equals("Today")) {
+                            return rowDate.isEqual(today);
+                        } else if (dateFilter.equals("This Week")) {
+                            // Last 7 days
+                            return !rowDate.isBefore(today.minusDays(7)) && !rowDate.isAfter(today);
+                        } else if (dateFilter.equals("This Month")) {
+                            return rowDate.getMonth() == today.getMonth() && rowDate.getYear() == today.getYear();
+                        }
+                    } catch (Exception e) {
+                        // If parsing fails (e.g. bad format), keep the row visible to be safe
+                        return true;
+                    }
+                    return true;
+                }
+            });
+        }
+
         // Apply combined filters
-        if (filters.isEmpty()) {
-            sorter.setRowFilter(null);
-        } else {
-            sorter.setRowFilter(RowFilter.andFilter(filters));
+        if (sorter != null) {
+            if (filters.isEmpty()) {
+                sorter.setRowFilter(null);
+            } else {
+                sorter.setRowFilter(RowFilter.andFilter(filters));
+            }
         }
         updateRecordCount();
-    }
-
-    // =========================================================================
-    // 1. DELETE FUNCTIONALITY (With Error Prevention)
-    // =========================================================================
-    private void handleDelete() {
-        int selectedRow = requestTable.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a record to delete.", "No Selection", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        int modelRow = requestTable.convertRowIndexToModel(selectedRow);
-        String reqId = (String) tableModel.getValueAt(modelRow, 0);
-        String name = (String) tableModel.getValueAt(modelRow, 1);
-
-        // ERROR PREVENTION: Warning Dialog
-        int confirm = JOptionPane.showConfirmDialog(this,
-                "<html><body style='width: 250px;'>" +
-                        "<b>WARNING: Irreversible Action</b><br><br>" +
-                        "Are you sure you want to DELETE Request <b>#" + reqId + "</b><br>" +
-                        "for <b>" + name + "</b>?<br><br>" +
-                        "This cannot be undone.</body></html>",
-                "Confirm Deletion",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE);
-
-        if (confirm == JOptionPane.YES_OPTION) {
-            // TODO: Call DAO delete method here (e.g., residentDAO.deleteRequest(reqId))
-            tableModel.removeRow(modelRow);
-            JOptionPane.showMessageDialog(this, "Record deleted successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
-        }
     }
 
     // =========================================================================
@@ -191,24 +206,24 @@ public class SecretaryPrintDocument extends JPanel {
         addStyledRow(detailsPanel, "Document Type:", txtDoc);
 
         // 2. Editable Fields
-        String[] statuses = {"Awaiting approval", "confirmed payment", "Rejected"};
+        String[] statuses = {"Awaiting approval", "confirmed payment", "Rejected", "Paid", "Approved", "Released"};
         JComboBox<String> cbStatus = new JComboBox<>(statuses);
         cbStatus.setSelectedItem(currentStatus);
         cbStatus.setFont(new Font("Arial", Font.PLAIN, 14));
         cbStatus.setBackground(Color.WHITE);
         addStyledRow(detailsPanel, "Status:", cbStatus);
 
-        JTextArea txtPurpose = new JTextArea(currentPurpose);
-        txtPurpose.setFont(new Font("Arial", Font.PLAIN, 14));
-        txtPurpose.setLineWrap(true);
-        txtPurpose.setEditable(false);
-        txtPurpose.setBackground(new Color(250, 250, 250));
-        txtPurpose.setWrapStyleWord(true);
-        txtPurpose.setBorder(BorderFactory.createCompoundBorder(
+        JTextArea txtPurposeArea = new JTextArea(currentPurpose);
+        txtPurposeArea.setFont(new Font("Arial", Font.PLAIN, 14));
+        txtPurposeArea.setLineWrap(true);
+        txtPurposeArea.setEditable(false);
+        txtPurposeArea.setBackground(new Color(250, 250, 250));
+        txtPurposeArea.setWrapStyleWord(true);
+        txtPurposeArea.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(200, 200, 200)),
                 new EmptyBorder(5, 5, 5, 5)));
 
-        JScrollPane scrollPurpose = new JScrollPane(txtPurpose);
+        JScrollPane scrollPurpose = new JScrollPane(txtPurposeArea);
         scrollPurpose.setPreferredSize(new Dimension(200, 80));
         addStyledRow(detailsPanel, "Purpose:", scrollPurpose);
 
@@ -225,23 +240,27 @@ public class SecretaryPrintDocument extends JPanel {
         JButton btnSave = createRoundedButton("Print document?", BTN_UPDATE_COLOR);
         btnSave.setPreferredSize(new Dimension(200, 45));
 
-        // SAVE ACTION
-        if(currentStatus.equals("confirmed payment")){
+        // CHECK STATUS FOR PRINTING
+        // Allow printing if Paid, Approved, or Released (basically anything after payment)
+        if(currentStatus.equalsIgnoreCase("confirmed payment") ||
+                currentStatus.equalsIgnoreCase("Paid") ||
+                currentStatus.equalsIgnoreCase("Approved") ||
+                currentStatus.equalsIgnoreCase("Released")){
 
             btnSave.addActionListener(e -> {
+                // Finding resident ID by name (Ensure this method exists in your DAO)
+                ResidentDAO resDAO = new ResidentDAO();
+                int residentId = resDAO.findResidentsIdByFullName(currentName);
 
-                // Update Table Model
-                showDocumentPreview(currentName,currentDoc,currentPurpose, Integer.parseInt(currentId));
+                showDocumentPreview(currentName, currentDoc, currentPurpose, Integer.parseInt(currentId), residentId);
                 dialog.dispose();
             });
         } else {
             btnSave.setVisible(false);
-            btnSave.addActionListener(e -> {
-                JOptionPane.showMessageDialog(this,"Unable to print! Payment is not confirmed");
-
-            });
+            JLabel lblStatusInfo = new JLabel("Payment not confirmed yet");
+            lblStatusInfo.setForeground(Color.RED);
+            btnPanel.add(lblStatusInfo);
         }
-
 
         btnPanel.add(btnCancel);
         btnPanel.add(btnSave);
@@ -250,7 +269,6 @@ public class SecretaryPrintDocument extends JPanel {
         dialog.add(mainPanel);
         dialog.setVisible(true);
     }
-
     private void addStyledRow(JPanel panel, String labelText, JComponent field) {
         JPanel rowPanel = new JPanel(new BorderLayout(10, 0));
         rowPanel.setBackground(Color.WHITE);
@@ -272,7 +290,6 @@ public class SecretaryPrintDocument extends JPanel {
 
         panel.add(rowPanel);
     }
-
     private JTextField createStyledTextField(String text) {
         JTextField field = new JTextField(text);
         field.setFont(new Font("Arial", Font.PLAIN, 14));
@@ -282,88 +299,10 @@ public class SecretaryPrintDocument extends JPanel {
         ));
         return field;
     }
-    private void printPanel(JPanel panelToPrint) {
-        PrinterJob job = PrinterJob.getPrinterJob();
-        job.setJobName("Barangay Document Print");
-
-        job.setPrintable(new Printable() {
-            @Override
-            public int print(Graphics pg, PageFormat pf, int pageNum) {
-                if (pageNum > 0) return Printable.NO_SUCH_PAGE;
-
-                Graphics2D g2 = (Graphics2D) pg;
-                g2.translate(pf.getImageableX(), pf.getImageableY());
-
-                // Scale the panel to fit the page
-                double scaleX = pf.getImageableWidth() / panelToPrint.getWidth();
-                double scaleY = pf.getImageableHeight() / panelToPrint.getHeight();
-                double scale = Math.min(scaleX, scaleY); // Maintain aspect ratio
-                g2.scale(scale, scale);
-
-                panelToPrint.printAll(g2); // Print the component
-                return Printable.PAGE_EXISTS;
-            }
-        });
-
-        boolean doPrint = job.printDialog();
-        if (doPrint) {
-            try {
-                job.print();
-            } catch (PrinterException e) {
-                JOptionPane.showMessageDialog(this, "Printing Failed: " + e.getMessage());
-            }
-        }
-    }
-    private static void printReceipt(String residentName, String docType) {
-        // 1. Setup the print job
-        PrinterJob job = PrinterJob.getPrinterJob();
-
-        // 2. Create your receipt object with real data
-       DocumentType documentData = UserDataManager.getInstance().getDocumentTypeByName(docType);
-        // (You can fetch the fee amount from your DB/DAO if needed)
-
-        String amount = String.valueOf(documentData.getFee());;
-        String orNum = "OR-" + System.currentTimeMillis(); // Generate or fetch
-        BarangayStaff staff = UserDataManager.getInstance().getCurrentStaff();
-        String cashier = staff.getFirstName() +" " + staff.getMiddleName() + " "+ staff.getLastName(); // Or UserDataManager.getCurrentStaff().getName()
-
-        // 3. Pass it to the printer
-        job.setPrintable(new ReceiptPrinter(residentName, docType, amount, orNum, cashier));
-
-        // 4. Show Print Dialog
-        boolean doPrint = job.printDialog();
-        if (doPrint) {
-            try {
-                job.print(); // This opens the "Save as PDF" or selects printer
-            } catch (PrinterException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-    private void markAsReleased(int requestId) {
-        // SQL to update status and timestamp
-        String sql = "UPDATE document_request SET status = 'Released', releasedDate = NOW() WHERE requestId = ?";
-
-        try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
-             java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setInt(1, requestId);
-            stmt.executeUpdate();
-
-            // Optional: Log it
-            // new SystemLogDAO().addLog("Released Document #" + requestId, "", staffId);
-
-            JOptionPane.showMessageDialog(this, "Document Status updated to Released!");
-
-            // REFRESH YOUR TABLE HERE
-           loadRequestData();
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void showDocumentPreview(String name, String docType, String purpose, int requestId) {
+    // =========================================================================
+    // PRINT PREVIEW & PHOTO LOGIC
+    // =========================================================================
+    private void showDocumentPreview(String name, String docType, String purpose, int requestId, int residentId) {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Document Preview", true);
         dialog.setSize(600, 750);
         dialog.setLayout(new BorderLayout());
@@ -408,54 +347,54 @@ public class SecretaryPrintDocument extends JPanel {
         body.setEditable(false);
         body.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // 4. Photo Section (The Logic You Requested)
-        JPanel photoPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        photoPanel.setBackground(Color.WHITE);
-        photoPanel.setBorder(BorderFactory.createEmptyBorder(20, 0, 0, 0));
+        // 4. Photo Section (Only for Barangay Clearance)
+        if (docType.trim().equalsIgnoreCase("Barangay Clearance")) {
+            JPanel photoPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            photoPanel.setBackground(Color.WHITE);
+            photoPanel.setBorder(BorderFactory.createEmptyBorder(20, 0, 0, 0));
+            photoPanel.setPreferredSize(new Dimension(600, 110));
+            photoPanel.setMaximumSize(new Dimension(600, 110));
 
-        JLabel lblPhoto = new JLabel();
-        lblPhoto.setPreferredSize(new Dimension(100, 100)); // Passport size-ish
-        lblPhoto.setBorder(BorderFactory.createLineBorder(Color.BLACK));
-        lblPhoto.setCursor(new Cursor(Cursor.HAND_CURSOR)); // Show hand cursor so they know it's clickable
-        lblPhoto.setToolTipText("Click to Update Photo");
+            JLabel lblPhoto = new JLabel();
+            lblPhoto.setPreferredSize(new Dimension(100, 100)); // Passport size-ish
+            lblPhoto.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+            lblPhoto.setCursor(new Cursor(Cursor.HAND_CURSOR)); // Show hand cursor so they know it's clickable
+            lblPhoto.setToolTipText("Click to Update Photo");
 
-        // FETCH & DISPLAY PHOTO
-        // We need the residentId. Since you only passed requestId/name, let's fetch it first.
-        PhotoDAO resDao = new PhotoDAO();
-        // Assuming you have a method to find ID by Name (or pass ResidentID to this method directly)
-        // Ideally, pass 'residentId' into showDocumentPreview to be safe.
-        // For now, assuming UserDataManager holds the current resident context from the main table click:
-        int residentId = UserDataManager.getInstance().getResidentId();
+            // FETCH & DISPLAY PHOTO
+            PhotoDAO resDao = new PhotoDAO();
+            String currentPhotoPath = resDao.getPhotoPath(residentId);
+            // *** FIXED: Pass explicit dimensions to avoid error ***
+            ImageUtils.displayImage(lblPhoto, currentPhotoPath, 100, 100);
 
-        String currentPhotoPath = resDao.getPhotoPath(residentId);
-        ImageUtils.displayImage(lblPhoto, currentPhotoPath);
+            // CLICK TO EDIT PHOTO
+            lblPhoto.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    JFileChooser chooser = new JFileChooser();
+                    chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Images", "jpg", "png", "jpeg"));
 
-        // CLICK TO EDIT PHOTO
-        lblPhoto.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                JFileChooser chooser = new JFileChooser();
-                chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Images", "jpg", "png", "jpeg"));
+                    int res = chooser.showOpenDialog(dialog);
+                    if (res == JFileChooser.APPROVE_OPTION) {
+                        File selectedFile = chooser.getSelectedFile();
 
-                int res = chooser.showOpenDialog(dialog);
-                if (res == JFileChooser.APPROVE_OPTION) {
-                    File selectedFile = chooser.getSelectedFile();
+                        // 1. Save file to folder
+                        String newFileName = ImageUtils.saveImage(selectedFile, String.valueOf(residentId));
 
-                    // 1. Save file to folder
-                    String newFileName = ImageUtils.saveImage(selectedFile, String.valueOf(residentId));
+                        // 2. Update Database
+                        resDao.updateResidentPhoto(residentId, newFileName);
 
-                    // 2. Update Database
-                    resDao.updateResidentPhoto(residentId, newFileName);
+                        // 3. Refresh Label immediately
+                        ImageUtils.displayImage(lblPhoto, newFileName, 100, 100);
 
-                    // 3. Refresh Label immediately
-                    ImageUtils.displayImage(lblPhoto, newFileName);
-
-                    JOptionPane.showMessageDialog(dialog, "Photo Updated Successfully!");
+                        JOptionPane.showMessageDialog(dialog, "Photo Updated Successfully!");
+                    }
                 }
-            }
-        });
+            });
 
-        photoPanel.add(lblPhoto);
+            photoPanel.add(lblPhoto);
+            paper.add(photoPanel);
+        }
 
         // 5. Signatories
         JPanel sigPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -463,10 +402,16 @@ public class SecretaryPrintDocument extends JPanel {
 
         // Fetch Captain from DB if possible
         BarangayStaff staffDAO = new StaffDAO().findStaffByPosition("Brgy.Captain");
-        String firstName = staffDAO.getFirstName();
-        String middleName = staffDAO.getMiddleName();
-        String lastName = staffDAO.getLastName();
-        String fullName = firstName + " "+middleName + " " + lastName;
+        String fullName = "";
+        if (staffDAO != null) {
+            String fName = staffDAO.getFirstName() != null ? staffDAO.getFirstName() : "";
+            String mName = staffDAO.getMiddleName() != null ? staffDAO.getMiddleName() : "";
+            String lName = staffDAO.getLastName() != null ? staffDAO.getLastName() : "";
+            fullName = fName + " " + mName + " " + lName;
+        } else {
+            fullName = "HON. CARDO DALISAY"; // Fallback
+        }
+
         JLabel sig = new JLabel("<html><center>"+fullName+"<br>Barangay Captain</center></html>");
         sig.setFont(new Font("Serif", Font.BOLD, 14));
         sigPanel.add(sig);
@@ -475,7 +420,7 @@ public class SecretaryPrintDocument extends JPanel {
         paper.add(header);
         paper.add(subHeader);
         paper.add(title);
-        paper.add(photoPanel); // Added Photo here
+        // Photo added above if condition met
         paper.add(body);
         paper.add(sigPanel);
 
@@ -485,27 +430,72 @@ public class SecretaryPrintDocument extends JPanel {
         btnPrint.setBackground(new Color(76, 175, 80));
         btnPrint.setForeground(Color.WHITE);
 
+        // Inside showDocumentPreview(...)
+
         btnPrint.addActionListener(e -> {
             PrinterJob job = PrinterJob.getPrinterJob();
+            job.setJobName(docType + " - " + name);
 
-            job.setJobName(docType+"- " + name);
-            job.setPrintable(new DocumentPrinter(
-                    name,
-                    docType,
-                    purpose,
-                   fullName// Replace with: UserDataManager.getInstance().getCaptainName()
-            ));
+            // 1. SET PAPER SIZE (Standard A4 or Letter)
+            PageFormat pf = job.defaultPage();
+            Paper paperSettings = pf.getPaper();
+            paperSettings.setImageableArea(0, 0, paperSettings.getWidth(), paperSettings.getHeight()); // No margins, let printer handle it
+            pf.setPaper(paperSettings);
+            String ctcPlace = new SystemConfigDAO().getConfig("defaultCtcPlace");
+            // 2. SELECT PRINTER BASED ON DOCUMENT TYPE
+            ResidentDAO dao = new ResidentDAO();
+            org.example.Users.Resident res = dao.findResidentById(residentId);
 
+            if (docType.equalsIgnoreCase("Barangay Clearance")) {
+
+                // A. Fetch Full Resident Data (We need Address, DOB, CTC, etc.)
+
+                if (res != null) {
+
+                    // B. Pass all data to your new Printer Class
+                    job.setPrintable(new org.example.Interface.BarangayClearancePrinter(
+                            res.getFirstName() + " " + res.getLastName(),
+                            res.getAddress(),       // Address
+                            res.getGender(),        // Gender
+                            res.getDob() != null ? res.getDob().toString() : "N/A", // DOB
+                            String.valueOf(res.getAge()), // Age
+                            res.getCivilStatus(),   // Civil Status
+                            purpose,                // Purpose
+                            res.getCtcNumber(),     // CTC No
+                            res.getCtcDateIssued() != null ? res.getCtcDateIssued().toString() : "", // CTC Date
+                            ctcPlace, // CTC Place
+                            residentId              // ID (for Photo lookup)
+                    ), pf);
+                }
+            }else if (docType.equalsIgnoreCase("Business Clearance")) {
+                // Fetch Resident info for CTC details
+                job.setPrintable(new BusinessClearancePrinter(
+                        name, // Proprietor Name
+                        res.getAddress(),
+                        purpose, // Contains Business Details/Nature
+                        res.getCtcNumber(),
+                        res.getCtcDateIssued() != null ? res.getCtcDateIssued().toString() : "",
+                        ctcPlace
+                ), pf);
+            }
+            else {
+                // Fallback for other documents (Indigency, etc.) - Use the Panel Print
+                // Or create specific printer classes for them later
+                job.setPrintable(new org.example.Interface.DocumentPrinter(name, docType, purpose, "HON. CARDO DALISAY"), pf);
+            }
+
+            // 3. SHOW PRINT DIALOG
             if (job.printDialog()) {
                 try {
                     job.print();
-                    // Then call your database update logic
+                    // 4. Update Status in DB
                     markAsReleased(requestId);
+                    dialog.dispose();
                 } catch (PrinterException ex) {
                     ex.printStackTrace();
+                    JOptionPane.showMessageDialog(this, "Printing Error: " + ex.getMessage());
                 }
             }
-            dialog.dispose();
         });
 
         btnPanel.add(btnPrint);
@@ -514,7 +504,57 @@ public class SecretaryPrintDocument extends JPanel {
         dialog.add(btnPanel, BorderLayout.SOUTH);
         dialog.setVisible(true);
     }
+    private void printPanel(JPanel panelToPrint) {
+        PrinterJob job = PrinterJob.getPrinterJob();
+        job.setJobName("Barangay Document Print");
 
+        job.setPrintable(new Printable() {
+            @Override
+            public int print(Graphics pg, PageFormat pf, int pageNum) {
+                if (pageNum > 0) return Printable.NO_SUCH_PAGE;
+
+                Graphics2D g2 = (Graphics2D) pg;
+                g2.translate(pf.getImageableX(), pf.getImageableY());
+
+                // Scale the panel to fit the page
+                double scaleX = pf.getImageableWidth() / panelToPrint.getWidth();
+                double scaleY = pf.getImageableHeight() / panelToPrint.getHeight();
+                double scale = Math.min(scaleX, scaleY); // Maintain aspect ratio
+                g2.scale(scale, scale);
+
+                panelToPrint.printAll(g2); // Print the component
+                return Printable.PAGE_EXISTS;
+            }
+        });
+
+        boolean doPrint = job.printDialog();
+        if (doPrint) {
+            try {
+                job.print();
+            } catch (PrinterException e) {
+                JOptionPane.showMessageDialog(this, "Printing Failed: " + e.getMessage());
+            }
+        }
+    }
+
+    private void markAsReleased(int requestId) {
+        // SQL to update status and timestamp
+        String sql = "UPDATE document_request SET status = 'Released', releasedDate = NOW() WHERE requestId = ?";
+
+        try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, requestId);
+            stmt.executeUpdate();
+            JOptionPane.showMessageDialog(this, "Document Status updated to Released!");
+
+            // REFRESH YOUR TABLE HERE
+            loadRequestData();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
     private JPanel createContentPanel() {
         JPanel contentPanel = new JPanel();
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
@@ -525,8 +565,6 @@ public class SecretaryPrintDocument extends JPanel {
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
         buttonPanel.setBackground(BG_COLOR);
         buttonPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
-
-
         contentPanel.add(buttonPanel);
         contentPanel.add(Box.createVerticalStrut(30));
 
@@ -551,26 +589,35 @@ public class SecretaryPrintDocument extends JPanel {
             }
         });
 
-        // Status Filter Box (New)
+        // Status Filter Box (Existing)
         String[] filters = {"All Status", "Awaiting approval", "confirmed payment", "Rejected"};
         statusFilterBox = new JComboBox<>(filters);
         statusFilterBox.setFont(new Font("Arial", Font.PLAIN, 14));
         statusFilterBox.setBackground(Color.WHITE);
         statusFilterBox.setPreferredSize(new Dimension(150, 30));
-
-        // Add Listener for Status Box
         statusFilterBox.addActionListener(e -> applyFilters());
+
+        // [ADDED] Date Filter Box
+        JLabel dateLabel = new JLabel("  Date:");
+        dateLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        String[] dateFilters = {"All Time", "Today", "This Week", "This Month"};
+        dateFilterBox = new JComboBox<>(dateFilters);
+        dateFilterBox.setFont(new Font("Arial", Font.PLAIN, 14));
+        dateFilterBox.setBackground(Color.WHITE);
+        dateFilterBox.setPreferredSize(new Dimension(120, 30));
+        dateFilterBox.addActionListener(e -> applyFilters());
 
         searchPanel.add(searchLabel);
         searchPanel.add(searchField);
-        searchPanel.add(new JLabel("  Status:")); // Spacer label
+        searchPanel.add(new JLabel("  Status:"));
         searchPanel.add(statusFilterBox);
+        searchPanel.add(dateLabel); // Add Date Label
+        searchPanel.add(dateFilterBox); // Add Date Box
 
         contentPanel.add(searchPanel);
         contentPanel.add(Box.createVerticalStrut(10));
 
         // --- 3. TABLE SETUP ---
-        // Added "Date" column at the end (Index 5)
         String[] columnNames = {"Request ID", "Resident Name", "Document Type", "Purpose", "Status", "Date"};
 
         tableModel = new DefaultTableModel(columnNames, 0) {
@@ -592,14 +639,15 @@ public class SecretaryPrintDocument extends JPanel {
         });
 
         sorter = new TableRowSorter<>(tableModel);
-
         requestTable.setRowSorter(sorter);
 
         // SORT BY DATE (Index 5) DEFAULT
         List<RowSorter.SortKey> sortKeys = new ArrayList<>();
-        sortKeys.add(new RowSorter.SortKey(5, SortOrder.DESCENDING)); // Sort by Date, Descending (Newest First)
+        sortKeys.add(new RowSorter.SortKey(5, SortOrder.DESCENDING));
         sorter.setSortKeys(sortKeys);
         sorter.addRowSorterListener(e -> updateRecordCount());
+
+        // Ensure ID sorting treats IDs as numbers
         sorter.setComparator(0, new Comparator<String>() {
             @Override
             public int compare(String s1, String s2) {
@@ -608,10 +656,11 @@ public class SecretaryPrintDocument extends JPanel {
                     Integer i2 = Integer.parseInt(s2);
                     return i1.compareTo(i2);
                 } catch (NumberFormatException e) {
-                    return s1.compareTo(s2); // Fallback
+                    return s1.compareTo(s2);
                 }
             }
         });
+
         JTableHeader header = requestTable.getTableHeader();
         header.setFont(new Font("Arial", Font.BOLD, 15));
         header.setBackground(TABLE_HEADER_BG);
@@ -627,6 +676,7 @@ public class SecretaryPrintDocument extends JPanel {
         JScrollPane tableScrollPane = new JScrollPane(requestTable);
         tableScrollPane.setBorder(BorderFactory.createLineBorder(TABLE_HEADER_BG, 2));
         tableScrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, 500));
+
         JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         footerPanel.setBackground(new Color(229, 231, 235));
 
@@ -639,12 +689,10 @@ public class SecretaryPrintDocument extends JPanel {
         return contentPanel;
     }
 
-    private JLabel lblRecordCount;
     private void updateRecordCount() {
         int count = requestTable.getRowCount(); // Gets filtered count
         lblRecordCount.setText("Total Records: " + count);
     }
-
 
     private JButton createRoundedButton(String text, Color bgColor) {
         JButton button = new JButton(text) {

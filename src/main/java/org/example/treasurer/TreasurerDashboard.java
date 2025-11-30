@@ -1,9 +1,11 @@
 package org.example.treasurer;
 
+import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.Admin.SystemLogDAO;
 import org.example.DocumentRequestDao;
 import org.example.Documents.DocumentRequest;
 import org.example.Documents.DocumentType;
+import org.example.Documents.Payment;
 import org.example.ResidentDAO;
 import org.example.StaffDAO;
 import org.example.UserDataManager;
@@ -15,8 +17,10 @@ import javax.swing.border.*;
 import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.geom.Ellipse2D;
 import java.awt.print.PrinterException;
 import java.awt.print.PrinterJob;
+import java.lang.reflect.Method;
 import java.util.List;
 
 public class TreasurerDashboard extends JFrame {
@@ -72,6 +76,7 @@ public class TreasurerDashboard extends JFrame {
         // Show dashboard by default
         cardLayout.show(contentContainer, "dashboard");
     }
+    private SystemConfigDAO dao;
 
     // ... [Sidebar creation code remains unchanged] ...
     private JPanel createSidebar() {
@@ -87,17 +92,35 @@ public class TreasurerDashboard extends JFrame {
         logoPanel.setBackground(Color.BLACK);
         logoPanel.setMaximumSize(new Dimension(260, 90));
 
+        dao = new SystemConfigDAO();
+        String logoPath = dao.getConfig("logoPath");
         JPanel logoCircle = new JPanel() {
+
+            private Image logoImage = new ImageIcon("resident_photos/"+logoPath).getImage(); // 🔹 path to your logo image
+
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
+                Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(100, 150, 100));
-                g2.fillOval(0, 0, 45, 45);
+
+                int diameter = Math.min(getWidth(), getHeight());
+
+                // 🟢 Draw circular clipping area
+                g2.setClip(new Ellipse2D.Float(0, 0, diameter, diameter));
+
+                // 🖼️ Draw the logo image scaled to the panel size
+                g2.drawImage(logoImage, 0, 0, diameter, diameter, this);
+
+                // ⚪ Optional: Add a white circular border
+                g2.setClip(null);
                 g2.setColor(Color.WHITE);
-                g2.drawOval(0, 0, 45, 45);
+                g2.setStroke(new BasicStroke(2f));
+                g2.drawOval(0, 0, diameter - 1, diameter - 1);
+
+                g2.dispose();
             }
+
             @Override
             public Dimension getPreferredSize() {
                 return new Dimension(45, 45);
@@ -117,8 +140,8 @@ public class TreasurerDashboard extends JFrame {
 
         // Menu Items
         sidebar.add(createMenuItem("personal_info", "Personal Information", false));
-        sidebar.add(createMenuItem("dashboard", "Dashboard", false));
-        sidebar.add(createMenuItem("financial_reports", "Financial Reports", true));
+        sidebar.add(createMenuItem("dashboard", "Dashboard", true));
+        sidebar.add(createMenuItem("financial_reports", "Financial Reports", false));
 
         sidebar.add(createMenuItem("total", "Total Paid and Unpaid", false));
         sidebar.add(createMenuItem("profile", "Barangay Official Profile", false));
@@ -147,7 +170,7 @@ public class TreasurerDashboard extends JFrame {
 
         logoutButton.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
-                System.exit(0);
+                dispose();openMainWindow();
             }
         });
 
@@ -156,7 +179,18 @@ public class TreasurerDashboard extends JFrame {
 
         return sidebar;
     }
-
+    private void openMainWindow() {
+        try {
+            Class<?> mainClass = Class.forName("org.example.Interface.Main");
+            Method main = mainClass.getMethod("main", String[].class);
+            main.invoke(null, (Object) new String[]{});
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Could not open Login (Main).\nMake sure Main.java exists.",
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+    }
     private JPanel createMenuItem(String type, String text, boolean selected) {
         // (Keep your existing menu item code exactly as is)
         JPanel menuItem = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 18));
@@ -641,7 +675,7 @@ public class TreasurerDashboard extends JFrame {
             boolean confirmed = showLargeConfirmDialog(
                     "Verify Payment",
                     "Verify payment for <b>" + name + "</b>?<br/>Document: " + documentType,
-                    false,name,documentType
+                    false,name,documentType,requestId
             );
             if (confirmed) {
 
@@ -657,7 +691,7 @@ public class TreasurerDashboard extends JFrame {
                 UserDataManager.getInstance().addPayment(docType,dao,UserDataManager.getInstance().getCurrentStaff());
                 pendingTableModel.removeRow(row);
                 verifiedTableModel.addRow(rowData);
-                showLargeMessageDialog("Success", "Payment verified successfully!",1,name,documentType);
+                showLargeMessageDialog("Success", "Payment verified successfully!Generating receipt...",1,name,documentType,requestId);
                 updateTotalPaidUnpaidPanel();
                 updateRecordCount(); // Update count after move
             }
@@ -665,7 +699,7 @@ public class TreasurerDashboard extends JFrame {
             boolean confirmed = showLargeConfirmDialog(
                     "Unverify Payment",
                     "Unverify payment for <b>" + name + "</b>?<br/>Document: " + documentType,
-                    true,name,documentType
+                    true,name,documentType,requestId
             );
             if (confirmed) {
                 Object[] rowData = { requestId,name, documentType, "Pending" };
@@ -676,7 +710,7 @@ public class TreasurerDashboard extends JFrame {
                 systemLogDAO.addLog("Unverified Payment", name,staffId);
                 verifiedTableModel.removeRow(row);
                 pendingTableModel.addRow(rowData);
-                showLargeMessageDialog("Success", "Payment unverified successfully!",0," ","");
+                showLargeMessageDialog("Success", "Payment unverified successfully!",0," ","",requestId);
                 updateTotalPaidUnpaidPanel();
                 updateRecordCount(); // Update count after move
             }
@@ -687,7 +721,7 @@ public class TreasurerDashboard extends JFrame {
     private static SystemLogDAO systemLogDAO = new SystemLogDAO();
     private static StaffDAO staffDAO = new StaffDAO();
     BarangayStaff staff = UserDataManager.getInstance().getCurrentStaff();
-    private boolean showLargeConfirmDialog(String title, String htmlMessage, boolean destructiveYes, String name, String docType) {
+    private boolean showLargeConfirmDialog(String title, String htmlMessage, boolean destructiveYes, String name, String docType,int requestId) {
         final boolean[] result = {false};
         JDialog dialog = new JDialog(this, title, true);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
@@ -710,13 +744,14 @@ public class TreasurerDashboard extends JFrame {
         });
         if(destructiveYes){
             JButton print = new JButton("Print");
+
             print.setFont(new Font("Arial", Font.BOLD, 16));
             print.setPreferredSize(new Dimension(140, 48));
             print.setBackground(Color.WHITE);
             print.setForeground(Color.BLACK);
             print.setFocusPainted(false);
             buttonPanel.add(print);
-            print.addActionListener(e ->   printReceipt(name,docType));
+            print.addActionListener(e ->   printReceipt(name,docType,requestId));
         }
         JButton btnNo = new JButton("No");
         btnNo.setFont(new Font("Arial", Font.BOLD, 16));
@@ -740,7 +775,7 @@ public class TreasurerDashboard extends JFrame {
         return result[0];
     }
 
-    private void showLargeMessageDialog(String title, String message, int id,String name, String documentType) {
+    private void showLargeMessageDialog(String title, String message, int id,String name, String documentType, int requestId) {
         JDialog dialog = new JDialog(this, title, true);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         JPanel content = new JPanel(new BorderLayout(20, 20));
@@ -767,19 +802,19 @@ public class TreasurerDashboard extends JFrame {
         dialog.setVisible(true);
 
         if(id == 1){
-            printReceipt(name,documentType);
+            printReceipt(name,documentType,requestId);
         }
     }
-    private static void printReceipt(String residentName, String docType) {
+    private static void printReceipt(String residentName, String docType,int requestId) {
         // 1. Setup the print job
         PrinterJob job = PrinterJob.getPrinterJob();
 
         // 2. Create your receipt object with real data
-        DocumentType documentData = UserDataManager.getInstance().getDocumentTypeByName(docType);
+        Payment documentData = new ResidentDAO().findResidentReceiptById(requestId);
         // (You can fetch the fee amount from your DB/DAO if needed)
 
-        String amount = String.valueOf(documentData.getFee());;
-        String orNum = "OR-" + System.currentTimeMillis(); // Generate or fetch
+        String amount = String.valueOf(documentData.getAmount());
+        String orNum = documentData.getOrNumber(); // Generate or fetch
         BarangayStaff staff = UserDataManager.getInstance().getCurrentStaff();
         String cashier = staff.getFirstName() +" " + staff.getMiddleName() + " "+ staff.getLastName(); // Or UserDataManager.getCurrentStaff().getName()
 

@@ -1,5 +1,8 @@
 package org.example.Captain;
 
+import org.example.StaffDAO;
+import org.example.Users.BarangayStaff;
+
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
@@ -48,8 +51,9 @@ public class BarangayOfficialProfile extends JPanel {
 
         JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         userPanel.setBackground(new Color(40, 40, 40));
+        BarangayStaff staff = new StaffDAO().findStaffByPosition("Brgy.Captain");
 
-        JLabel lblUser = new JLabel("Hi Mr. Dalisay");
+        JLabel lblUser = new JLabel("Hi Mr. "+staff.getFirstName());
         lblUser.setFont(new Font("Arial", Font.PLAIN, 15));
         lblUser.setForeground(Color.WHITE);
 
@@ -94,16 +98,22 @@ public class BarangayOfficialProfile extends JPanel {
         JPanel topRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
         topRow.setBackground(Color.WHITE);
         topRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 200));
-        topRow.add(createOfficialCard("Cardo Dalisay", "Brgy. Captain", new Color(34, 197, 94), true));
+        BarangayStaff staff = new StaffDAO().findStaffByPosition("Brgy.Captain");
+        String fullName = staff.getFirstName() + " " + staff.getMiddleName() + " "+staff.getLastName();
+        topRow.add(createOfficialCard(fullName, "Brgy. Captain", new Color(34, 197, 94), true));
         contentPanel.add(topRow);
         contentPanel.add(Box.createVerticalStrut(40));
-
+        BarangayStaff secretary = new StaffDAO().findStaffByPosition("Secretary");
+        String secFullName = secretary.getFirstName() + " " + secretary.getMiddleName() + " "+secretary.getLastName();
         // Second row (2 officials)
         JPanel secondRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 120, 0));
         secondRow.setBackground(Color.WHITE);
         secondRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 200));
-        secondRow.add(createOfficialCard("Linda Versosa", "Brgy. Secretary", null, false));
-        secondRow.add(createOfficialCard("Analyn Co", "Brgy. Treasurer", null, false));
+        secondRow.add(createOfficialCard(secFullName, "Brgy. Secretary", null, false));
+        BarangayStaff treasurer = new StaffDAO().findStaffByPosition("Treasurer");
+        String treasurerFullName = treasurer.getFirstName() + " " + treasurer.getMiddleName() + " "+treasurer.getLastName();
+
+        secondRow.add(createOfficialCard(treasurerFullName, "Brgy. Treasurer", null, false));
         contentPanel.add(secondRow);
         contentPanel.add(Box.createVerticalStrut(40));
 
@@ -111,10 +121,10 @@ public class BarangayOfficialProfile extends JPanel {
         JPanel thirdRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 60, 0));
         thirdRow.setBackground(Color.WHITE);
         thirdRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 200));
-        thirdRow.add(createOfficialCard("Mark Tery", "Brgy. Councilor", null, false));
-        thirdRow.add(createOfficialCard("John Saimon", "Brgy. Councilor", null, false));
-        thirdRow.add(createOfficialCard("Mery Garcia", "Brgy. Councilor", null, false));
-        thirdRow.add(createOfficialCard("Roberto Dimagiba", "Brgy. Councilor", null, false));
+        thirdRow.add(createOfficialCard(" ", "Brgy. Councilor", null, false));
+        thirdRow.add(createOfficialCard(" ", "Brgy. Councilor", null, false));
+        thirdRow.add(createOfficialCard(" ", "Brgy. Councilor", null, false));
+        thirdRow.add(createOfficialCard(" ", "Brgy. Councilor", null, false));
         contentPanel.add(thirdRow);
 
         contentPanel.add(Box.createVerticalGlue());

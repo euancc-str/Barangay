@@ -38,34 +38,50 @@ public class AdminRequestTab extends JPanel {
         updateRecordCount();
         loadRequestData();
     }
-
     public void loadRequestData() {
-        // Clear existing data to prevent duplicates if called again
-        if (tableModel != null) {
-            tableModel.setRowCount(0);
-        }
-
-        ResidentDAO residentDAO = new ResidentDAO();
-        List<DocumentRequest> documentRequestList = residentDAO.getAllResidentsDocument();
-
-        for(DocumentRequest document : documentRequestList){
-            if(document != null) {
-                String id = "" + document.getRequestId();
-                tableModel.addRow(new Object[]{
-                        id,
-                        document.getFullName(),
-                        document.getName(),
-                        document.getPurpose(),
-                        document.getStatus(),
-                        document.getRequestDate()
-                });
+        new SwingWorker<List<DocumentRequest>, Void>() {
+            @Override
+            protected List<DocumentRequest> doInBackground() throws Exception {
+                ResidentDAO residentDAO = new ResidentDAO();
+                return residentDAO.getAllResidentsDocument();
             }
-        }
-        if (requestTable!=null){
-            requestTable.repaint();
-        }
-    }
 
+            @Override
+            protected void done() {
+                try {
+                    List<DocumentRequest> documentRequestList = get();
+
+                    if (tableModel != null) {
+                        tableModel.setRowCount(0);
+                    }
+
+                    for (DocumentRequest document : documentRequestList) {
+                        if (document != null) {
+                            String id = "" + document.getRequestId();
+                            tableModel.addRow(new Object[]{
+                                    id,
+                                    document.getFullName(),
+                                    document.getName(),
+                                    document.getPurpose(),
+                                    document.getStatus(),
+                                    document.getRequestDate()
+                            });
+                        }
+                    }
+
+                    // 3. Refresh Filters if needed
+                    if (searchField != null && !searchField.getText().isEmpty()) {
+                        applyFilters();
+                    } else {
+                        updateRecordCount();
+                    }
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
+    }
     // =========================================================================
     // NEW: FILTER LOGIC
     // =========================================================================

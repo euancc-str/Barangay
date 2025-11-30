@@ -1,5 +1,7 @@
 package org.example.treasurer;
 
+import org.example.Admin.AdminSettings.SystemConfigDAO;
+
 import java.awt.*;
 import java.awt.print.*;
 import java.text.SimpleDateFormat;
@@ -40,7 +42,9 @@ public class ReceiptPrinter implements Printable {
 
         // --- 1. HEADER ---
         g2d.setFont(titleFont);
-        centerText(g2d, "BARANGAY ALAWIHAO", pageWidth, y);
+        SystemConfigDAO dao = new SystemConfigDAO();
+        String brgy = dao.getConfig("barangay_name");
+        centerText(g2d, brgy, pageWidth, y);
         y += 20;
 
         g2d.setFont(normalFont);

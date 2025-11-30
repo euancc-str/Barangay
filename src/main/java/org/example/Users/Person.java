@@ -20,6 +20,9 @@ public abstract class Person extends UserInterface {
     String middleName;
     String suffix;
     String gender;
+    String photoPath;
+    String purok;
+    String street;
     String contactNo;
     int age;
     LocalDate dob;

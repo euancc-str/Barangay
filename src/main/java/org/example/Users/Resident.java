@@ -21,9 +21,11 @@ public class Resident extends Person {
     private int age;
     private String phoneNumber;
     private String voterStatus;
+    private String ctcNumber;
     private String householdNo;
     private String nationalId;
     private int photoID;
+    private String ctcDateIssued;
     private String position;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -1,13 +1,21 @@
 package org.example.SerbisyongBarangay;
 
 import lombok.Data;
+import org.example.Admin.AdminSettings.ImageUtils;
+import org.example.Admin.AdminSettings.PhotoDAO;
+import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.Documents.DocumentType;
+import org.example.StaffDAO;
 import org.example.UserDataManager;
+import org.example.Users.BarangayStaff;
 import org.example.Users.Resident;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.io.File;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
@@ -26,7 +34,8 @@ public class IndigencyFormDialog extends JDialog {
     private JTextField txtPerYearIncome;
     private JTextField txtCurrentAddress;
     private JTextField txtPurpose;
-
+    private JTextField street;
+    private JComboBox<String> txtPurok;
     // Store the current resident
     private Resident currentResident;
 
@@ -84,7 +93,8 @@ public class IndigencyFormDialog extends JDialog {
             if (currentResident.getSuffix() != null) {
                 txtSuffix.setText(currentResident.getSuffix());
             }
-
+            txtPurok.setSelectedItem(currentResident.getPurok());
+            street.setText(currentResident.getStreet());
 
             txtCurrentAddress.setText(currentResident.getAddress() != null ? currentResident.getAddress() : "");
 
@@ -125,7 +135,7 @@ public class IndigencyFormDialog extends JDialog {
 
         return headerPanel;
     }
-
+    private SystemConfigDAO dao;
     private JPanel createFormPanel() {
         JPanel formPanel = new JPanel(new GridBagLayout());
         formPanel.setBackground(Color.WHITE);
@@ -236,6 +246,25 @@ public class IndigencyFormDialog extends JDialog {
         // ✅ 9. Current Address
         txtCurrentAddress = new JTextField(20);
         row = addField(formPanel, gbc, "Current Address:", txtCurrentAddress, row, 1, 3);
+        dao=new SystemConfigDAO();
+        String [] puroks = dao.getOptionsNature("purok");
+        txtPurok = new JComboBox<>(puroks);
+        customizeComboBox(txtPurok);
+        gbc.gridx = 0;
+        gbc.gridy = row;
+        gbc.gridwidth = 1;
+        gbc.weightx = 0;
+        gbc.fill = GridBagConstraints.NONE;
+        formPanel.add(new JLabel("Purok:"), gbc);
+
+        gbc.gridx = 1;
+        gbc.gridwidth = 3;
+        gbc.weightx = 1.0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        formPanel.add(txtPurok, gbc);
+        row++;
+        street = new JTextField(20);
+        row = addField(formPanel, gbc, "Street:", street, row, 1, 3);
 
         // ✅ 10. Purpose
         txtPurpose = new JTextField(20);
@@ -258,6 +287,10 @@ public class IndigencyFormDialog extends JDialog {
         gbc.weighty = 1.0;
         gbc.fill = GridBagConstraints.VERTICAL;
         formPanel.add(Box.createVerticalGlue(), gbc);
+        JPanel stackPanel = new JPanel();
+        stackPanel.setLayout(new BoxLayout(stackPanel, BoxLayout.Y_AXIS));
+        stackPanel.setBackground(Color.WHITE);
+
 
         return formPanel;
     }
@@ -297,7 +330,11 @@ public class IndigencyFormDialog extends JDialog {
         cancelButton.setFont(new Font("Arial", Font.BOLD, 18));
         cancelButton.setBorderPainted(false);
         cancelButton.setFocusPainted(false);
-        cancelButton.addActionListener(e -> dispose());
+        cancelButton.addActionListener(e -> {
+            dispose();
+            requestaDocumentFrame frame = new requestaDocumentFrame();
+            frame.setVisible(true);
+        });
 
         JButton proceedButton = new JButton("PROCEED");
         proceedButton.setBackground(new Color(90, 180, 90));
