@@ -475,7 +475,7 @@ public class SecretaryPrintDocument extends JPanel {
                         purpose, // Contains Business Details/Nature
                         res.getCtcNumber(),
                         res.getCtcDateIssued() != null ? res.getCtcDateIssued().toString() : "",
-                        ctcPlace
+                        ctcPlace,requestId
                 ), pf);
             }
             else {

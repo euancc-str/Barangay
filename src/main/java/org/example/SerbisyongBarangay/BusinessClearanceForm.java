@@ -383,14 +383,14 @@ public class BusinessClearanceForm extends JPanel {
             System.out.println("Sex: " + sex);
             System.out.println("Business: " + busNature + " (" + ownership + ")");
             System.out.println("Location: " + busAddr);
-            String purpose = busNature +
-                    " Ownership Type: " + ownership;
+            String purpose = ownership +
+                    "" + busNature;
             String ctcNum = txtCtcNumber.getText().trim();
             String ctcDate = txtCtcDateIssued.getText().trim();
             String ctcPlace = txtCtcPlaceIssued.getText().trim();
             ResidentDAO dao = new ResidentDAO();
 
-            dao.updateResidentCedula(UserDataManager.getInstance().getCurrentResident().getResidentId(), ctcNum, ctcDate, ctcPlace);
+            dao.updateResidentCedula(UserDataManager.getInstance().getCurrentResident().getResidentId(), ctcNum, ctcDate);
             DocumentType certificateOfIndigency = UserDataManager.getInstance().getDocumentTypeByName("Business Clearance");
 
             UserDataManager.getInstance().residentRequestsDocument(UserDataManager.getInstance().getCurrentResident(), null,certificateOfIndigency,purpose);

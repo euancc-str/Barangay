@@ -70,7 +70,7 @@ public class BarangayClearancePrinter implements Printable {
         try {
             String logoPath = new SystemConfigDAO().getConfig("logoPath");
             if (logoPath != null && !logoPath.isEmpty()) {
-                ImageIcon logo = new ImageIcon(logoPath);
+                ImageIcon logo = new ImageIcon("resident_photos/"+logoPath);
                 g2d.drawImage(logo.getImage(), 50, 20, 70, 70, null);
             }
         } catch (Exception e) {}

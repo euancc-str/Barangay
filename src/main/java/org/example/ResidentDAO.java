@@ -62,7 +62,8 @@ public class ResidentDAO {
                 "JOIN document_request \n" +
                 "    ON resident.residentId = document_request.residentId\n" +
                 "JOIN document_type\n" +
-                "    ON document_request.docTypeId = document_type.docTypeId;";
+                "    ON document_request.docTypeId = document_type.docTypeId" +
+                " ORDER BY document_request.requestId DESC;";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -287,7 +288,7 @@ public class ResidentDAO {
         String sql = "SELECT amount,orNumber,p.referenceNo " +
                 "FROM payment p " +
                 "JOIN document_request dr " +
-                "ON p.requestId = dr.requestId WHERE p.requestId =?";
+                "ON p.requestId = dr.requestId WHERE p.requestId =? ";
         try (Connection conn = DatabaseConnection.getConnection();
             PreparedStatement pstmt = conn.prepareStatement(sql)){
             pstmt.setInt(1,requestId);
@@ -305,8 +306,8 @@ public class ResidentDAO {
         }
         return null;
     }
-    public void updateResidentCedula(int residentId, String ctcNum, String ctcDate, String ctcPlace) {
-        String sql = "UPDATE resident SET ctcNumber=?, ctcDateIssued=?, ctcPlaceIssued=? WHERE residentId=?";
+    public void updateResidentCedula(int residentId, String ctcNum, String ctcDate) {
+        String sql = "UPDATE resident SET ctcNumber=?, ctcDateIssued=? WHERE residentId=?";
         try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
              java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
 
@@ -315,8 +316,7 @@ public class ResidentDAO {
             if (ctcDate.isEmpty()) stmt.setNull(2, java.sql.Types.DATE);
             else stmt.setDate(2, java.sql.Date.valueOf(ctcDate)); // Ensure format is yyyy-MM-dd
 
-            stmt.setString(3, ctcPlace);
-            stmt.setInt(4, residentId);
+            stmt.setInt(3, residentId);
 
             stmt.executeUpdate();
         } catch (Exception e) { e.printStackTrace(); }

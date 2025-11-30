@@ -24,6 +24,24 @@ public class TestConnection {
             System.out.println(Integer.parseInt(num));
         }
 
+        String sole = "Sole Proprietorships";
+        String own = "Partnership";
+        String corp = "Corporation";
+
+        String [] datas = {sole,own,corp};
+        String businessDetails = datas[1] + " aaaa";
+        String cover = "";
+        int num = 0;
+        for(String data : datas){
+            if(businessDetails.startsWith(data)){
+                cover = data;
+                num = cover.length();
+            }
+        }
+        System.out.println(cover);
+        String data2 = businessDetails.substring(num,businessDetails.length());
+        System.out.printf(data2);
+
     }
     private static void printReceipt(String residentName, String docType) {
         // 1. Setup the print job

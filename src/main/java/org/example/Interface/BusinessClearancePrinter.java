@@ -1,15 +1,16 @@
 package org.example.Interface;
 
-import org.example.Admin.AdminSettings.PhotoDAO;
 import org.example.Admin.AdminSettings.SystemConfigDAO;
+import org.example.Documents.Payment;
+import org.example.ResidentDAO;
 import org.example.StaffDAO;
 import org.example.Users.BarangayStaff;
+import java.awt.*;
 
+import java.awt.print.*;
+import javax.swing.ImageIcon;
 import java.awt.*;
 import java.awt.print.*;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import javax.swing.ImageIcon;
 
 public class BusinessClearancePrinter implements Printable {
 
@@ -18,6 +19,7 @@ public class BusinessClearancePrinter implements Printable {
     private String businessDetails; // The "Purpose" string containing business info
     private String ctcNo, ctcDate, ctcPlace;
     private String captainName;
+    private int requestId;
 
     // Fonts
     private final Font FONT_HEADER = new Font("Times New Roman", Font.PLAIN, 12);
@@ -28,13 +30,14 @@ public class BusinessClearancePrinter implements Printable {
     private final Font FONT_BODY = new Font("Times New Roman", Font.PLAIN, 12);
 
     public BusinessClearancePrinter(String ownerName, String address, String businessDetails,
-                                    String ctcNo, String ctcDate, String ctcPlace) {
+                                    String ctcNo, String ctcDate, String ctcPlace,int requestId) {
         this.ownerName = ownerName;
         this.address = address;
         this.businessDetails = businessDetails;
         this.ctcNo = ctcNo;
         this.ctcDate = ctcDate;
         this.ctcPlace = ctcPlace;
+        this.requestId = requestId;
         BarangayStaff captain = new StaffDAO().findStaffByPosition("Brgy.Captain");
         String cap =  captain.getFirstName() + " " + captain.getMiddleName() + " "+ captain.getLastName();
         this.captainName = (cap != null && !cap.isEmpty()) ? cap : "HON. CARDO DALISAY";
@@ -57,10 +60,12 @@ public class BusinessClearancePrinter implements Printable {
         try {
             String logoPath = new SystemConfigDAO().getConfig("logoPath");
             if (logoPath != null && !logoPath.isEmpty()) {
-                ImageIcon logo = new ImageIcon(logoPath);
+                ImageIcon logo = new ImageIcon("resident_photos/"+logoPath);
                 g2d.drawImage(logo.getImage(), 50, 20, 70, 70, null);
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         g2d.setColor(Color.BLACK);
         drawCenteredText(g2d, "Republic of the Philippines", FONT_HEADER, width / 2, y); y += 15;
@@ -107,9 +112,20 @@ public class BusinessClearancePrinter implements Printable {
         String cleanDetails = businessDetails.replace("\n", " ").replace("Applicant:", "").trim();
         if(cleanDetails.length() > 40) cleanDetails = cleanDetails.substring(0, 40) + "..."; // Truncate if too long
 
-        y = drawField(g2d, "BUSINESS NATURE / NAME:", cleanDetails.toUpperCase(), labelX, valueX, y, lineLength);
+        String [] datas = new SystemConfigDAO().getOptionsNature("natureOfBusiness");
+        int num = 0;
+        String cover = "";
+        for(String data : datas){
+            if(businessDetails.startsWith(data)){
+                cover = data;
+                num = cover.length();
+            }
+        }
+        String data2 = businessDetails.substring(num,businessDetails.length());
+        y = drawField(g2d, "BUSINESS NATURE / NAME:", data2.toUpperCase(), labelX, valueX, y, lineLength);
 
-        y += 30;
+        y += 10;
+        y = drawField(g2d, "OWNERSHIP TYPE", cover.toUpperCase(), labelX, valueX, y, lineLength);
 
         // ==========================================================
         // 4. BODY TEXT (Legal Statement)
@@ -136,10 +152,13 @@ public class BusinessClearancePrinter implements Printable {
         // Left: CTC Details
         int ctcX = labelX;
         g2d.setFont(FONT_BODY);
-        g2d.drawString("CTC No.   : " + (ctcNo != null ? ctcNo : "_________"), ctcX, footerY);
-        g2d.drawString("Issued On : " + (ctcDate != null ? ctcDate : "_________"), ctcX, footerY + 15);
-        g2d.drawString("Issued At : " + (ctcPlace != null ? ctcPlace : "_________"), ctcX, footerY + 30);
-        g2d.drawString("OR No.    : " + "_________ (See Receipt)", ctcX, footerY + 45);
+        int addSpace = 20;
+        g2d.drawString("CTC No.   : " + (ctcNo != null ? ctcNo : "_________"), ctcX, footerY+addSpace);
+        g2d.drawString("Issued On : " + (ctcDate != null ? ctcDate : "_________"), ctcX, footerY + 15+addSpace);
+        g2d.drawString("Issued At : " + (ctcPlace != null ? ctcPlace : "_________"), ctcX, footerY + 30+addSpace);
+        Payment documentData = new ResidentDAO().findResidentReceiptById(requestId);
+        String docu = documentData.getOrNumber();
+        g2d.drawString("OR No.    : " + (docu != null ? docu:"_________ (See Receipt)"), ctcX, footerY + 45+addSpace);
 
         // Right: Signatory
         int sigX = width - 200;

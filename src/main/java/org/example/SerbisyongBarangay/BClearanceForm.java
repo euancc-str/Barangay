@@ -283,7 +283,7 @@ public class BClearanceForm extends JDialog {
                         " | CTC: " + txtCtcNumber.getText() +
                         " | Issued: " + txtCtcDateIssued.getText() +
                         " | At: " + txtCtcPlaceIssued.getText();
-                dao.updateResidentCedula(currentResident.getResidentId(), ctcNum, ctcDate, ctcPlace);
+                dao.updateResidentCedula(currentResident.getResidentId(), ctcNum, ctcDate);
                 DocumentType docType = UserDataManager.getInstance().getDocumentTypeByName("Barangay Clearance");UserDataManager.getInstance().residentRequestsDocument(currentResident, null, docType, fullDetails);
 
                 JOptionPane.showMessageDialog(this, "Barangay Clearance request submitted!");
