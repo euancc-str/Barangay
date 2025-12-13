@@ -1,14 +1,19 @@
 package org.example.Admin.AdminSettings;
 
 import org.example.DatabaseConnection;
+import org.example.utils.ResourceUtils;
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class SystemConfigDAO {
 
+    private static String BASE_PATH = "";
 
-    private final String BASE_PATH = "\\\\LAPTOP-NH6HI8IB\\BarangayImages\\";
+    static {
+        BASE_PATH = System.getProperty("asset.image.base-path");
+    }
 
 
     public String getImageDir() {

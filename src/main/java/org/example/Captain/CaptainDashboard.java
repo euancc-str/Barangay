@@ -58,6 +58,7 @@ public class CaptainDashboard extends JFrame {
         // Show personal info by default
         cardLayout.show(contentContainer, "total");
     }
+
     private SystemConfigDAO dao;
 
     private JPanel createSidebar() {
@@ -76,7 +77,7 @@ public class CaptainDashboard extends JFrame {
         String logoPath = dao.getConfig("logoPath");
         JPanel logoCircle = new JPanel() {
 
-            private Image logoImage = new ImageIcon("resident_photos/"+logoPath).getImage(); // 🔹 path to your logo image
+            private Image logoImage = new ImageIcon(System.getProperty("asset.image.base-path") + logoPath).getImage(); // 🔹 path to your logo image
 
             @Override
             protected void paintComponent(Graphics g) {
@@ -169,6 +170,7 @@ public class CaptainDashboard extends JFrame {
 
         return sidebar;
     }
+
     private void openMainWindow() {
         try {
             Class<?> mainClass = Class.forName("org.example.Interface.Main");
@@ -181,7 +183,9 @@ public class CaptainDashboard extends JFrame {
                     JOptionPane.ERROR_MESSAGE);
         }
     }
+
     private ApprovedRequestTab art;
+
     private JPanel createMenuItem(String type, String text, boolean selected) {
         JPanel menuItem = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 18));
         menuItem.setMaximumSize(new Dimension(260, 65));
@@ -202,7 +206,7 @@ public class CaptainDashboard extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(Color.WHITE);
 
-                switch(type) {
+                switch (type) {
                     case "personal_info":
                         g2.fillOval(10, 5, 20, 20);
                         g2.fillArc(2, 22, 36, 25, 0, 180);
@@ -233,6 +237,7 @@ public class CaptainDashboard extends JFrame {
                         break;
                 }
             }
+
             @Override
             public Dimension getPreferredSize() {
                 return new Dimension(40, 40);
@@ -334,7 +339,7 @@ public class CaptainDashboard extends JFrame {
         userPanel.setBackground(new Color(40, 40, 40));
         BarangayStaff staff = new StaffDAO().findStaffByPosition("Brgy.Captain");
 
-        JLabel lblUser = new JLabel("Hi Mr. "+staff.getFirstName());
+        JLabel lblUser = new JLabel("Hi Mr. " + staff.getFirstName());
         lblUser.setFont(new Font("Arial", Font.PLAIN, 15));
         lblUser.setForeground(Color.WHITE);
 
@@ -350,6 +355,7 @@ public class CaptainDashboard extends JFrame {
                 g2.fillOval(12, 8, 20, 20);
                 g2.fillArc(5, 25, 35, 30, 0, 180);
             }
+
             @Override
             public Dimension getPreferredSize() {
                 return new Dimension(45, 45);

@@ -19,6 +19,7 @@ import org.example.Admin.AdminSystemSettings;
 import org.example.Users.Resident;
 import org.example.Users.BarangayStaff;
 import org.example.UserDataManager;
+import org.example.utils.ResourceUtils;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -652,7 +653,7 @@ public class Register {
 
             // Set frame icon (optional)
             try {
-                ImageIcon icon = new ImageIcon("src/main/java/org/example/resources/logo.jpg");
+                ImageIcon icon = new ImageIcon(ResourceUtils.getResourceAsBytes("logo.jpg"));
                 frame.setIconImage(icon.getImage());
             } catch (Exception e) {
                 System.out.println("Icon not found");
@@ -677,7 +678,7 @@ public class Register {
             // Logo
             l.gridy = 0;
             try {
-                ImageIcon logo = new ImageIcon("src/main/java/org/example/resources/roundLogo.jpg");
+                ImageIcon logo = new ImageIcon(ResourceUtils.getResourceAsBytes("roundLogo.jpg"));
                 Image img = logo.getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH);
                 JLabel logoLabel = new JLabel(new ImageIcon(img));
                 left.add(logoLabel, l);

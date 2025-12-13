@@ -1,11 +1,9 @@
 package org.example;
 
-import com.mysql.cj.protocol.Resultset;
 import org.example.Admin.SystemLogDAO;
 import org.example.Users.BarangayStaff;
 import org.example.Users.Resident;
 
-import javax.xml.crypto.Data;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -57,7 +55,7 @@ public class StaffDAO {
         String sql = "SELECT CONCAT(firstName, ' ',middleName,' ',lastName) AS fullName, staffId, position, contactNo, status,lastLogin,username,password,idNumber FROM barangay_staff";
         List<BarangayStaff> staffList = new ArrayList<>();
         try(Connection conn = DatabaseConnection.getConnection();
-        PreparedStatement pstmt = conn.prepareStatement(sql)){
+            PreparedStatement pstmt = conn.prepareStatement(sql)){
             ResultSet rs = pstmt.executeQuery();
             while(rs.next()){
                 BarangayStaff staff = new BarangayStaff();

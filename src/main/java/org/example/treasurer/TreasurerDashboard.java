@@ -258,7 +258,7 @@ public class TreasurerDashboard extends JFrame {
         dao = new SystemConfigDAO();
         String logoPath = dao.getConfig("logoPath");
         JPanel logoCircle = new JPanel() {
-            private Image logoImage = new ImageIcon("resident_photos/"+logoPath).getImage();
+            private Image logoImage = new ImageIcon(System.getProperty("asset.image.base-path")+logoPath).getImage();
 
 
             @Override

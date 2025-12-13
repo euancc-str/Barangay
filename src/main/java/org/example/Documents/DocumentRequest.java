@@ -5,9 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 import org.example.DatabaseConnection;
 import org.example.Users.Person;
-import org.example.Users.Resident;
 
-import javax.print.Doc;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;

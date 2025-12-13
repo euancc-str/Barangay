@@ -40,7 +40,7 @@ public class requestaDocumentFrame extends JFrame {
         String logoPath = dao.getConfig("logoPath");
         JPanel logoCircle = new JPanel() {
 
-            private Image logoImage = new ImageIcon("resident_photos/"+logoPath).getImage(); // 🔹 path to your logo image
+            private Image logoImage = new ImageIcon(System.getProperty("asset.image.base-path")+logoPath).getImage(); // 🔹 path to your logo image
 
             @Override
             protected void paintComponent(Graphics g) {
