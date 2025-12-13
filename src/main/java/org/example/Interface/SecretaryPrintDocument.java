@@ -5,10 +5,8 @@ import org.example.Admin.AdminSettings.ImageUtils;
 import org.example.Admin.AdminSettings.PhotoDAO;
 import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.Documents.DocumentRequest;
-import org.example.Documents.DocumentType;
 import org.example.ResidentDAO;
 import org.example.StaffDAO;
-import org.example.UserDataManager;
 import org.example.Users.BarangayStaff;
 import org.example.Users.Resident;
 // Assuming this is where your printer class is

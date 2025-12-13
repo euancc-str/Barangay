@@ -5,7 +5,6 @@ import org.example.Documents.Payment;
 import org.example.Users.Resident;
 import java.sql.*;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -309,7 +308,7 @@ public class ResidentDAO {
                 "JOIN document_request dr " +
                 "ON p.requestId = dr.requestId WHERE p.requestId =? ";
         try (Connection conn = DatabaseConnection.getConnection();
-            PreparedStatement pstmt = conn.prepareStatement(sql)){
+             PreparedStatement pstmt = conn.prepareStatement(sql)){
             pstmt.setInt(1,requestId);
             ResultSet rs = pstmt.executeQuery();
             if(rs.next()){

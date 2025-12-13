@@ -1,5 +1,7 @@
 package org.example.Admin.AdminSettings;
 
+import org.example.utils.ResourceUtils;
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
@@ -12,7 +14,7 @@ import java.nio.file.StandardCopyOption;
 public class ImageUtils {
 
 
-    private static final String DEFAULT_ICON_PATH = "/org/example/resources/profile.png";
+    private static final String DEFAULT_ICON_PATH = "profile.png";
 
     public String getImageDir() {
         return new SystemConfigDAO().getImageDir();
@@ -74,12 +76,8 @@ public class ImageUtils {
 
 
             if (img == null) {
-                java.net.URL defaultUrl = ImageUtils.class.getResource(DEFAULT_ICON_PATH);
-                if (defaultUrl != null) {
-                    img = ImageIO.read(defaultUrl);
-                }
+                img = ImageIO.read(ResourceUtils.getResourceAsStream(DEFAULT_ICON_PATH));
             }
-
 
             if (img != null) {
 

@@ -4,6 +4,7 @@ package org.example.Interface;
 import org.example.Documents.DocumentRequest;
 import org.example.ResidentDAO;
 import org.example.Users.Resident;
+import org.example.utils.ResourceUtils;
 
 
 import java.awt.*;
@@ -307,8 +308,8 @@ public class TotalRequestPanel extends JPanel {
     // ===== PROFILE PICTURE LOADING =====
     private String loadProfilePictureFromProperties() {
         java.util.Properties props = new java.util.Properties();
-        try (FileInputStream in = new FileInputStream("profileData.properties")) {
-            props.load(in);
+        try  {
+            props.load(ResourceUtils.getResourceAsStream("profiles/secretary.properties"));
             return props.getProperty("profilePicture", "");
         } catch (IOException e) {
             return "";
@@ -319,8 +320,8 @@ public class TotalRequestPanel extends JPanel {
     // ===== DYNAMIC GREETING =====
     private String getGreetingFromProperties() {
         java.util.Properties props = new java.util.Properties();
-        try (FileInputStream in = new FileInputStream("profileData.properties")) {
-            props.load(in);
+        try {
+            props.load(ResourceUtils.getResourceAsStream("profiles/secretary.properties"));
             String lastName = props.getProperty("lastName", "");
             String sex = props.getProperty("sex", "");
 

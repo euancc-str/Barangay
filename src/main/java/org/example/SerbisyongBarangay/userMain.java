@@ -2,6 +2,7 @@ package org.example.SerbisyongBarangay;
 
 import org.example.UserDataManager;
 import org.example.Users.Resident;
+import org.example.utils.ResourceUtils;
 
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -56,11 +57,10 @@ public class userMain extends JFrame {
         logo.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
         logo.setHorizontalAlignment(SwingConstants.CENTER);
 
-        String logoImage = "C:\\Users\\HP\\Documents\\NetBeansProjects\\SerbisyongBarangay\\app\\src\\main\\resources\\serbisyongBarangayLogo.jpg";
 
         // Image scaledImage=logoIcon.getImage();
 
-        Image logoImg = new ImageIcon(logoImage).getImage().getScaledInstance(40, 40, Image.SCALE_SMOOTH);
+        Image logoImg = new ImageIcon(ResourceUtils.getResourceAsBytes("serbisyongBarangayLogo.jpg")).getImage().getScaledInstance(40, 40, Image.SCALE_SMOOTH);
         logo.setIcon(new ImageIcon(logoImg));
 
         JPanel leftHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
@@ -118,15 +118,13 @@ public class userMain extends JFrame {
         });
 
         // Icons (you can replace with real ones using ImageIcon)
-        String docImg = "C:\\Users\\HP\\Documents\\NetBeansProjects\\SerbisyongBarangay\\app\\src\\main\\resources\\documentLogo.png";
         JLabel docIcon = new JLabel();
 
-        Image docimage = new ImageIcon(docImg).getImage().getScaledInstance(logoWidth, logoWidth, Image.SCALE_SMOOTH);
+        Image docimage = new ImageIcon(ResourceUtils.getResourceAsBytes("documentLogo.png")).getImage().getScaledInstance(logoWidth, logoWidth, Image.SCALE_SMOOTH);
         docIcon.setIcon(new ImageIcon(docimage));
 
-        String checkDoc = "C:\\Users\\HP\\Documents\\NetBeansProjects\\SerbisyongBarangay\\app\\src\\main\\resources\\checkDocLogo.png";
         JLabel checkIcon = new JLabel();
-        Image checkimg = new ImageIcon(checkDoc).getImage().getScaledInstance(logoWidth, logoHeight,
+        Image checkimg = new ImageIcon(ResourceUtils.getResourceAsBytes("checkDocLogo.png")).getImage().getScaledInstance(logoWidth, logoHeight,
                 Image.SCALE_SMOOTH);
         checkIcon.setIcon(new ImageIcon(checkimg));
 
@@ -159,9 +157,8 @@ public class userMain extends JFrame {
         rgbc.fill = GridBagConstraints.NONE;
 
         JLabel profileIcon = new JLabel();
-        String profileimg = "C:\\Users\\HP\\Documents\\NetBeansProjects\\SerbisyongBarangay\\app\\src\\main\\resources\\userProfile.png";
 
-        Image profileImage = new ImageIcon(profileimg).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH);
+        Image profileImage = new ImageIcon(ResourceUtils.getResourceAsBytes("userProfile.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH);
         profileIcon.setIcon(new ImageIcon(profileImage));
 
         JLabel nameLabel = new JLabel("NAME");

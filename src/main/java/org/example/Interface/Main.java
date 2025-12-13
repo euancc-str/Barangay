@@ -1,11 +1,13 @@
 package org.example.Interface;
 
 
+import lombok.SneakyThrows;
 import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.Admin.AdminSystemSettings;
 import org.example.Users.BarangayStaff;
 import org.example.Users.Resident;
 import org.example.UserDataManager;
+import org.example.utils.ResourceUtils;
 
 
 import javax.swing.*;
@@ -17,6 +19,7 @@ import java.awt.event.FocusEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.time.LocalDateTime;
+import java.util.Properties;
 
 
 public class Main {
@@ -153,7 +156,7 @@ public class Main {
     // Method to create icon with consistent size
     private static ImageIcon createIcon(String path, int width, int height) {
         try {
-            ImageIcon originalIcon = new ImageIcon(path);
+            ImageIcon originalIcon = new ImageIcon(ResourceUtils.getResourceAsBytes(path));
             Image resizedImage = originalIcon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
             return new ImageIcon(resizedImage);
         } catch (Exception e) {
@@ -210,9 +213,18 @@ public class Main {
 
     private static SystemConfigDAO dao;
 
+    @SneakyThrows
+    private static void loadPropertiesToSystem(){
+        Properties props = new Properties();
+        props.load(ResourceUtils.getResourceAsStream("application.properties"));
+        props.forEach((k, v) ->
+                System.setProperty(k.toString(), v.toString())
+        );
+    }
+
 
     public static void main(String[] args) {
-
+        loadPropertiesToSystem();
 
         JFrame frame = new JFrame("Serbisyong Barangay");
         frame.setSize(800, 500);
@@ -228,7 +240,7 @@ public class Main {
 
 
         try {
-            ImageIcon icon = new ImageIcon("resident_photos/"+logoPath);
+            ImageIcon icon = new ImageIcon(logoPath);
             frame.setIconImage(icon.getImage());
         } catch (Exception e) {
             System.out.println("Icon not found");
@@ -267,7 +279,7 @@ public class Main {
         leftGbc.gridy = 0;
         try {
             String bigLogo = dao.getConfig("bigLogoPath");
-            ImageIcon originalIcon = new ImageIcon("resident_photos/"+bigLogo);
+            ImageIcon originalIcon = new ImageIcon(System.getProperty("asset.image.base-path") + bigLogo);
             Image originalImage = originalIcon.getImage();
             Image resizedImage = originalImage.getScaledInstance(80, 80, Image.SCALE_SMOOTH);
             ImageIcon resizedIcon = new ImageIcon(resizedImage);
@@ -356,7 +368,7 @@ public class Main {
 
 
         // Add icon on the left
-        JLabel usernameIcon = new JLabel(createIcon("src/main/java/org/example/resources/profile.png", 32, 32));
+        JLabel usernameIcon = new JLabel(createIcon("profile.png", 32, 32));
         usernamePanel.add(usernameIcon, BorderLayout.WEST);
 
 
@@ -389,7 +401,7 @@ public class Main {
 
 
         // Add icon on the left
-        JLabel passwordIcon = new JLabel(createIcon("src/main/java/org/example/resources/password.png", 32, 32));
+        JLabel passwordIcon = new JLabel(createIcon("password.png", 32, 32));
         passwordPanel.add(passwordIcon, BorderLayout.WEST);
 
 

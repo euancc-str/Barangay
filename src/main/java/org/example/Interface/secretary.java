@@ -7,6 +7,7 @@ import org.example.Captain.PersonalInformation;
 import org.example.UserDataManager;
 import org.example.Users.BarangayStaff;
 import org.example.Users.Resident;
+import org.example.utils.ResourceUtils;
 
 
 import java.awt.*;
@@ -54,7 +55,7 @@ public class secretary extends JFrame {
 
     // ===== AUTO-SAVE FIELDS =====
     private Properties profileProperties = new Properties();
-    private static final String PROPERTIES_FILE = "profileData.properties";
+    private static final String PROPERTIES_FILE = "profiles/secretary.properties";
 
 
     // Form field references for auto-save
@@ -228,7 +229,7 @@ public class secretary extends JFrame {
         JPanel logoCircle = new JPanel() {
 
 
-            private Image logoImage = new ImageIcon("resident_photos/"+logoPath).getImage(); // 🔹 path to your logo image
+            private Image logoImage = new ImageIcon(System.getProperty("asset.image.base-path")+logoPath).getImage(); // 🔹 path to your logo image
 
 
             @Override
@@ -623,8 +624,8 @@ public class secretary extends JFrame {
 
 
     private void loadProperties() {
-        try (FileInputStream in = new FileInputStream(PROPERTIES_FILE)) {
-            profileProperties.load(in);
+        try {
+            profileProperties.load(ResourceUtils.getResourceAsStream(PROPERTIES_FILE));
             System.out.println("Profile data loaded successfully.");
         } catch (IOException ex) {
             System.out.println("No existing profile data file found. Starting fresh.");
@@ -633,8 +634,8 @@ public class secretary extends JFrame {
 
 
     private void saveProperties() {
-        try (FileOutputStream out = new FileOutputStream(PROPERTIES_FILE)) {
-            profileProperties.store(out, "User Profile Data Saved on " + new Date());
+        try {
+            profileProperties.store(ResourceUtils.getResourceAsOutputStream(PROPERTIES_FILE), "User Profile Data Saved on " + new Date());
             System.out.println("Profile data saved successfully.");
         } catch (IOException ex) {
             JOptionPane.showMessageDialog(this, "Error saving profile data: " + ex.getMessage(),

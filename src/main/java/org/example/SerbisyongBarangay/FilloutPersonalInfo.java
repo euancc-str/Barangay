@@ -2,6 +2,7 @@ package org.example.SerbisyongBarangay;
 
 import org.example.UserDataManager;
 import org.example.Users.Resident;
+import org.example.utils.ResourceUtils;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -460,9 +461,8 @@ public class FilloutPersonalInfo extends JFrame {
         leftPanel.setOpaque(false);
 
         JLabel logoLabel = new JLabel();
-        String logolink = "resources/serbisyongBarangayLogo.jpg";
         try {
-            Image logoImage = new ImageIcon(logolink).getImage().getScaledInstance(50, 50, Image.SCALE_SMOOTH);
+            Image logoImage = new ImageIcon(ResourceUtils.getResourceAsBytes("serbisyongBarangayLogo.jpg")).getImage().getScaledInstance(50, 50, Image.SCALE_SMOOTH);
             logoLabel.setIcon(new ImageIcon(logoImage));
         } catch (Exception e) {
             logoLabel.setText("LOGO");

@@ -1,5 +1,7 @@
 package org.example.SerbisyongBarangay;
 
+import org.example.utils.ResourceUtils;
+
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -237,9 +239,7 @@ public class CheckDocumentStatusFrame extends JFrame {
         panel.setBackground(Color.black);
 
         JLabel logo = new JLabel();
-        String logopath = "C:\\Users\\HP\\Documents\\NetBeansProjects\\SerbisyongBarangay\\app\\src\\main\\resources\\serbisyongBarangayLogo.jpg";
-
-        Image logoimg = new ImageIcon(logopath).getImage().getScaledInstance(50, 50, Image.SCALE_SMOOTH);
+        Image logoimg = new ImageIcon(ResourceUtils.getResourceAsBytes("serbisyongBarangayLogo.jpg")).getImage().getScaledInstance(50, 50, Image.SCALE_SMOOTH);
         logo.setIcon(new ImageIcon(logoimg));
 
         JPanel leftpanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 10));
