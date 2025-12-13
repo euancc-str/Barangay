@@ -9,6 +9,8 @@ import java.awt.*;
 
 public class BarangayOfficialProfile extends JPanel {
 
+    private static final Color HEADER_BG = new Color(21, 101, 192);
+
     public BarangayOfficialProfile() {
         setLayout(new BorderLayout(0, 0));
         setBackground(new Color(229, 231, 235));
@@ -28,33 +30,32 @@ public class BarangayOfficialProfile extends JPanel {
 
     private JPanel createHeaderPanel() {
         JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBackground(new Color(40, 40, 40));
-        headerPanel.setBorder(BorderFactory.createCompoundBorder(
-            new CaptainDashboard.RoundedBorder(30, true, false),
-            new EmptyBorder(25, 40, 25, 40)
-        ));
+        headerPanel.setBackground(HEADER_BG);
+        headerPanel.setBorder(new EmptyBorder(30, 50, 30, 50));
 
         JPanel titlePanel = new JPanel();
         titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
-        titlePanel.setBackground(new Color(40, 40, 40));
+        titlePanel.setBackground(HEADER_BG);
 
-        JLabel lblDocumentary = new JLabel("Documentary");
-        lblDocumentary.setFont(new Font("Arial", Font.BOLD, 26));
-        lblDocumentary.setForeground(Color.WHITE);
+        JLabel lblMain = new JLabel("Barangay Officials Directory");
+        lblMain.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        lblMain.setForeground(Color.WHITE);
 
-        JLabel lblRequest = new JLabel("Request");
-        lblRequest.setFont(new Font("Arial", Font.BOLD, 22));
-        lblRequest.setForeground(Color.WHITE);
+        JLabel lblSub = new JLabel("Meet Your Barangay Leadership Team");
+        lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        lblSub.setForeground(new Color(200, 220, 255));
 
-        titlePanel.add(lblDocumentary);
-        titlePanel.add(lblRequest);
+        titlePanel.add(lblMain);
+        titlePanel.add(Box.createVerticalStrut(5));
+        titlePanel.add(lblSub);
 
         JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
-        userPanel.setBackground(new Color(40, 40, 40));
+        userPanel.setBackground(HEADER_BG);
+
         BarangayStaff staff = new StaffDAO().findStaffByPosition("Brgy.Captain");
 
-        JLabel lblUser = new JLabel("Hi Mr. "+staff.getFirstName());
-        lblUser.setFont(new Font("Arial", Font.PLAIN, 15));
+        JLabel lblUser = new JLabel("Hi Mr. " + staff.getFirstName());
+        lblUser.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         lblUser.setForeground(Color.WHITE);
 
         JPanel userIcon = new JPanel() {
@@ -65,10 +66,11 @@ public class BarangayOfficialProfile extends JPanel {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(Color.WHITE);
                 g2.fillOval(0, 0, 45, 45);
-                g2.setColor(new Color(40, 40, 40));
+                g2.setColor(HEADER_BG);
                 g2.fillOval(12, 8, 20, 20);
                 g2.fillArc(5, 25, 35, 30, 0, 180);
             }
+
             @Override
             public Dimension getPreferredSize() {
                 return new Dimension(45, 45);
@@ -90,8 +92,8 @@ public class BarangayOfficialProfile extends JPanel {
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
         contentPanel.setBackground(Color.WHITE);
         contentPanel.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(Color.BLACK, 3),
-            new EmptyBorder(50, 60, 50, 60)
+                BorderFactory.createLineBorder(Color.BLACK, 3),
+                new EmptyBorder(50, 60, 50, 60)
         ));
 
         // Top Captain (centered)
@@ -103,13 +105,14 @@ public class BarangayOfficialProfile extends JPanel {
         topRow.add(createOfficialCard(fullName, "Brgy. Captain", new Color(34, 197, 94), true));
         contentPanel.add(topRow);
         contentPanel.add(Box.createVerticalStrut(40));
+
         BarangayStaff secretary = new StaffDAO().findStaffByPosition("Secretary");
         String secFullName = secretary.getFirstName() + " " + secretary.getMiddleName() + " "+secretary.getLastName();
         // Second row (2 officials)
         JPanel secondRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 120, 0));
         secondRow.setBackground(Color.WHITE);
         secondRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 200));
-        secondRow.add(createOfficialCard(secFullName, "Brgy. Secretary", null, false));
+        secondRow.add(createOfficialCard(secFullName, "Barangay Secretary", null, false));
         BarangayStaff treasurer = new StaffDAO().findStaffByPosition("Treasurer");
         String treasurerFullName = treasurer.getFirstName() + " " + treasurer.getMiddleName() + " "+treasurer.getLastName();
 
@@ -146,18 +149,18 @@ public class BarangayOfficialProfile extends JPanel {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                
+
                 // Draw border
                 if (borderColor != null) {
                     g2.setColor(borderColor);
                     g2.setStroke(new BasicStroke(4));
                     g2.drawOval(2, 2, getWidth() - 4, getHeight() - 4);
                 }
-                
+
                 // Draw placeholder circle
                 g2.setColor(new Color(200, 200, 200));
                 g2.fillOval(8, 8, getWidth() - 16, getHeight() - 16);
-                
+
                 // Draw simple face icon
                 g2.setColor(new Color(150, 150, 150));
                 // Head

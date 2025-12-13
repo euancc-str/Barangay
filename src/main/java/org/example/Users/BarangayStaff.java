@@ -25,6 +25,7 @@ public class BarangayStaff extends Person {
     private LocalDateTime lastLogin;
     private String assignedZone;
     private LocalDateTime createdAt;
+    private String citizenship;
     private LocalDateTime updatedAt;
     private String idNumber;
 

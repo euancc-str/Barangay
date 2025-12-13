@@ -217,9 +217,9 @@ public class UserDataManager {
     public void addResident(Resident resident) {
         String sql = "INSERT INTO resident (" +
                 "firstName, lastName, gender, username, contactNo, email, password, " +
-                "age, phoneNumber, voterStatus, householdNo, nationalId, photoID, " +
-                "position, createdAt, updatedAt, status, address,birthDate,purok,street" +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?)";
+                "age, voterStatus, householdNo, nationalId, photoPath, " +
+                "position, createdAt, updatedAt, status, address,birthDate,purok,street,middleName,civilStatus" +
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -230,21 +230,22 @@ public class UserDataManager {
             pstmt.setString(4, resident.getUsername());
             pstmt.setString(5, resident.getContactNo());
             pstmt.setString(6, resident.getEmail());
-            pstmt.setString(7, resident.getPassword()); // Hash if possible
+            pstmt.setString(7, resident.getPassword());
             pstmt.setInt(8, resident.getAge());
-            pstmt.setString(9, resident.getPhoneNumber());
-            pstmt.setString(10, resident.getVoterStatus());
-            pstmt.setString(11, resident.getHouseholdNo());
-            pstmt.setString(12, resident.getNationalId());
-            pstmt.setInt(13, resident.getPhotoID());
-            pstmt.setString(14, resident.getPosition());
-            pstmt.setTimestamp(15, Timestamp.valueOf(resident.getCreatedAt()));
-            pstmt.setTimestamp(16, Timestamp.valueOf(resident.getUpdatedAt()));
-            pstmt.setString(17, resident.getStatus());
-            pstmt.setString(18, resident.getAddress());
-            pstmt.setDate(19, Date.valueOf(resident.getDob()));
-            pstmt.setString(20,resident.getPurok());
-            pstmt.setString(21,resident.getStreet());
+            pstmt.setString(9, resident.getVoterStatus());
+            pstmt.setString(10, resident.getHouseholdNo());
+            pstmt.setString(11, resident.getNationalId());
+            pstmt.setInt(12, resident.getPhotoID());
+            pstmt.setString(13, resident.getPosition());
+            pstmt.setTimestamp(14, Timestamp.valueOf(resident.getCreatedAt()));
+            pstmt.setTimestamp(15, Timestamp.valueOf(resident.getUpdatedAt()));
+            pstmt.setString(16, resident.getStatus());
+            pstmt.setString(17, resident.getAddress());
+            pstmt.setDate(18, Date.valueOf(resident.getDob()));
+            pstmt.setString(19,resident.getPurok());
+            pstmt.setString(20,resident.getStreet());
+            pstmt.setString(21,resident.getMiddleName());
+            pstmt.setString(22,resident.getCivilStatus());
             pstmt.executeUpdate();
             System.out.println("✅ Resident saved successfully!");
 
@@ -276,7 +277,6 @@ public class UserDataManager {
                         .email(rs.getString("email"))
                         .password(rs.getString("password"))
                         .age(rs.getInt("age"))
-                        .phoneNumber(rs.getString("phoneNumber"))
                         .voterStatus(rs.getString("voterStatus"))
                         .householdNo(rs.getString("householdNo"))
                         .nationalId(rs.getString("nationalId"))
@@ -343,8 +343,11 @@ public class UserDataManager {
                             .middleName(rs.getString("middleName"))
                             .role(rs.getString("role"))
                             .status(rs.getString("status"))
+                            .civilStatus(rs.getString("civilStatus"))
                             .department(rs.getString("department"))
-                            // Handle Dates
+                            .suffix(rs.getString("suffix") != null ? rs.getString("suffix") : "") // Default to empty string
+                            .sex(rs.getString("sex") != null ? rs.getString("sex") : "Male")      // Default to Male/Female
+                            .citizenship(rs.getString("citizenship") != null ? rs.getString("citizenship") : "Filipino")
                             .dob(rs.getDate("birthDate") != null ? rs.getDate("birthDate").toLocalDate() : null)
                             .lastLogin(LocalDateTime.now())
                             .createdAt(rs.getTimestamp("createdAt") != null ? rs.getTimestamp("createdAt").toLocalDateTime() : null)
@@ -396,7 +399,7 @@ public class UserDataManager {
 
     public void updateResident(Resident resident) {
         String sql = "UPDATE resident SET firstName = ?, gender = ?, email = ?, contactNo = ?, " +
-                "phoneNumber = ?, voterStatus = ?, householdNo = ?, nationalId = ?, " +
+                " voterStatus = ?, householdNo = ?, nationalId = ?, " +
                 "position = ?, age = ?, status = ?, updatedAt = ?, address = ?,middleName = ?,suffix = ?,civilStatus = ? WHERE residentId = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -406,19 +409,18 @@ public class UserDataManager {
             pstmt.setString(2, resident.getGender());
             pstmt.setString(3, resident.getEmail());
             pstmt.setString(4, resident.getContactNo());
-            pstmt.setString(5, resident.getPhoneNumber());
-            pstmt.setString(6, resident.getVoterStatus());
-            pstmt.setString(7, resident.getHouseholdNo());
-            pstmt.setString(8, resident.getNationalId());
-            pstmt.setString(9, resident.getPosition());
-            pstmt.setInt(10, resident.getAge());
-            pstmt.setString(11, resident.getStatus());
-            pstmt.setTimestamp(12, Timestamp.valueOf(LocalDateTime.now()));
-            pstmt.setString(13,resident.getAddress());
-            pstmt.setString(14,resident.getMiddleName());
-            pstmt.setString(15,resident.getSuffix());
-            pstmt.setString(16,resident.getCivilStatus());
-            pstmt.setInt(17, resident.getResidentId());
+            pstmt.setString(5, resident.getVoterStatus());
+            pstmt.setString(6, resident.getHouseholdNo());
+            pstmt.setString(7, resident.getNationalId());
+            pstmt.setString(8, resident.getPosition());
+            pstmt.setInt(9, resident.getAge());
+            pstmt.setString(10, resident.getStatus());
+            pstmt.setTimestamp(11, Timestamp.valueOf(LocalDateTime.now()));
+            pstmt.setString(12,resident.getAddress());
+            pstmt.setString(13,resident.getMiddleName());
+            pstmt.setString(14,resident.getSuffix());
+            pstmt.setString(15,resident.getCivilStatus());
+            pstmt.setInt(16, resident.getResidentId());
 
             int rowsUpdated = pstmt.executeUpdate();
             System.out.println("✅ Updated " + rowsUpdated + " row(s) successfully!");
@@ -432,9 +434,9 @@ public class UserDataManager {
         String sql = "UPDATE barangay_staff SET " +
                 "firstName = ?, lastName = ?, position = ?, contactNo = ?, email = ?, " +
                 "username = ?, password = ?, role = ?, status = ?, department = ?, " +
-                "lastLogin = ?, updatedAt = ?, address = ?, birthDate = ? " +
+                "lastLogin = ?, updatedAt = ?, address = ?, birthDate = ?,citizenship = ?,suffix = ?,civilStatus=? " +
                 "WHERE idNumber = ?";
-
+        System.out.println(staff);
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -462,8 +464,11 @@ public class UserDataManager {
             pstmt.setDate(14, staff.getDob() != null
                     ? Date.valueOf(staff.getDob())
                     : null);
+            pstmt.setString(15,staff.getCitizenship());
+            pstmt.setString(16,staff.getSuffix());
+            pstmt.setString(17,staff.getCivilStatus());
 
-            pstmt.setString(15, staff.getStaffId());
+            pstmt.setString(18, staff.getIdNumber());
 
             int rowsUpdated = pstmt.executeUpdate();
             System.out.println("✅ Updated " + rowsUpdated + " staff record(s) successfully!");

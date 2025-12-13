@@ -70,5 +70,19 @@ public class SystemLogDAO {
         }
         return logs;
     }
+    public boolean deleteLog(int logId) {
+        String sql = "DELETE FROM system_logs WHERE logId = ?";
+        try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, logId);
+            int rows = stmt.executeUpdate();
+            return rows > 0; // Returns true if deleted
+
+        } catch (java.sql.SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 
 }

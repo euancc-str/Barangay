@@ -1,5 +1,6 @@
 package org.example.treasurer;
 
+
 import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.Admin.SystemLogDAO;
 import org.example.DocumentRequestDao;
@@ -12,6 +13,7 @@ import org.example.UserDataManager;
 import org.example.Users.BarangayStaff;
 import org.example.Users.Resident;
 
+
 import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.table.*;
@@ -21,9 +23,14 @@ import java.awt.geom.Ellipse2D;
 import java.awt.print.PrinterException;
 import java.awt.print.PrinterJob;
 import java.lang.reflect.Method;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
+
 public class TreasurerDashboard extends JFrame {
+
 
     private JPanel contentContainer;
     private CardLayout cardLayout;
@@ -34,10 +41,19 @@ public class TreasurerDashboard extends JFrame {
     private JButton btnPending, btnVerified;
     private boolean showingPending = true;
 
-    // --- NEW COMPONENTS (Search & Count) ---
+
+
     private JTextField searchField;
     private JLabel lblRecordCount;
     private TableRowSorter<DefaultTableModel> sorter;
+
+
+    // Gradient colors
+    private final Color CERULEAN_BLUE = new Color(100, 149, 237);
+    private final Color LIGHT_BLUE = new Color(173, 216, 230);
+    private final Color VERY_LIGHT_BLUE = new Color(225, 245, 254);
+    private final Color DARK_CERULEAN = new Color(70, 130, 180);
+
 
     public TreasurerDashboard() {
         setTitle("Documentary Request - Treasurer Dashboard");
@@ -45,22 +61,39 @@ public class TreasurerDashboard extends JFrame {
         setSize(1400, 900);
         setLocationRelativeTo(null);
 
+
         // Main container
         JPanel mainPanel = new JPanel(new BorderLayout(0, 0));
-        mainPanel.setBackground(Color.BLACK);
+        mainPanel.setBackground(DARK_CERULEAN);
+
 
         // Sidebar
         sidebar = createSidebar();
         mainPanel.add(sidebar, BorderLayout.WEST);
 
+
         // Content area with CardLayout
-        JPanel contentArea = new JPanel(new BorderLayout(0, 0));
-        contentArea.setBackground(new Color(240, 240, 240));
+        JPanel contentArea = new JPanel(new BorderLayout(0, 0)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                GradientPaint gradient = new GradientPaint(
+                        0, 0, LIGHT_BLUE,
+                        getWidth(), getHeight(), VERY_LIGHT_BLUE
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        contentArea.setOpaque(false);
         contentArea.setBorder(new EmptyBorder(15, 15, 15, 15));
+
 
         cardLayout = new CardLayout();
         contentContainer = new JPanel(cardLayout);
-        contentContainer.setBackground(new Color(240, 240, 240));
+        contentContainer.setOpaque(false);
+
 
         // Add different panels
         contentContainer.add(new TreasurerPersonalInformation(), "personal_info");
@@ -71,32 +104,162 @@ public class TreasurerDashboard extends JFrame {
         contentArea.add(contentContainer, BorderLayout.CENTER);
         mainPanel.add(contentArea, BorderLayout.CENTER);
 
+
         add(mainPanel);
+
 
         // Show dashboard by default
         cardLayout.show(contentContainer, "dashboard");
     }
+    private void loadTableData(DefaultTableModel model, String status) {
+        if (model == null) return;
+
+        // USE SWINGWORKER TO PREVENT FREEZING
+        new SwingWorker<List<DocumentRequest>, Void>() {
+            @Override
+            protected List<DocumentRequest> doInBackground() throws Exception {
+                // BACKGROUND THREAD: Fetch Data
+                DocumentRequestDao rd = new DocumentRequestDao();
+                return rd.getAllResidentsDocument(status);
+            }
+
+            @Override
+            protected void done() {
+                // UI THREAD: Update Table
+                try {
+                    List<DocumentRequest> residentsData = get();
+
+                    // 1. Clear Table
+                    model.setRowCount(0);
+
+                    // 2. Populate Table
+                        if(status.equals("Approved")){
+                            for (DocumentRequest req : residentsData) {
+
+                                model.addRow(new Object[]{
+                                        req.getRequestId(),
+                                        req.getFullName(),
+                                        req.getName(),
+                                        req.getStatus(),
+                                        req.getTotalFee()
+                                });
+                            }
+                        }else{
+                            for (DocumentRequest req : residentsData) {
+                                if(!isRecent(req.getRequestDate())){
+                                    continue;
+                                }
+                                model.addRow(new Object[]{
+                                        req.getRequestId(),
+                                        req.getFullName(),
+                                        req.getName(),
+                                        req.getStatus(),
+                                        req.getRequestDate()
+                                });
+                            }
+                        }
+
+
+
+                    // 3. Update UI
+                    if(paymentTable != null) paymentTable.repaint();
+
+                    // 4. Re-apply filters
+                    if (searchField != null && !searchField.getText().isEmpty()) {
+                        // applyFilters(); // Ensure you have this method accessible or reimplemented
+                        // Simple reimplementation for now if not accessible:
+                        if(sorter != null) sorter.setRowFilter(RowFilter.regexFilter("(?i)" + searchField.getText()));
+                        updateRecordCount();
+                    } else {
+                        updateRecordCount();
+                    }
+
+                    updateTotalPaidUnpaidPanel();
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
+    private boolean isRecent(Object dateObj) {
+        if (dateObj == null) return false;
+
+        try {
+            LocalDateTime reqTime = null;
+
+            if (dateObj instanceof java.sql.Timestamp) {
+                reqTime = ((java.sql.Timestamp) dateObj).toLocalDateTime();
+            }
+            else if (dateObj instanceof java.time.LocalDateTime) {
+                reqTime = (java.time.LocalDateTime) dateObj;
+            }
+            else {
+
+                String dateStr = dateObj.toString();
+
+                if (dateStr.contains(".")) dateStr = dateStr.split("\\.")[0];
+                dateStr = dateStr.replace("T", " ");
+
+                DateTimeFormatter formatter;
+                if (dateStr.length() == 19) {
+                    formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                } else if (dateStr.length() == 16) {
+                    formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+                } else {
+                    return false;
+                }
+
+                reqTime = LocalDateTime.parse(dateStr, formatter);
+            }
+
+            // 3. Calculate Difference
+            if (reqTime != null) {
+                long diff = java.time.temporal.ChronoUnit.MINUTES.between(reqTime, LocalDateTime.now());
+                // Return true if 0 to 5 minutes old
+                return diff >= 0 && diff <= 5;
+            }
+
+        } catch (Exception e) {
+            // e.printStackTrace(); // Quiet fail
+        }
+        return false;
+    }
     private SystemConfigDAO dao;
 
-    // ... [Sidebar creation code remains unchanged] ...
+
     private JPanel createSidebar() {
-        // (Keep your existing sidebar code exactly as is)
-        JPanel sidebar = new JPanel();
+        JPanel sidebar = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                GradientPaint gradient = new GradientPaint(
+                        0, 0, new Color(20, 20, 20),
+                        getWidth(), getHeight(), new Color(50, 50, 50)
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
-        sidebar.setBackground(Color.BLACK);
+        sidebar.setOpaque(false);
         sidebar.setPreferredSize(new Dimension(260, 0));
         sidebar.setBorder(new EmptyBorder(0, 0, 0, 0));
 
+
         // Logo and Title
         JPanel logoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 25));
-        logoPanel.setBackground(Color.BLACK);
+        logoPanel.setOpaque(false);
         logoPanel.setMaximumSize(new Dimension(260, 90));
+
 
         dao = new SystemConfigDAO();
         String logoPath = dao.getConfig("logoPath");
         JPanel logoCircle = new JPanel() {
+            private Image logoImage = new ImageIcon("resident_photos/"+logoPath).getImage();
 
-            private Image logoImage = new ImageIcon("resident_photos/"+logoPath).getImage(); // 🔹 path to your logo image
 
             @Override
             protected void paintComponent(Graphics g) {
@@ -104,22 +267,28 @@ public class TreasurerDashboard extends JFrame {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+
                 int diameter = Math.min(getWidth(), getHeight());
 
-                // 🟢 Draw circular clipping area
+
+                // Draw circular clipping area
                 g2.setClip(new Ellipse2D.Float(0, 0, diameter, diameter));
 
-                // 🖼️ Draw the logo image scaled to the panel size
+
+                // Draw the logo image scaled to the panel size
                 g2.drawImage(logoImage, 0, 0, diameter, diameter, this);
 
-                // ⚪ Optional: Add a white circular border
+
+                // Optional: Add a cerulean circular border
                 g2.setClip(null);
-                g2.setColor(Color.WHITE);
+                g2.setColor(CERULEAN_BLUE);
                 g2.setStroke(new BasicStroke(2f));
                 g2.drawOval(0, 0, diameter - 1, diameter - 1);
 
+
                 g2.dispose();
             }
+
 
             @Override
             public Dimension getPreferredSize() {
@@ -128,57 +297,84 @@ public class TreasurerDashboard extends JFrame {
         };
         logoCircle.setOpaque(false);
 
+
         JLabel titleLabel = new JLabel("Serbisyong Barangay");
         titleLabel.setForeground(Color.WHITE);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 15));
 
+
         logoPanel.add(logoCircle);
         logoPanel.add(titleLabel);
 
+
         sidebar.add(logoPanel);
         sidebar.add(Box.createVerticalStrut(10));
+
 
         // Menu Items
         sidebar.add(createMenuItem("personal_info", "Personal Information", false));
         sidebar.add(createMenuItem("dashboard", "Dashboard", true));
         sidebar.add(createMenuItem("financial_reports", "Financial Reports", false));
-
         sidebar.add(createMenuItem("total", "Total Paid and Unpaid", false));
         sidebar.add(createMenuItem("profile", "Barangay Official Profile", false));
 
+
         sidebar.add(Box.createVerticalGlue());
+
 
         // Logout button
         JPanel logoutPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 25));
-        logoutPanel.setBackground(Color.BLACK);
+        logoutPanel.setOpaque(false);
         logoutPanel.setMaximumSize(new Dimension(260, 70));
 
-        JPanel logoutButton = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8));
-        logoutButton.setBackground(Color.BLACK);
+
+        JPanel logoutButton = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                GradientPaint gradient = new GradientPaint(
+                        0, 0, new Color(220, 53, 69),
+                        getWidth(), getHeight(), new Color(200, 35, 51)
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                super.paintComponent(g2d);
+            }
+        };
+        logoutButton.setOpaque(false);
         logoutButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
 
         JLabel logoutIcon = new JLabel("⊗");
         logoutIcon.setForeground(Color.WHITE);
         logoutIcon.setFont(new Font("Arial", Font.BOLD, 18));
 
+
         JLabel logoutText = new JLabel("LOG OUT");
         logoutText.setForeground(Color.WHITE);
         logoutText.setFont(new Font("Arial", Font.BOLD, 13));
 
+
         logoutButton.add(logoutIcon);
         logoutButton.add(logoutText);
 
+
         logoutButton.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
-                dispose();openMainWindow();
+                dispose();
+                openMainWindow();
             }
         });
+
 
         logoutPanel.add(logoutButton);
         sidebar.add(logoutPanel);
 
+
         return sidebar;
     }
+
+
     private void openMainWindow() {
         try {
             Class<?> mainClass = Class.forName("org.example.Interface.Main");
@@ -191,17 +387,34 @@ public class TreasurerDashboard extends JFrame {
                     JOptionPane.ERROR_MESSAGE);
         }
     }
+
+
     private JPanel createMenuItem(String type, String text, boolean selected) {
-        // (Keep your existing menu item code exactly as is)
-        JPanel menuItem = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 18));
+        JPanel menuItem = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 18)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                if (selected) {
+                    GradientPaint gradient = new GradientPaint(
+                            0, 0, new Color(80, 80, 80),
+                            getWidth(), getHeight(), new Color(100, 100, 100)
+                    );
+                    g2d.setPaint(gradient);
+                } else {
+                    GradientPaint gradient = new GradientPaint(
+                            0, 0, new Color(30, 30, 30),
+                            getWidth(), getHeight(), new Color(50, 50, 50)
+                    );
+                    g2d.setPaint(gradient);
+                }
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                super.paintComponent(g2d);
+            }
+        };
         menuItem.setMaximumSize(new Dimension(260, 65));
         menuItem.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        menuItem.setOpaque(false);
 
-        if (selected) {
-            menuItem.setBackground(new Color(55, 55, 55));
-        } else {
-            menuItem.setBackground(Color.BLACK);
-        }
 
         // Icon panel
         JPanel iconPanel = new JPanel() {
@@ -212,6 +425,7 @@ public class TreasurerDashboard extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(Color.WHITE);
 
+
                 switch(type) {
                     case "personal_info":
                         g2.fillOval(10, 5, 20, 20);
@@ -219,14 +433,14 @@ public class TreasurerDashboard extends JFrame {
                         break;
                     case "dashboard":
                         g2.fillRect(8, 5, 24, 30);
-                        g2.setColor(Color.BLACK);
+                        g2.setColor(new Color(30, 30, 30));
                         g2.drawLine(12, 12, 28, 12);
                         g2.drawLine(12, 18, 28, 18);
                         g2.drawLine(12, 24, 20, 24);
                         break;
                     case "total":
                         g2.fillRect(8, 15, 24, 20);
-                        g2.setColor(new Color(150, 150, 150));
+                        g2.setColor(new Color(100, 100, 100));
                         g2.fillRect(10, 10, 24, 20);
                         g2.setColor(Color.WHITE);
                         g2.fillRect(12, 5, 24, 20);
@@ -244,12 +458,15 @@ public class TreasurerDashboard extends JFrame {
         };
         iconPanel.setOpaque(false);
 
+
         JLabel textLabel = new JLabel(text);
         textLabel.setForeground(Color.WHITE);
         textLabel.setFont(new Font("Arial", Font.PLAIN, 14));
 
+
         menuItem.add(iconPanel);
         menuItem.add(textLabel);
+
 
         // Click handler to switch tabs
         menuItem.addMouseListener(new MouseAdapter() {
@@ -258,24 +475,27 @@ public class TreasurerDashboard extends JFrame {
                 updateSelectedMenuItem(menuItem);
             }
 
+
             public void mouseEntered(MouseEvent e) {
-                if (menuItem.getBackground().equals(Color.BLACK)) {
-                    menuItem.setBackground(new Color(35, 35, 35));
+                if (!selected) {
+                    menuItem.repaint();
                 }
             }
 
+
             public void mouseExited(MouseEvent e) {
-                if (!menuItem.getBackground().equals(new Color(55, 55, 55))) {
-                    menuItem.setBackground(Color.BLACK);
+                if (!selected) {
+                    menuItem.repaint();
                 }
             }
         });
 
+
         return menuItem;
     }
 
+
     private void updateSelectedMenuItem(JPanel selectedItem) {
-        // (Keep existing code)
         Component[] components = sidebar.getComponents();
         for (Component comp : components) {
             if (comp instanceof JPanel) {
@@ -283,72 +503,100 @@ public class TreasurerDashboard extends JFrame {
                 if (panel.getCursor().getType() == Cursor.HAND_CURSOR &&
                         panel.getMaximumSize() != null &&
                         panel.getMaximumSize().height == 65) {
-                    panel.setBackground(Color.BLACK);
+                    panel.repaint();
                 }
             }
         }
-        selectedItem.setBackground(new Color(55, 55, 55));
+        selectedItem.repaint();
     }
+
 
     private JPanel createDashboardPanel() {
         JPanel containerPanel = new JPanel(new BorderLayout(0, 0));
-        containerPanel.setBackground(new Color(240, 240, 240));
+        containerPanel.setOpaque(false);
+
 
         // Header
         JPanel headerPanel = createHeaderPanel();
         containerPanel.add(headerPanel, BorderLayout.NORTH);
 
+
         // Main Content
-        JPanel contentPanel = new JPanel();
+        JPanel contentPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                GradientPaint gradient = new GradientPaint(
+                        0, 0, LIGHT_BLUE,
+                        getWidth(), getHeight(), VERY_LIGHT_BLUE
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
-        contentPanel.setBackground(new Color(229, 231, 235));
+        contentPanel.setOpaque(false);
         contentPanel.setBorder(new EmptyBorder(35, 60, 35, 60));
+
 
         // Button Panel
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 30, 0));
-        buttonPanel.setBackground(new Color(229, 231, 235));
+        buttonPanel.setOpaque(false);
         buttonPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
+
 
         // Create buttons with hover effects
         btnPending = createRoundedButton("Pending Payment", new Color(255, 165, 0));
         btnPending.addActionListener(e -> showPendingPayments());
 
+
         btnVerified = createRoundedButton("Verified Payment", new Color(0, 128, 0));
         btnVerified.addActionListener(e -> showVerifiedPayments());
+
 
         // Set initial state - Pending selected
         setButtonSelected(btnPending, true);
         setButtonSelected(btnVerified, false);
 
+
         buttonPanel.add(btnPending);
         buttonPanel.add(btnVerified);
+
 
         contentPanel.add(buttonPanel);
         contentPanel.add(Box.createVerticalStrut(30));
 
+
         // Separator Line
         JSeparator separator = new JSeparator(SwingConstants.HORIZONTAL);
-        separator.setForeground(Color.BLACK);
-        separator.setBackground(Color.BLACK);
+        separator.setForeground(CERULEAN_BLUE);
+        separator.setBackground(CERULEAN_BLUE);
         separator.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2));
         contentPanel.add(separator);
 
+
         contentPanel.add(Box.createVerticalStrut(30));
 
-        // --- START OF NEW SEARCH SECTION ---
+
+        // Search Section
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        searchPanel.setBackground(new Color(229, 231, 235));
+        searchPanel.setOpaque(false);
         searchPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+
 
         JLabel searchLabel = new JLabel("Search: ");
         searchLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        searchLabel.setForeground(Color.DARK_GRAY);
+
 
         searchField = new JTextField(20);
         searchField.setFont(new Font("Arial", Font.PLAIN, 14));
+        searchField.setBackground(Color.WHITE);
         searchField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Color.GRAY, 1, true), new EmptyBorder(5, 5, 5, 5)));
+                BorderFactory.createLineBorder(CERULEAN_BLUE, 1, true), new EmptyBorder(5, 5, 5, 5)));
 
-        // --- SEARCH LISTENER (Added) ---
+
         searchField.addKeyListener(new KeyAdapter() {
             public void keyReleased(KeyEvent e) {
                 String text = searchField.getText();
@@ -358,37 +606,39 @@ public class TreasurerDashboard extends JFrame {
                     } else {
                         sorter.setRowFilter(RowFilter.regexFilter("(?i)" + text));
                     }
-                    updateRecordCount(); // Calls the counter
+                    updateRecordCount();
                 }
             }
         });
 
+
         searchPanel.add(searchLabel);
         searchPanel.add(searchField);
 
+
         contentPanel.add(searchPanel);
         contentPanel.add(Box.createVerticalStrut(10));
-        // --- END OF NEW SEARCH SECTION ---
+
 
         // Create tables
-        String[] columnNames = {"Request ID","Name", "Types of Documents", "Status"};
-        Object[][] pendingData = getDocumentData("Pending");
-        Object[][] verifiedData = getDocumentData("Approved");
-
-        pendingTableModel = new DefaultTableModel(pendingData, columnNames) {
+        String[] columnNames = {"Request ID","Name", "Types of Documents", "Status","Paid:"};
+        String[] columnNames1 = {"Request ID","Name", "Types of Documents", "Status","Date issued:"};
+        pendingTableModel = new DefaultTableModel(columnNames1, 0) {
+            public boolean isCellEditable(int row, int column) { return false; }
+        };
+        verifiedTableModel = new DefaultTableModel(columnNames, 0) {
             public boolean isCellEditable(int row, int column) { return false; }
         };
 
-        verifiedTableModel = new DefaultTableModel(verifiedData, columnNames) {
-            public boolean isCellEditable(int row, int column) { return false; }
-        };
-
+        loadTableData(pendingTableModel, "Pending");
+        loadTableData(verifiedTableModel, "Approved");
         paymentTable = new JTable(pendingTableModel);
         styleTable(paymentTable);
 
-        // --- ADD SORTER (For Search to work) ---
+
         sorter = new TableRowSorter<>(pendingTableModel);
         paymentTable.setRowSorter(sorter);
+
 
         paymentTable.addMouseListener(new MouseAdapter() {
             @Override
@@ -396,90 +646,84 @@ public class TreasurerDashboard extends JFrame {
                 if (e.getClickCount() == 2) {
                     int row = paymentTable.getSelectedRow();
                     if (row != -1) {
-                        // Fix index for filtered views
                         handleRowDoubleClick(row);
                     }
                 }
             }
         });
 
+
         JScrollPane tableScrollPane = new JScrollPane(paymentTable);
-        tableScrollPane.setBorder(BorderFactory.createLineBorder(Color.BLACK, 2));
+        tableScrollPane.setBorder(BorderFactory.createLineBorder(CERULEAN_BLUE, 2));
         tableScrollPane.setPreferredSize(new Dimension(1200, 400));
         tableScrollPane.setMaximumSize(new Dimension(1200, 400));
+        tableScrollPane.getViewport().setBackground(VERY_LIGHT_BLUE);
+
 
         contentPanel.add(tableScrollPane);
 
-        // --- START OF NEW RECORD COUNTER ---
+
+        // Record Counter
         contentPanel.add(Box.createVerticalStrut(10));
         JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        footerPanel.setBackground(new Color(229, 231, 235));
+        footerPanel.setOpaque(false);
+
 
         lblRecordCount = new JLabel("Total Records: " + paymentTable.getRowCount());
         lblRecordCount.setFont(new Font("Arial", Font.BOLD, 13));
+        lblRecordCount.setForeground(Color.DARK_GRAY);
+
 
         footerPanel.add(lblRecordCount);
         contentPanel.add(footerPanel);
-        // --- END OF NEW RECORD COUNTER ---
+
 
         contentPanel.add(Box.createVerticalStrut(20));
+
 
         containerPanel.add(contentPanel, BorderLayout.CENTER);
         return containerPanel;
     }
 
-    // --- NEW HELPER METHOD FOR UPDATING COUNT ---
+
     private void updateRecordCount() {
         if (lblRecordCount != null) {
-            int count = paymentTable.getRowCount(); // Gets visible count
+            int count = paymentTable.getRowCount();
             lblRecordCount.setText("Total Records: " + count);
         }
     }
 
-    private Object[][] getDocumentData(String status) {
-        DocumentRequestDao rd = new DocumentRequestDao();
-        List<DocumentRequest> residentsData = rd.getAllResidentsDocument(status);
 
-        if (residentsData == null || residentsData.isEmpty()) {
-            return new Object[0][4];
-        }
 
-        Object[][] pendingData = new Object[residentsData.size()][4];
-        for (int i = 0; i < residentsData.size(); i++) {
-            DocumentRequest req = residentsData.get(i);
-            pendingData[i][0] = req.getRequestId();
-            pendingData[i][1] = req.getFullName();
-            pendingData[i][2] = req.getName();
-            pendingData[i][3] = req.getStatus();
-        }
-        return pendingData;
-    }
+
 
     private void styleTable(JTable table) {
-        // (Keep existing styling)
         table.setFont(new Font("Arial", Font.PLAIN, 14));
         table.setRowHeight(50);
         table.setGridColor(new Color(200, 200, 200));
-        table.setSelectionBackground(new Color(200, 240, 240));
+        table.setSelectionBackground(LIGHT_BLUE);
+        table.setSelectionForeground(Color.BLACK);
+        table.setBackground(VERY_LIGHT_BLUE);
         table.setShowVerticalLines(true);
         table.setShowHorizontalLines(true);
         table.setIntercellSpacing(new Dimension(1, 1));
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.getTableHeader().setReorderingAllowed(false);
 
+
         JTableHeader header = table.getTableHeader();
-        header.setFont(new Font("Arial", Font.BOLD, 16));
-        header.setOpaque(true);
-        header.setBackground(new Color(240, 240, 240));
-        header.setForeground(Color.BLACK);
+        header.setDefaultRenderer(new GradientHeaderRenderer());
         header.setPreferredSize(new Dimension(header.getWidth(), 50));
         header.setBorder(BorderFactory.createEmptyBorder());
+
 
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(JLabel.CENTER);
 
+
         DefaultTableCellRenderer leftRenderer = new DefaultTableCellRenderer();
         leftRenderer.setHorizontalAlignment(JLabel.LEFT);
+
 
         for (int i = 0; i < table.getColumnCount(); i++) {
             if (i == 0) {
@@ -490,12 +734,49 @@ public class TreasurerDashboard extends JFrame {
         }
     }
 
+
+    // Custom Table Header Renderer with Cerulean Gradient
+    private class GradientHeaderRenderer extends DefaultTableCellRenderer {
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value,
+                                                       boolean isSelected, boolean hasFocus, int row, int column) {
+            super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            setHorizontalAlignment(JLabel.CENTER);
+            setFont(new Font("Arial", Font.BOLD, 16));
+            setForeground(Color.WHITE);
+            setOpaque(false);
+            return this;
+        }
+
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2d = (Graphics2D) g.create();
+
+
+            GradientPaint gradient = new GradientPaint(
+                    0, 0, CERULEAN_BLUE,
+                    getWidth(), getHeight(), DARK_CERULEAN
+            );
+
+
+            g2d.setPaint(gradient);
+            g2d.fillRect(0, 0, getWidth(), getHeight());
+
+
+            super.paintComponent(g2d);
+            g2d.dispose();
+        }
+    }
+
+
     private void showPendingPayments() {
         paymentTable.setModel(pendingTableModel);
         styleTable(paymentTable);
         sorter = new TableRowSorter<>(pendingTableModel);
         paymentTable.setRowSorter(sorter);
-        if(searchField != null) searchField.setText(""); // Clear search
+        if(searchField != null) searchField.setText("");
+
 
         setButtonSelected(btnPending, true);
         setButtonSelected(btnVerified, false);
@@ -503,16 +784,19 @@ public class TreasurerDashboard extends JFrame {
         updateTableHeader("Pending Payment");
         updateTotalPaidUnpaidPanel();
         updateRecordCount();
+        loadTableData(pendingTableModel, "Pending");
     }
+
 
     private void showVerifiedPayments() {
         paymentTable.setModel(verifiedTableModel);
         styleTable(paymentTable);
 
-        // IMPORTANT: Reset Sorter for Verified Model
+
         sorter = new TableRowSorter<>(verifiedTableModel);
         paymentTable.setRowSorter(sorter);
-        if(searchField != null) searchField.setText(""); // Clear search
+        if(searchField != null) searchField.setText("");
+
 
         setButtonSelected(btnPending, false);
         setButtonSelected(btnVerified, true);
@@ -520,6 +804,7 @@ public class TreasurerDashboard extends JFrame {
         updateTableHeader("Verified Payment");
         updateTotalPaidUnpaidPanel();
         updateRecordCount();
+        loadTableData(verifiedTableModel, "Approved");
     }
 
 
@@ -527,6 +812,7 @@ public class TreasurerDashboard extends JFrame {
         contentContainer.revalidate();
         contentContainer.repaint();
     }
+
 
     private void setButtonSelected(JButton button, boolean selected) {
         if (selected) {
@@ -540,14 +826,24 @@ public class TreasurerDashboard extends JFrame {
         }
     }
 
+
     private JButton createRoundedButton(String text, Color bgColor) {
         JButton button = new JButton(text) {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getBackground());
+
+
+                // Create gradient for button
+                GradientPaint gradient = new GradientPaint(
+                        0, 0, getBackground(),
+                        getWidth(), getHeight(), getBackground().brighter()
+                );
+                g2.setPaint(gradient);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 25, 25);
+
+
                 g2.setColor(getForeground());
                 FontMetrics fm = g2.getFontMetrics();
                 int x = (getWidth() - fm.stringWidth(getText())) / 2;
@@ -569,49 +865,95 @@ public class TreasurerDashboard extends JFrame {
             public void mouseEntered(MouseEvent e) {
                 if (!((showingPending && button == btnPending) || (!showingPending && button == btnVerified))) {
                     button.setBackground(button == btnPending ? new Color(255, 185, 0) : new Color(0, 148, 0));
+                    button.repaint();
                 }
             }
             public void mouseExited(MouseEvent e) {
                 if (!((showingPending && button == btnPending) || (!showingPending && button == btnVerified))) {
                     button.setBackground(button == btnPending ? new Color(255, 165, 0) : new Color(0, 128, 0));
+                    button.repaint();
                 }
             }
         });
         return button;
     }
 
+
     private JPanel createHeaderPanel() {
-        JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBackground(Color.BLACK);
-        headerPanel.setBorder(BorderFactory.createCompoundBorder(
-                new RoundedBorder(30, true, false),
+        JPanel headerPanel = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                GradientPaint gradient = new GradientPaint(
+                        0, 0, CERULEAN_BLUE,
+                        getWidth(), 0, DARK_CERULEAN
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        headerPanel.setOpaque(false);
+        // Remove the RoundedBorder that was creating white borders and replace with cerulean border
+        headerPanel.setBorder(new CompoundBorder(
+                new LineBorder(CERULEAN_BLUE, 2, true),
                 new EmptyBorder(25, 40, 25, 40)
         ));
+
+
         JPanel titlePanel = new JPanel();
         titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
-        titlePanel.setBackground(Color.BLACK);
+        titlePanel.setOpaque(false);
+
+
         JLabel lblDocumentary = new JLabel("Documentary");
         lblDocumentary.setFont(new Font("Arial", Font.BOLD, 26));
         lblDocumentary.setForeground(Color.WHITE);
+
+
         JLabel lblRequest = new JLabel("Request");
         lblRequest.setFont(new Font("Arial", Font.BOLD, 22));
         lblRequest.setForeground(Color.WHITE);
+
+
         titlePanel.add(lblDocumentary);
         titlePanel.add(lblRequest);
+
+
         JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
-        userPanel.setBackground(Color.BLACK);
-        JLabel lblUser = new JLabel("Hi Ms. Anduja");
+        userPanel.setOpaque(false);
+
+        BarangayStaff staff = UserDataManager.getInstance().getCurrentStaff();
+        String name = staff.getFirstName();
+        String data = "";
+        if(staff.getSex().equals("Male")){
+            data = "Mr.";
+        }else{
+            data = "Ms.";
+        }
+        JLabel lblUser = new JLabel("Hi "+data+" "+name);
         lblUser.setFont(new Font("Arial", Font.PLAIN, 15));
         lblUser.setForeground(Color.WHITE);
+
+
         JPanel userIcon = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(Color.WHITE);
+
+
+                // Gradient for user icon
+                GradientPaint gradient = new GradientPaint(
+                        0, 0, LIGHT_BLUE,
+                        getWidth(), getHeight(), CERULEAN_BLUE
+                );
+                g2.setPaint(gradient);
                 g2.fillOval(0, 0, 45, 45);
-                g2.setColor(Color.BLACK);
+
+
+                g2.setColor(Color.WHITE);
                 g2.fillOval(12, 8, 20, 20);
                 g2.fillArc(5, 25, 35, 30, 0, 180);
             }
@@ -621,34 +963,61 @@ public class TreasurerDashboard extends JFrame {
             }
         };
         userIcon.setOpaque(false);
+
+
         userPanel.add(lblUser);
         userPanel.add(userIcon);
+
+
         headerPanel.add(titlePanel, BorderLayout.WEST);
         headerPanel.add(userPanel, BorderLayout.EAST);
         return headerPanel;
     }
 
+
     private JPanel createPlaceholderPanel(String title) {
         JPanel containerPanel = new JPanel(new BorderLayout(0, 0));
-        containerPanel.setBackground(new Color(240, 240, 240));
+        containerPanel.setOpaque(false);
+
+
         JPanel headerPanel = createHeaderPanel();
         containerPanel.add(headerPanel, BorderLayout.NORTH);
-        JPanel contentPanel = new JPanel();
-        contentPanel.setBackground(Color.WHITE);
+
+
+        JPanel contentPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                GradientPaint gradient = new GradientPaint(
+                        0, 0, LIGHT_BLUE,
+                        getWidth(), getHeight(), VERY_LIGHT_BLUE
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        contentPanel.setOpaque(false);
         contentPanel.setBorder(new EmptyBorder(50, 50, 50, 50));
+
+
         JLabel label = new JLabel(title + " - Coming Soon");
         label.setFont(new Font("Arial", Font.BOLD, 24));
-        label.setForeground(new Color(100, 100, 100));
+        label.setForeground(Color.DARK_GRAY);
         contentPanel.add(label);
+
+
         containerPanel.add(contentPanel, BorderLayout.CENTER);
         return containerPanel;
     }
+
 
     private JPanel createTotalPaidUnpaidPanel() {
         int paidCount = verifiedTableModel.getRowCount();
         int unpaidCount = pendingTableModel.getRowCount();
         return new TotalPaidUnpaidPanel(paidCount, unpaidCount);
     }
+
 
     private void updateTotalPaidUnpaidPanel() {
         Component[] components = contentContainer.getComponents();
@@ -663,13 +1032,19 @@ public class TreasurerDashboard extends JFrame {
         }
     }
 
+
+    // ... [Rest of the methods remain the same] ...
+
+
     private void handleRowDoubleClick(int row) {
         int modelRow = paymentTable.convertRowIndexToModel(row);
         int requestId = Integer.parseInt(paymentTable.getModel().getValueAt(modelRow, 0).toString());
         String name = (String) paymentTable.getValueAt(row, 1);
         String documentType = (String) paymentTable.getValueAt(row, 2);
 
+
         boolean isPending = paymentTable.getModel() == pendingTableModel || showingPending;
+
 
         if (isPending) {
             boolean confirmed = showLargeConfirmDialog(
@@ -678,10 +1053,10 @@ public class TreasurerDashboard extends JFrame {
                     false,name,documentType,requestId
             );
             if (confirmed) {
-
                 DocumentRequest doc = rd.findPurposeByFullName(name, requestId);
                 UserDataManager.getInstance().setResidentId(doc.getResidentId());
                 Object[] rowData = {requestId, name, documentType, "Approved" };
+
 
                 int staffId = Integer.parseInt(staff.getStaffId());
                 staffDAO.documentDecisionByStatus("Approved", UserDataManager.getInstance().getResidentId(), staffId,"Paid",requestId,"confirmed payment");
@@ -691,9 +1066,9 @@ public class TreasurerDashboard extends JFrame {
                 UserDataManager.getInstance().addPayment(docType,dao,UserDataManager.getInstance().getCurrentStaff());
                 pendingTableModel.removeRow(row);
                 verifiedTableModel.addRow(rowData);
-                showLargeMessageDialog("Success", "Payment verified successfully!Generating receipt...",1,name,documentType,requestId);
+                showLargeMessageDialog("Success", "Payment verified successfully!",1,name,documentType,requestId);
                 updateTotalPaidUnpaidPanel();
-                updateRecordCount(); // Update count after move
+                updateRecordCount();
             }
         } else {
             boolean confirmed = showLargeConfirmDialog(
@@ -712,26 +1087,39 @@ public class TreasurerDashboard extends JFrame {
                 pendingTableModel.addRow(rowData);
                 showLargeMessageDialog("Success", "Payment unverified successfully!",0," ","",requestId);
                 updateTotalPaidUnpaidPanel();
-                updateRecordCount(); // Update count after move
+                updateRecordCount();
             }
         }
     }
     private static ResidentDAO rd = new ResidentDAO();
 
+
     private static SystemLogDAO systemLogDAO = new SystemLogDAO();
     private static StaffDAO staffDAO = new StaffDAO();
     BarangayStaff staff = UserDataManager.getInstance().getCurrentStaff();
+
+
     private boolean showLargeConfirmDialog(String title, String htmlMessage, boolean destructiveYes, String name, String docType,int requestId) {
         final boolean[] result = {false};
         JDialog dialog = new JDialog(this, title, true);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+
+
         JPanel content = new JPanel(new BorderLayout(20, 20));
         content.setBorder(new EmptyBorder(18, 18, 18, 18));
+        content.setBackground(VERY_LIGHT_BLUE);
+
+
         JLabel messageLabel = new JLabel("<html><div style='font-size:14px; width:420px; font-weight:bold; color:#000000;'>" + htmlMessage + "</div></html>");
         messageLabel.setFont(new Font("Arial", Font.BOLD, 15));
         messageLabel.setForeground(Color.BLACK);
         content.add(messageLabel, BorderLayout.CENTER);
+
+
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
+        buttonPanel.setBackground(VERY_LIGHT_BLUE);
+
+
         JButton btnYes = new JButton("Yes");
         btnYes.setFont(new Font("Arial", Font.BOLD, 16));
         btnYes.setPreferredSize(new Dimension(140, 48));
@@ -742,9 +1130,10 @@ public class TreasurerDashboard extends JFrame {
             result[0] = true;
             dialog.dispose();
         });
+
+
         if(destructiveYes){
             JButton print = new JButton("Print");
-
             print.setFont(new Font("Arial", Font.BOLD, 16));
             print.setPreferredSize(new Dimension(140, 48));
             print.setBackground(Color.WHITE);
@@ -753,6 +1142,8 @@ public class TreasurerDashboard extends JFrame {
             buttonPanel.add(print);
             print.addActionListener(e ->   printReceipt(name,docType,requestId));
         }
+
+
         JButton btnNo = new JButton("No");
         btnNo.setFont(new Font("Arial", Font.BOLD, 16));
         btnNo.setPreferredSize(new Dimension(140, 48));
@@ -763,6 +1154,30 @@ public class TreasurerDashboard extends JFrame {
             result[0] = false;
             dialog.dispose();
         });
+        JButton btnDelete = createRoundedButton("Delete", Color.RED);
+        btnDelete.setPreferredSize(new Dimension(100, 45));
+        btnDelete.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(
+                    dialog,
+                    "<html><body><b style='color:red'>WARNING:</b><br>" +
+                            "Are you sure you want to delete this request?<br>" +
+                            "This action cannot be undone.</body></html>",
+                    "Confirm Deletion",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE
+            );
+
+            if (confirm == JOptionPane.YES_OPTION) {
+
+                new FinancialDAO().deleteRequest(requestId);
+
+                JOptionPane.showMessageDialog(dialog, "Request deleted successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
+
+                dialog.dispose();
+
+            }
+        });
+
         buttonPanel.add(btnYes);
         buttonPanel.add(btnNo);
         content.add(buttonPanel, BorderLayout.SOUTH);
@@ -772,27 +1187,40 @@ public class TreasurerDashboard extends JFrame {
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
 
+
         return result[0];
     }
+
 
     private void showLargeMessageDialog(String title, String message, int id,String name, String documentType, int requestId) {
         JDialog dialog = new JDialog(this, title, true);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+
+
         JPanel content = new JPanel(new BorderLayout(20, 20));
         content.setBorder(new EmptyBorder(18, 18, 18, 18));
+        content.setBackground(VERY_LIGHT_BLUE);
+
+
         JLabel messageLabel = new JLabel("<html><div style='font-size:14px; width:420px; text-align:center;'>" + message + "</div></html>");
         messageLabel.setFont(new Font("Arial", Font.PLAIN, 15));
         messageLabel.setForeground(Color.BLACK);
         content.add(messageLabel, BorderLayout.CENTER);
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        JButton ok = new JButton("OK");
 
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        buttonPanel.setBackground(VERY_LIGHT_BLUE);
+
+
+        JButton ok = new JButton("OK");
         ok.setFont(new Font("Arial", Font.BOLD, 16));
         ok.setPreferredSize(new Dimension(160, 44));
-        ok.setBackground(new Color(0, 123, 255));
+        ok.setBackground(CERULEAN_BLUE);
         ok.setForeground(Color.WHITE);
         ok.setFocusPainted(false);
         ok.addActionListener(e -> dialog.dispose());
+
+
         buttonPanel.add(ok);
         content.add(buttonPanel, BorderLayout.SOUTH);
         dialog.getContentPane().add(content);
@@ -801,49 +1229,45 @@ public class TreasurerDashboard extends JFrame {
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
 
+
         if(id == 1){
-            printReceipt(name,documentType,requestId);
+
         }
     }
+
+
     private static void printReceipt(String residentName, String docType,int requestId) {
-        // 1. Setup the print job
         PrinterJob job = PrinterJob.getPrinterJob();
-
-        // 2. Create your receipt object with real data
         Payment documentData = new ResidentDAO().findResidentReceiptById(requestId);
-        // (You can fetch the fee amount from your DB/DAO if needed)
-
         String amount = String.valueOf(documentData.getAmount());
-        String orNum = documentData.getOrNumber(); // Generate or fetch
+        String orNum = documentData.getOrNumber();
         BarangayStaff staff = UserDataManager.getInstance().getCurrentStaff();
-        String cashier = staff.getFirstName() +" " + staff.getMiddleName() + " "+ staff.getLastName(); // Or UserDataManager.getCurrentStaff().getName()
-
-        // 3. Pass it to the printer
+        String cashier = staff.getFirstName() +" " + staff.getMiddleName() + " "+ staff.getLastName();
         job.setPrintable(new ReceiptPrinter(residentName, docType, amount, orNum, cashier));
-
-        // 4. Show Print Dialog
         boolean doPrint = job.printDialog();
         if (doPrint) {
             try {
-                job.print(); // This opens the "Save as PDF" or selects printer
+                job.print();
             } catch (PrinterException e) {
                 e.printStackTrace();
             }
         }
     }
+
+
     private void printReceipt1(String residentName, String docType) {
-        // 1. Setup the print job
         JDialog receiptDialog = new JDialog(this, "Print Receipt", true);
         receiptDialog.setSize(350, 500);
         receiptDialog.setLayout(new BorderLayout());
 
-        // 2. Create the Receipt Content (Text Area)
+
         JTextArea receiptArea = new JTextArea();
         receiptArea.setFont(new Font("Monospaced", Font.BOLD, 12));
         receiptArea.setEditable(false);
         receiptArea.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        receiptArea.setBackground(Color.WHITE);
 
-        // 3. Build the Receipt Text
+
         DocumentType documentType = UserDataManager.getInstance().getDocumentTypeByName(docType);
         StringBuilder sb = new StringBuilder();
         sb.append("      SERBISYONG BARANGAY      \n");
@@ -863,26 +1287,29 @@ public class TreasurerDashboard extends JFrame {
         sb.append("      __________________       \n");
         sb.append("       Barangay Treasurer      \n");
 
+
         receiptArea.setText(sb.toString());
         receiptDialog.add(new JScrollPane(receiptArea), BorderLayout.CENTER);
 
+
         JPanel btnPanel = new JPanel(new FlowLayout());
-        btnPanel.setBackground(Color.WHITE);
+        btnPanel.setBackground(VERY_LIGHT_BLUE);
+
 
         JButton btnPrint = new JButton("🖨 Print");
-        btnPrint.setBackground(new Color(40, 167, 69)); // Green
+        btnPrint.setBackground(CERULEAN_BLUE);
         btnPrint.setForeground(Color.WHITE);
         btnPrint.setFont(new Font("Arial", Font.BOLD, 14));
 
+
         JButton btnClose = new JButton("Close");
-        btnClose.setBackground(new Color(220, 53, 69)); // Red
+        btnClose.setBackground(new Color(220, 53, 69));
         btnClose.setForeground(Color.WHITE);
         btnClose.setFont(new Font("Arial", Font.BOLD, 14));
 
-        // 5. Print Action
+
         btnPrint.addActionListener(e -> {
             try {
-                // This opens the system print dialog
                 boolean complete = receiptArea.print();
                 if (complete) {
                     JOptionPane.showMessageDialog(receiptDialog, "Printing Complete", "Success", JOptionPane.INFORMATION_MESSAGE);
@@ -893,16 +1320,19 @@ public class TreasurerDashboard extends JFrame {
             }
         });
 
+
         btnClose.addActionListener(e -> receiptDialog.dispose());
+
 
         btnPanel.add(btnPrint);
         btnPanel.add(btnClose);
         receiptDialog.add(btnPanel, BorderLayout.SOUTH);
 
-        // 6. Show it
+
         receiptDialog.setLocationRelativeTo(this);
         receiptDialog.setVisible(true);
     }
+
 
     static class RoundedBorder extends AbstractBorder {
         private int radius;
@@ -933,6 +1363,7 @@ public class TreasurerDashboard extends JFrame {
         }
     }
 
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
@@ -941,9 +1372,10 @@ public class TreasurerDashboard extends JFrame {
                 e.printStackTrace();
             }
 
+
             TreasurerDashboard dashboard = new TreasurerDashboard();
             dashboard.setVisible(true);
         });
     }
-
 }
+

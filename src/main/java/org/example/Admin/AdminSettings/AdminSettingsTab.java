@@ -1,3 +1,4 @@
+// AdminSettingsTab.java
 package org.example.Admin.AdminSettings;
 
 import org.example.Admin.AdminSystemSettings;
@@ -17,33 +18,35 @@ public class AdminSettingsTab extends JPanel {
     private JTable docTable, posTable;
     private DefaultTableModel docModel, posModel;
 
-    // Visual Style
-    private final Color BG_COLOR = new Color(229, 231, 235);
-    private final Color HEADER_BG = new Color(40, 40, 40);
-    private final Color TABLE_HEADER_BG = new Color(34, 197, 94);
-    private final Color BTN_ADD_COLOR = new Color(76, 175, 80);
-    private final Color BTN_EDIT_COLOR = new Color(100, 149, 237);
-    private final Color BTN_DELETE_COLOR = new Color(255, 77, 77);
+    // Modern Color Scheme
+    private final Color PRIMARY_COLOR = new Color(59, 130, 246);    // Modern blue
+    private final Color SECONDARY_COLOR = new Color(107, 114, 128); // Cool gray
+    private final Color BACKGROUND_COLOR = new Color(249, 250, 251); // Light gray
+    private final Color CARD_COLOR = Color.WHITE;
+    private final Color SUCCESS_COLOR = new Color(16, 185, 129);    // Modern green
+    private final Color DANGER_COLOR = new Color(239, 68, 68);      // Modern red
+    private final Color HEADER_BG = new Color(30, 41, 59);          // Dark blue-gray
+    private final Color BORDER_COLOR = new Color(229, 231, 235);    // Light border
+    private final Color TABLE_HEADER_BG = new Color(59, 130, 246);  // Blue header
 
     public AdminSettingsTab() {
         this.dao = new AdminSystemSettings();
         setLayout(new BorderLayout(0, 0));
-        setBackground(BG_COLOR);
+        setBackground(BACKGROUND_COLOR);
 
         add(createHeaderPanel(), BorderLayout.NORTH);
 
         // --- THE MERGE: JTabbedPane ---
         JTabbedPane tabbedPane = new JTabbedPane();
-
         tabbedPane.setFont(new Font("Arial", Font.BOLD, 14));
-        tabbedPane.setBackground(Color.WHITE);
+        tabbedPane.setBackground(BACKGROUND_COLOR);
+        tabbedPane.setForeground(PRIMARY_COLOR);
 
         // Tab 1: Documents
         tabbedPane.addTab("Document Fees", createDocumentsPanel());
 
         // Tab 2: Positions
         tabbedPane.addTab("Positions & Roles", createPositionsPanel());
-
 
         add(tabbedPane, BorderLayout.CENTER);
     }
@@ -53,27 +56,29 @@ public class AdminSettingsTab extends JPanel {
     // =================================================================
     public JPanel createDocumentsPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(BG_COLOR);
+        panel.setBackground(BACKGROUND_COLOR);
         panel.setBorder(new EmptyBorder(20, 40, 20, 40));
 
         // Buttons
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        btnPanel.setBackground(BG_COLOR);
+        btnPanel.setBackground(BACKGROUND_COLOR);
 
-        JButton btnAdd = createRoundedButton("Add Document", BTN_ADD_COLOR);
+        JButton btnAdd = createModernButton("Add Document", SUCCESS_COLOR);
         btnAdd.addActionListener(e -> showDocumentDialog());
 
-        JButton btnEdit = createRoundedButton("Edit Fee", BTN_EDIT_COLOR);
+        JButton btnEdit = createModernButton("Edit Fee", PRIMARY_COLOR);
         btnEdit.addActionListener(e -> editDocumentFee());
 
-        JButton btnDel = createRoundedButton("Delete", BTN_DELETE_COLOR);
+        JButton btnDel = createModernButton("Delete", DANGER_COLOR);
         btnDel.addActionListener(e -> deleteDocument());
 
         btnPanel.add(btnAdd); btnPanel.add(btnEdit); btnPanel.add(btnDel);
 
         // Table
         String[] cols = {"ID", "Document Name", "Fee (₱)"};
-        docModel = new DefaultTableModel(cols, 0) { public boolean isCellEditable(int r, int c) { return false; }};
+        docModel = new DefaultTableModel(cols, 0) {
+            public boolean isCellEditable(int r, int c) { return false; }
+        };
         docTable = createStyledTable(docModel);
 
         refreshDocuments(); // Load Data
@@ -93,16 +98,22 @@ public class AdminSettingsTab extends JPanel {
         JTextField txtName = createStyledTextField("");
         JTextField txtFee = createStyledTextField("");
 
-        JPanel p = new JPanel(new GridLayout(0, 1));
-        p.add(new JLabel("Name:")); p.add(txtName);
-        p.add(new JLabel("Fee:")); p.add(txtFee);
+        JPanel p = new JPanel(new GridLayout(0, 1, 5, 5));
+        p.setBackground(CARD_COLOR);
+        p.setBorder(new EmptyBorder(10, 10, 10, 10));
+        p.add(createStyledLabel("Name:"));
+        p.add(txtName);
+        p.add(createStyledLabel("Fee:"));
+        p.add(txtFee);
 
         int res = JOptionPane.showConfirmDialog(this, p, "New Document", JOptionPane.OK_CANCEL_OPTION);
         if (res == JOptionPane.OK_OPTION) {
             try {
                 dao.addDocumentType(txtName.getText(), Double.parseDouble(txtFee.getText()));
                 refreshDocuments();
-            } catch (Exception e) { JOptionPane.showMessageDialog(this, "Invalid Fee"); }
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, "Invalid Fee");
+            }
         }
     }
 
@@ -130,27 +141,29 @@ public class AdminSettingsTab extends JPanel {
     // =================================================================
     public JPanel createPositionsPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(BG_COLOR);
+        panel.setBackground(BACKGROUND_COLOR);
         panel.setBorder(new EmptyBorder(20, 40, 20, 40));
 
         // Buttons
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        btnPanel.setBackground(BG_COLOR);
+        btnPanel.setBackground(BACKGROUND_COLOR);
 
-        JButton btnAdd = createRoundedButton("Add Position", BTN_ADD_COLOR);
+        JButton btnAdd = createModernButton("Add Position", SUCCESS_COLOR);
         btnAdd.addActionListener(e -> showPositionDialog(-1, "", ""));
 
-        JButton btnEdit = createRoundedButton("Edit", BTN_EDIT_COLOR);
+        JButton btnEdit = createModernButton("Edit", PRIMARY_COLOR);
         btnEdit.addActionListener(e -> editPosition());
 
-        JButton btnDel = createRoundedButton("Delete", BTN_DELETE_COLOR);
+        JButton btnDel = createModernButton("Delete", DANGER_COLOR);
         btnDel.addActionListener(e -> deletePosition());
 
         btnPanel.add(btnAdd); btnPanel.add(btnEdit); btnPanel.add(btnDel);
 
         // Table
         String[] cols = {"ID", "Position Name", "Unique ID"};
-        posModel = new DefaultTableModel(cols, 0) { public boolean isCellEditable(int r, int c) { return false; }};
+        posModel = new DefaultTableModel(cols, 0) {
+            public boolean isCellEditable(int r, int c) { return false; }
+        };
         posTable = createStyledTable(posModel);
 
         refreshPositions(); // Load Data
@@ -189,9 +202,13 @@ public class AdminSettingsTab extends JPanel {
         JTextField txtName = createStyledTextField(currentName);
         JTextField txtUid = createStyledTextField(currentUid);
 
-        JPanel p = new JPanel(new GridLayout(0, 1));
-        p.add(new JLabel("Position Name:")); p.add(txtName);
-        p.add(new JLabel("Unique ID (Optional):")); p.add(txtUid);
+        JPanel p = new JPanel(new GridLayout(0, 1, 5, 5));
+        p.setBackground(CARD_COLOR);
+        p.setBorder(new EmptyBorder(10, 10, 10, 10));
+        p.add(createStyledLabel("Position Name:"));
+        p.add(txtName);
+        p.add(createStyledLabel("Unique ID (Optional):"));
+        p.add(txtUid);
 
         int res = JOptionPane.showConfirmDialog(this, p, id == -1 ? "Add" : "Edit", JOptionPane.OK_CANCEL_OPTION);
         if (res == JOptionPane.OK_OPTION) {
@@ -208,6 +225,8 @@ public class AdminSettingsTab extends JPanel {
         JTable table = new JTable(model);
         table.setRowHeight(40);
         table.setFont(new Font("Arial", Font.PLAIN, 14));
+        table.setBackground(CARD_COLOR);
+        table.setGridColor(BORDER_COLOR);
         table.getTableHeader().setFont(new Font("Arial", Font.BOLD, 14));
         table.getTableHeader().setBackground(TABLE_HEADER_BG);
         table.getTableHeader().setForeground(Color.BLACK);
@@ -226,17 +245,44 @@ public class AdminSettingsTab extends JPanel {
         return header;
     }
 
-    private JButton createRoundedButton(String text, Color bg) {
+    private JButton createModernButton(String text, Color bg) {
         JButton btn = new JButton(text);
         btn.setBackground(bg);
-        btn.setForeground(Color.WHITE);
+        btn.setForeground(Color.BLACK);
         btn.setFont(new Font("Arial", Font.BOLD, 14));
         btn.setBorder(new EmptyBorder(10, 20, 10, 20));
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        // Add hover effect
+        btn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) {
+                btn.setBackground(bg.darker());
+            }
+            public void mouseExited(MouseEvent e) {
+                btn.setBackground(bg);
+            }
+        });
+
         return btn;
     }
 
     private JTextField createStyledTextField(String text) {
-        return new JTextField(text); // Simplified for brevity
+        JTextField field = new JTextField(text);
+        field.setFont(new Font("Arial", Font.PLAIN, 14));
+        field.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_COLOR),
+                new EmptyBorder(8, 10, 8, 10)
+        ));
+        field.setBackground(CARD_COLOR);
+        return field;
+    }
+
+    private JLabel createStyledLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(new Font("Arial", Font.BOLD, 14));
+        label.setForeground(SECONDARY_COLOR);
+        return label;
     }
 
     public static void main(String[] args) {

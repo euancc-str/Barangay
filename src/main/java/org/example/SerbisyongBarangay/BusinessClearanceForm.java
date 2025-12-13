@@ -30,7 +30,7 @@ public class BusinessClearanceForm extends JPanel {
     private JTextField street;
     private JComboBox<String> txtPurok;
 
-
+    private JComboBox<String> cmbCtcMonth, cmbCtcDay, cmbCtcYear; // NEW DATE PICKERS
     private JTextField cbSex;
     private JComboBox<String> cbOwnership;
     private JComboBox<String> cbBirthYear;
@@ -43,7 +43,7 @@ public class BusinessClearanceForm extends JPanel {
 
     public void createAndShowGUI() {
         JFrame frame = new JFrame();
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
         frame.setUndecorated(true);
         frame.getRootPane().setBorder(BorderFactory.createLineBorder(Color.BLACK, 4));
 
@@ -99,6 +99,7 @@ public class BusinessClearanceForm extends JPanel {
 
         return headerPanel;
     }
+
 
     // -----------------------------------------------------------------------
     // --- FORM FIELDS CONSTRUCTION ---
@@ -226,37 +227,75 @@ public class BusinessClearanceForm extends JPanel {
         formPanel.add(Box.createVerticalStrut(20)); JPanel stackPanel = new JPanel();
         stackPanel.setLayout(new BoxLayout(stackPanel, BoxLayout.Y_AXIS));
         stackPanel.setBackground(Color.WHITE);
-        JPanel ctcPanel = new JPanel(new GridLayout(0, 2, 10, 10)); // 2 Columns
-        ctcPanel.setBackground(Color.WHITE);
-        ctcPanel.setBorder(BorderFactory.createTitledBorder("Community Tax Certificate (Cedula)"));
-
+        formPanel.add(new JLabel("Community Tax Certificate Details"));
         // 1. CTC Number
-        txtCtcNumber = new JTextField();
-        // Retrieve existing data if available
-        txtCtcNumber.setText(resident != null && resident.getCtcNumber() != null ? resident.getCtcNumber() : "");
-        ctcPanel.add(new JLabel("CTC Number:"));
-        ctcPanel.add(txtCtcNumber);
+        txtCtcNumber = createStyledTextField(resident.getCtcNumber() != null ? resident.getCtcNumber() : "");
+        formPanel.add(wrapFieldWithLabel("CTC Number:", txtCtcNumber));
+        txtCtcNumber.setText("CC");
+        formPanel.add(Box.createVerticalStrut(5));
 
-        txtCtcDateIssued = new JTextField();
-        String ctcDate = (resident != null && resident.getCtcDateIssued() != null)
-                ? resident.getCtcDateIssued().toString() : "";
-        txtCtcDateIssued.setText(ctcDate);
-        ctcPanel.add(new JLabel("Date Issued (yyyy-MM-dd):"));
-        ctcPanel.add(txtCtcDateIssued);
+        // DATE DROPDOWNS
+        String[] months = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
+        cmbCtcMonth = new JComboBox<>(months);
+        String[] days = new String[31]; for(int i=0; i<31; i++) days[i] = String.valueOf(i+1);
+        cmbCtcDay = new JComboBox<>(days);
+        int curYear = LocalDate.now().getYear();
+        String[] years = new String[10]; for(int i=0; i<10; i++) years[i] = String.valueOf(curYear-i);
+        cmbCtcYear = new JComboBox<>(years);
 
-        // 3. Place Issued
-        txtCtcPlaceIssued = new JTextField();
-        String ctcPlace = new SystemConfigDAO().getConfig("defaultCtcPlace");
-        txtCtcPlaceIssued.setText(ctcPlace);
-        ctcPanel.add(new JLabel("Place Issued:"));
-        ctcPanel.add(txtCtcPlaceIssued);
+        cmbCtcMonth.setBackground(Color.WHITE);
+        cmbCtcDay.setBackground(Color.WHITE);
+        cmbCtcYear.setBackground(Color.WHITE);
+
+        // Load existing date
+        try {
+            Object ctcDateObj = resident.getCtcDateIssued();
+            if (ctcDateObj != null) {
+                String dateStr = ctcDateObj.toString();
+                // Check if it's not "null" string and not empty
+                if (!dateStr.equalsIgnoreCase("null") && !dateStr.trim().isEmpty()) {
+                    LocalDate ctcDate;
+                    if (ctcDateObj instanceof java.sql.Date) {
+                        ctcDate = ((java.sql.Date) ctcDateObj).toLocalDate();
+                    } else {
+                        // Try parsing string
+                        ctcDate = LocalDate.parse(dateStr);
+                    }
+
+                    if (cmbCtcMonth.getItemCount() > 0) cmbCtcMonth.setSelectedIndex(ctcDate.getMonthValue() - 1);
+                    cmbCtcDay.setSelectedItem(String.valueOf(ctcDate.getDayOfMonth()));
+                    cmbCtcYear.setSelectedItem(String.valueOf(ctcDate.getYear()));
+                }
+            }
+        } catch (Exception e) {
+            // Ignore parsing errors, leave dropdowns as default
+            System.err.println("Error loading CTC Date: " + e.getMessage());
+        }
+        JPanel dateP = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        dateP.setBackground(Color.WHITE);
+        dateP.add(cmbCtcMonth); dateP.add(cmbCtcDay); dateP.add(cmbCtcYear);
+
+        JPanel dateWrap = new JPanel(new BorderLayout(5, 0));
+        dateWrap.setBackground(Color.WHITE);
+        JLabel dl = new JLabel("Date Issued:");
+        dl.setFont(new Font("Arial", Font.PLAIN, 14));
+        dateWrap.add(dl, BorderLayout.WEST);
+        dateWrap.add(dateP, BorderLayout.CENTER);
+        formPanel.add(dateWrap);
+
+        formPanel.add(Box.createVerticalStrut(10));
+
+        // Load Default Place
+        SystemConfigDAO config = new SystemConfigDAO();
+        String defPlace = config.getConfig("defaultCtcPlace");
+        txtCtcPlaceIssued = createStyledTextField(defPlace);
+        formPanel.add(wrapFieldWithLabel("Place Issued:", txtCtcPlaceIssued));
 
         // Add this new panel to your main form layout
         gbc.gridx = 0;
 
         gbc.gridwidth = 4; // Span full width
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        formPanel.add(ctcPanel, gbc);
         cbSex.setEditable(false);
         txtPurok.setEditable(false);
         txtAge.setEditable(false);
@@ -376,6 +415,7 @@ public class BusinessClearanceForm extends JPanel {
                 JOptionPane.showMessageDialog(null, "Please fill in all Business Details.", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
+            String ctcDate = null;
 
             // 3. "Send" to System (Print to console for now)
             System.out.println("--- Submitting Request ---");
@@ -383,14 +423,21 @@ public class BusinessClearanceForm extends JPanel {
             System.out.println("Sex: " + sex);
             System.out.println("Business: " + busNature + " (" + ownership + ")");
             System.out.println("Location: " + busAddr);
-            String purpose = ownership +
-                    "" + busNature;
+            String purpose = ownership + " - " + busNature +
+                    " located at " + busAddr + ".";
             String ctcNum = txtCtcNumber.getText().trim();
-            String ctcDate = txtCtcDateIssued.getText().trim();
+            if (!ctcNum.isEmpty()) {
+                try {
+                    String mStr = (String) cmbCtcMonth.getSelectedItem();
+                    int m = java.time.Month.valueOf(mStr.toUpperCase()).getValue();
+                    ctcDate = cmbCtcYear.getSelectedItem() + "-" + String.format("%02d", m) + "-" + String.format("%02d", Integer.parseInt((String)cmbCtcDay.getSelectedItem()));
+                } catch (Exception ex) {
+                    ctcDate = null;
+                }
+            }
             String ctcPlace = txtCtcPlaceIssued.getText().trim();
             ResidentDAO dao = new ResidentDAO();
-
-            dao.updateResidentCedula(UserDataManager.getInstance().getCurrentResident().getResidentId(), ctcNum, ctcDate);
+            dao.updateResidentCedula(UserDataManager.getInstance().getCurrentResident().getResidentId(), ctcNum.isEmpty() ? null : ctcNum, ctcDate);
             DocumentType certificateOfIndigency = UserDataManager.getInstance().getDocumentTypeByName("Business Clearance");
 
             UserDataManager.getInstance().residentRequestsDocument(UserDataManager.getInstance().getCurrentResident(), null,certificateOfIndigency,purpose);
@@ -398,6 +445,8 @@ public class BusinessClearanceForm extends JPanel {
 
             JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(proceedButton);
             parentFrame.dispose();
+            requestaDocumentFrame frame = new requestaDocumentFrame();
+            frame.setVisible(true);
         });
 
         buttonPanel.add(cancelButton);

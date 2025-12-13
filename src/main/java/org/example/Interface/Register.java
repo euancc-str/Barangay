@@ -1167,7 +1167,6 @@ public class Register {
                                 .nationalId(idNumber)
                                 .gender(sex)
                                 .age(age)
-                                .phoneNumber(phone)
                                 .email(email)
                                 .contactNo(phone)
                                 .voterStatus(status)

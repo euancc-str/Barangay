@@ -5,6 +5,7 @@ import org.example.Admin.SystemLogDAO;
 import org.example.Users.BarangayStaff;
 import org.example.Users.Resident;
 
+import javax.xml.crypto.Data;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -53,7 +54,7 @@ public class StaffDAO {
     }
 
     public List<BarangayStaff> getAllStaff(){
-        String sql = "SELECT CONCAT(firstName, ' ',lastName) AS fullName, staffId, position, contactNo, status,lastLogin,username,password FROM barangay_staff";
+        String sql = "SELECT CONCAT(firstName, ' ',middleName,' ',lastName) AS fullName, staffId, position, contactNo, status,lastLogin,username,password,idNumber FROM barangay_staff";
         List<BarangayStaff> staffList = new ArrayList<>();
         try(Connection conn = DatabaseConnection.getConnection();
         PreparedStatement pstmt = conn.prepareStatement(sql)){
@@ -68,6 +69,7 @@ public class StaffDAO {
                 Timestamp lastLogin = rs.getTimestamp("lastLogin");
                 staff.setLastLogin(lastLogin.toLocalDateTime());
                 staff.setPassword(rs.getString("password"));
+                staff.setIdNumber(rs.getString("idNumber"));
                 staff.setUsername(rs.getString("username"));
                 staffList.add(staff);
 
@@ -158,7 +160,7 @@ public class StaffDAO {
         }
     }
     public BarangayStaff findStaffByPosition(String position){
-        String sql = "SELECT firstName,lastName,middleName,position,password,username FROM barangay_staff WHERE position = ?";
+        String sql = "SELECT firstName,lastName,middleName,position,password,username,position FROM barangay_staff WHERE position = ?";
         BarangayStaff staff = null;
         try(Connection conn = DatabaseConnection.getConnection();
             PreparedStatement pstmt = conn.prepareStatement(sql)){
@@ -171,6 +173,7 @@ public class StaffDAO {
                         .middleName(rs.getString("middleName"))
                         .username(rs.getString("username"))
                         .password(rs.getString("password"))
+                        .position(rs.getString("position"))
                         .role("position")
                         .build();
             }
@@ -181,7 +184,44 @@ public class StaffDAO {
         return staff;
     }
     public BarangayStaff findStaffById(int id){
-        String sql = "SELECT firstName,lastName,middleName,position,password,username FROM barangay_staff WHERE staffId = ?";
+        String sql = "SELECT * FROM barangay_staff WHERE staffId = ?";
+        BarangayStaff staff = null;
+        try(Connection conn = DatabaseConnection.getConnection();
+            PreparedStatement pstmt = conn.prepareStatement(sql)){
+            pstmt.setInt(1,id);
+            ResultSet rs = pstmt.executeQuery();
+            if(rs.next()){
+                Timestamp lastLogin = rs.getTimestamp("lastLogin");
+
+                staff = BarangayStaff.builder()
+                        .firstName(rs.getString("firstName"))
+                        .lastName(rs.getString("lastName"))
+                        .middleName(rs.getString("middleName"))
+                        .username(rs.getString("username"))
+                        .password(rs.getString("password"))
+                        .idNumber(rs.getString("idNumber"))
+                        .position(rs.getString("position"))
+                        .staffId(rs.getString("staffId"))
+                        .address(rs.getString("address"))
+                        .suffix(rs.getString("suffix"))
+                        .contactNo(rs.getString("contactNo"))
+                        .sex(rs.getString("sex"))
+                        .dob(rs.getDate("birthDate") != null ? rs.getDate("birthDate").toLocalDate() : null)
+                        .role(rs.getString("role"))
+                        .lastLogin(lastLogin.toLocalDateTime())
+                        .civilStatus(rs.getString("civilStatus"))
+                        .citizenship(rs.getString("citizenship"))
+                        .build();
+                staff.setAge( LocalDate.now().getYear() - staff.getDob().getYear() );
+            }
+        }catch(SQLException e) {
+            System.out.printf("Error finding staff ");
+            e.printStackTrace();
+        }
+        return staff;
+    }
+    public BarangayStaff retrieveAllDataOfStaffById(int id){
+        String sql = "SELECT * FROM barangay_staff WHERE staffId = ?";
         BarangayStaff staff = null;
         try(Connection conn = DatabaseConnection.getConnection();
             PreparedStatement pstmt = conn.prepareStatement(sql)){
@@ -194,7 +234,11 @@ public class StaffDAO {
                         .middleName(rs.getString("middleName"))
                         .username(rs.getString("username"))
                         .password(rs.getString("password"))
-                        .role("position")
+                        .suffix(rs.getString("suffix"))
+                        .role(rs.getString("role"))
+                        .contactNo(rs.getString("contactNum"))
+                        .position(rs.getString("position"))
+                        .email(rs.getString("email"))
                         .build();
             }
         }catch(SQLException e) {
@@ -219,5 +263,57 @@ public class StaffDAO {
             e.printStackTrace();
         }
         return 0;
+    }
+    public void handleDeleteResident(int residentId) {
+        String sql = "DELETE FROM resident WHERE residentId = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, residentId);
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                System.out.println("Resident deleted successfully.");
+            } else {
+                System.out.println("No resident found with ID: " + residentId);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+
+        }
+    }
+    public boolean deleteRequest(int requestId) {
+        String sqlPayment = "DELETE FROM payment WHERE requestId = ?";
+        String sqlRequest = "DELETE FROM document_request WHERE requestId = ?";
+
+        java.sql.Connection conn = null;
+        try {
+            conn = org.example.DatabaseConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            System.out.println("Deleted req id:" + requestId);
+            try (java.sql.PreparedStatement stmtP = conn.prepareStatement(sqlPayment)) {
+                stmtP.setInt(1, requestId);
+                stmtP.executeUpdate();
+            }
+
+            // 2. Delete the Request (Parent)
+            int rows;
+            try (java.sql.PreparedStatement stmtR = conn.prepareStatement(sqlRequest)) {
+                stmtR.setInt(1, requestId);
+                rows = stmtR.executeUpdate();
+            }
+
+            conn.commit(); // Save Changes
+            return rows > 0;
+
+        } catch (java.sql.SQLException e) {
+            System.out.println("could not delete req id:" + requestId);
+            if (conn != null) {
+                try { conn.rollback(); } catch (java.sql.SQLException ex) { ex.printStackTrace(); }
+            }
+            e.printStackTrace();
+            return false;
+        }
     }
 }

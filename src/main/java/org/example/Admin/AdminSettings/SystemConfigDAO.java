@@ -4,9 +4,54 @@ import org.example.DatabaseConnection;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 public class SystemConfigDAO {
+
+
+    private final String BASE_PATH = "\\\\LAPTOP-NH6HI8IB\\BarangayImages\\";
+
+
+    public String getImageDir() {
+        return BASE_PATH;
+    }
+
+    // 2. Get Barangay Logo Path (Left Side)
+    public String getLogoPath() {
+        String filename = getConfig("logoPath");
+        // Default if DB is empty
+        if (filename == null || filename.isEmpty()) {
+            filename = "daetlogo.png";
+        }
+        return BASE_PATH + filename;
+    }
+
+
+    public String getDaetLogoPath() {
+        String filename = getConfig("daetLogoPath");
+
+        if (filename == null || filename.isEmpty()) {
+            filename = "daetlogo.png"; // Fallback to existing file
+        }
+        return BASE_PATH + filename;
+    }
+
+
+    public String getBigLogoPath() {
+        String filename = getConfig("bigLogoPath");
+        if (filename == null || filename.isEmpty()) {
+            filename = "daetlogo.png";
+        }
+        return BASE_PATH + filename;
+    }
+
+
+    public String getPhotoPath(String photoFilename) {
+
+        if (photoFilename == null || photoFilename.isEmpty()) {
+            return null;
+        }
+        return BASE_PATH + photoFilename;
+    }
 
     public String getConfig(String key) {
         String sql = "SELECT configValue FROM system_config WHERE configKey = ?";
@@ -16,11 +61,16 @@ public class SystemConfigDAO {
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) return rs.getString("configValue");
         } catch (SQLException e) { e.printStackTrace(); }
+
+
+        if (key.equals("barangay_name")) return "BARANGAY ALAWIHAO";
+        if (key.equals("defaultCtcPlace")) return "Daet, Camarines Norte";
+
         return "";
     }
 
     public void updateConfig(String key, String value) {
-        // This query updates if exists, inserts if not (Safety)
+
         String sql = "INSERT INTO system_config (configKey, configValue) VALUES (?, ?) " +
                 "ON DUPLICATE KEY UPDATE configValue = ?";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -32,9 +82,7 @@ public class SystemConfigDAO {
         } catch (SQLException e) { e.printStackTrace(); }
     }
 
-    // =================================================
-    // PART 2: SYSTEM OPTIONS (Dropdowns)
-    // =================================================
+
 
     public List<String> getOptions(String category) {
         List<String> list = new ArrayList<>();
@@ -47,42 +95,34 @@ public class SystemConfigDAO {
         } catch (SQLException e) { e.printStackTrace(); }
         return list;
     }
+
     public String[] getOptionsNature(String category) {
-        List<String> list = new ArrayList<>();
-        String sql = "SELECT displayValue FROM system_options WHERE category = ? ORDER BY sortOrder ASC";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, category);
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) list.add(rs.getString("displayValue"));
-        } catch (SQLException e) { e.printStackTrace(); }
+        List<String> list = getOptions(category); // Reuse method above
         return list.toArray(new String[0]);
     }
 
-    // Add a new option (e.g., New Purok)
     public void addOption(String category, String value) {
         String sql = "INSERT INTO system_options (category, displayValue, sortOrder) VALUES (?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
+
             stmt.setString(1, category);
             stmt.setString(2, value);
-            int len = 7;
-            if(value.length() == 7){
-                String num = String.valueOf(value.charAt(len-1));
-                int order = Integer.parseInt(num);
-                stmt.setInt(3,order);
-            } else if (value.length() == 8){
-                String num = value.substring(len - 1, len + 1);
-                int order = Integer.parseInt(num);
-                stmt.setInt(3,order);
-            }else{
-                stmt.setInt(3,0);
-            }
+
+            // Smart Sorting Logic for Purok (Extracts number)
+            int order = 0;
+            try {
+                if (value.toLowerCase().contains("purok")) {
+                    String numStr = value.replaceAll("[^0-9]", ""); // Extract digits
+                    if (!numStr.isEmpty()) order = Integer.parseInt(numStr);
+                }
+            } catch (Exception ignored) {}
+
+            stmt.setInt(3, order);
             stmt.executeUpdate();
         } catch (SQLException e) { e.printStackTrace(); }
     }
 
-    // Delete an option
     public void deleteOption(String value) {
         String sql = "DELETE FROM system_options WHERE displayValue = ?";
         try (Connection conn = DatabaseConnection.getConnection();

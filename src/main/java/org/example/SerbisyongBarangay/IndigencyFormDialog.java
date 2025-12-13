@@ -347,7 +347,8 @@ public class IndigencyFormDialog extends JDialog {
             if (validateForm()) {
                 collectFormData();
                 DocumentType certificateOfIndigency = UserDataManager.getInstance().getDocumentTypeByName("Certificate of Indigency");
-                String purpose = txtPurpose.getText().toString();
+
+                String purpose = txtPurpose.getText().toString() + "Income: " + txtPerYearIncome.getText();
                 UserDataManager.getInstance().residentRequestsDocument(currentResident,null,certificateOfIndigency,purpose);
                 JOptionPane.showMessageDialog(this,
                         "Indigency certificate request submitted successfully!\n\n" +
@@ -471,7 +472,7 @@ public class IndigencyFormDialog extends JDialog {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame();
-            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
             frame.setSize(800, 600);
             frame.setLocationRelativeTo(null);
             frame.setVisible(false);

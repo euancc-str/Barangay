@@ -29,7 +29,8 @@ public class ResidentDAO {
                 r.setEmail(rs.getString("email"));
                 r.setPassword(rs.getString("password"));
                 r.setAge(rs.getInt("age"));
-                r.setPhoneNumber(rs.getString("phoneNumber"));
+                r.setPurok(rs.getString("purok"));
+                r.setStreet(rs.getString("street"));
                 r.setVoterStatus(rs.getString("voterStatus"));
                 r.setHouseholdNo(rs.getString("householdNo"));
                 r.setNationalId(rs.getString("nationalId"));
@@ -200,6 +201,23 @@ public class ResidentDAO {
 
         return name;
     }
+    // Add this to ResidentDAO.java
+    public boolean isResidentExists(String firstName, String lastName,String middleName) {
+        String sql = "SELECT residentId FROM resident WHERE firstName = ? AND lastName = ? AND middleName = ?";
+        try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, firstName);
+            stmt.setString(2, lastName);
+            stmt.setString(3,middleName);
+            java.sql.ResultSet rs = stmt.executeQuery();
+            return rs.next(); // Returns TRUE if a record was found
+
+        } catch (java.sql.SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
     public Resident findResidentById(int id) {
         String sql = """
         SELECT *
@@ -230,13 +248,14 @@ public class ResidentDAO {
                            .age(rs.getInt("age"))
                            .address(rs.getString("address"))
                            .dob(stamp.toLocalDate())
+                           .contactNo(rs.getString("contactNo"))
                            .purok(rs.getString("purok"))
+                           .email(rs.getString("email"))
                            .street(rs.getString("street"))
-                           .civilStatus(rs.getString("civilStatus") != null ? rs.getString("civilStatus"):"Empty")
+                           .civilStatus(rs.getString("civilStatus") != null ? rs.getString("civilStatus"):"")
                            .gender(rs.getString("gender"))
-                           .middleName(rs.getString("middleName")!= null ? rs.getString("middleName"):"Empty")
+                           .middleName(rs.getString("middleName")!= null ? rs.getString("middleName"):"")
                            .suffix(rs.getString("suffix"))
-
                            .ctcNumber(rs.getString("ctcNumber") != null ? rs.getString("ctcNumber") : "")
                            .ctcDateIssued(String.valueOf(ctcDate)) // Pass the safe LocalDate or null
                            .build();
@@ -317,6 +336,16 @@ public class ResidentDAO {
             else stmt.setDate(2, java.sql.Date.valueOf(ctcDate)); // Ensure format is yyyy-MM-dd
 
             stmt.setInt(3, residentId);
+
+            stmt.executeUpdate();
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+    public void updateResidentHouseHold(int residentId, String household){
+        String sql = "UPDATE resident SET householdNo=? WHERE residentId=?";
+        try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, household);
+            stmt.setInt(2, residentId);
 
             stmt.executeUpdate();
         } catch (Exception e) { e.printStackTrace(); }

@@ -13,7 +13,7 @@ public class CertificateofIndigencyForm {
 
     private void createAndShowGUI() {
         JFrame frame = new JFrame();
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
         frame.setUndecorated(true); // Removes the default frame border and title bar
         frame.getRootPane().setBorder(BorderFactory.createLineBorder(Color.BLACK, 4)); // Add a thick black border to the dialog
 

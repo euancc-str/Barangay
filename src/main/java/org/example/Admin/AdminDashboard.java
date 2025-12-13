@@ -1,5 +1,7 @@
+// AdminDashboard.java - Updated color scheme
 package org.example.Admin;
 
+import org.example.Admin.AdminSettings.AdminAssetTab;
 import org.example.Admin.AdminSettings.AdminSystemConfigTab;
 
 import java.awt.*;
@@ -18,11 +20,13 @@ public class AdminDashboard extends JFrame {
     private AdminResidentTab adminResidentTab;
     private AdminStaffTab adminStaffTab;
     private AdminSystemConfigTab tab;
-
-    // Visual Colors
-    private final Color SIDEBAR_BG = new Color(30, 30, 30); // Darker Black/Grey
-    private final Color MENU_HOVER = new Color(55, 55, 55);
-    private final Color CONTENT_BG = new Color(240, 240, 240);
+    private AdminAdministrationTab adminAdministrationTab;
+    private AdminAssetTab adminAssetTab;
+    private AdminHouseholdTab adminHouseholdTab;
+    // UPDATED Visual Colors
+    private final Color SIDEBAR_BG = new Color(44, 62, 80); // Modern dark blue-gray
+    private final Color MENU_HOVER = new Color(52, 73, 94); // Slightly lighter blue-gray for hover
+    private final Color CONTENT_BG = new Color(245, 247, 250); // Clean light gray background
 
     public AdminDashboard() {
         setTitle("Barangay System - Admin Dashboard");
@@ -47,6 +51,12 @@ public class AdminDashboard extends JFrame {
         contentContainer.add(adminRequestTab, "request");
         adminLogsTab = new AdminLogsTab();
         contentContainer.add(adminLogsTab, "logs");
+        adminAdministrationTab = new AdminAdministrationTab();
+        contentContainer.add(adminAdministrationTab, "administration");
+        adminHouseholdTab = new AdminHouseholdTab();
+        contentContainer.add(adminHouseholdTab,"house");
+        adminAssetTab = new AdminAssetTab();
+        contentContainer.add(adminAssetTab, "asset");
         // 2. Create Sidebar
         tab = new AdminSystemConfigTab();
         contentContainer.add(tab,"settings");
@@ -80,7 +90,7 @@ public class AdminDashboard extends JFrame {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(34, 197, 94)); // Green Brand Color
+                g2.setColor(new Color(52, 152, 219)); // Modern blue brand color
                 g2.fillOval(0, 0, 40, 40);
                 g2.setColor(Color.WHITE);
                 g2.setFont(new Font("Arial", Font.BOLD, 20));
@@ -106,6 +116,9 @@ public class AdminDashboard extends JFrame {
         sidebarPanel.add(createMenuItem("staff", "Staff Management", false));
         sidebarPanel.add(createMenuItem("request", "Document Requests", false));
         sidebarPanel.add(createMenuItem("logs", "System Audit Logs", false));
+        sidebarPanel.add(createMenuItem("administration", "Administration", false));
+        sidebarPanel.add(createMenuItem("house", "Household Management", false));
+        sidebarPanel.add(createMenuItem("asset", "Assets", false));
         sidebarPanel.add(createMenuItem("settings", "System Settings", false));
 
         // Spacer to push Logout to bottom
@@ -118,7 +131,7 @@ public class AdminDashboard extends JFrame {
         logoutPanel.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
         JLabel lblLogout = new JLabel("Log Out");
-        lblLogout.setForeground(new Color(255, 100, 100)); // Light Red
+        lblLogout.setForeground(new Color(231, 76, 60)); // Modern coral red
         lblLogout.setFont(new Font("Arial", Font.BOLD, 15));
 
         logoutPanel.add(lblLogout);
@@ -127,7 +140,7 @@ public class AdminDashboard extends JFrame {
                 int confirm = JOptionPane.showConfirmDialog(null, "Are you sure you want to logout?", "Logout", JOptionPane.YES_NO_OPTION);
                 if(confirm == JOptionPane.YES_OPTION) {
                     dispose();
-                   openMainWindow();
+                    openMainWindow();
                 }
             }
         });
@@ -170,24 +183,14 @@ public class AdminDashboard extends JFrame {
                 // 1. Switch Content
                 cardLayout.show(contentContainer, cardName);
 
-                // 2. Update Visual Selection
-                if (cardName.equals("logs")) {
-                    adminLogsTab.loadLogData(); // Auto-refresh when opening the tab
-                }else if(cardName.equals("resident")){
-                    adminResidentTab.loadResidentData();
-                } else if(cardName.equals("staff"))
-                {
-                    adminStaffTab.loadStaffData();
-                } else {
-                    adminRequestTab.loadRequestData();
-                }
+
                 resetSidebarStyles();
                 itemPanel.setBackground(MENU_HOVER);
             }
 
             public void mouseEntered(MouseEvent e) {
                 if (!itemPanel.getBackground().equals(MENU_HOVER)) {
-                    itemPanel.setBackground(new Color(40, 40, 40)); // Slight hover effect
+                    itemPanel.setBackground(new Color(52, 73, 94)); // Slight hover effect
                 }
             }
 

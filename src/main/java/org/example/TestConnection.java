@@ -23,25 +23,29 @@ public class TestConnection {
             String num = val.substring(len - 1, len + 1);
             System.out.println(Integer.parseInt(num));
         }
-
-        String sole = "Sole Proprietorships";
-        String own = "Partnership";
-        String corp = "Corporation";
-
-        String [] datas = {sole,own,corp};
-        String businessDetails = datas[1] + " aaaa";
-        String cover = "";
-        int num = 0;
-        for(String data : datas){
-            if(businessDetails.startsWith(data)){
-                cover = data;
-                num = cover.length();
+        String data = "Income:";
+        String cleanPurpose ="";
+        String purpose = "scholarship Income:100";
+        String cleanAmount ="";
+        int s = 0;
+        int amount =0;
+        if(purpose.contains(data)){
+            s = purpose.indexOf(data);
+            cleanPurpose = purpose.substring(0,s);
+            try {
+                cleanAmount = purpose.substring(s + data.length()).trim();
+                amount = Integer.parseInt(cleanAmount);
+            } catch (NumberFormatException e) {
+                System.out.println("Error: The income part is not a valid number.");
+                amount = 0;
             }
+        } else{
+            cleanPurpose = purpose;
         }
-        System.out.println(cover);
-        String data2 = businessDetails.substring(num,businessDetails.length());
-        System.out.printf(data2);
-
+        System.out.println(cleanPurpose);
+        String amountDataStore = amount > 0? "with annual income of("+amount+")":"and has no fixed source of income.";
+        System.out.println(amountDataStore);
+        System.out.println(cleanAmount);
     }
     private static void printReceipt(String residentName, String docType) {
         // 1. Setup the print job

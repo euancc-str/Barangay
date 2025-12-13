@@ -1,5 +1,6 @@
 package org.example.Captain;
 
+import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.StaffDAO;
 import org.example.UserDataManager;
 import org.example.Users.BarangayStaff;
@@ -7,31 +8,157 @@ import org.example.Users.Resident;
 
 import javax.swing.*;
 import javax.swing.border.*;
+import javax.swing.text.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.time.LocalDate;
+import java.util.regex.Pattern;
 
 public class PersonalInformation extends JPanel {
+
+    private static final Color HEADER_BG = new Color(21, 101, 192);
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+            "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
+    );
 
     private JTextField txtFirstName, txtMiddleName, txtLastName, txtSuffix;
     private JComboBox<String> cmbSex, cmbCivilStatus, cmbMonth, cmbDay, cmbYear;
     private JTextField txtCitizenship, txtAge, txtPosition;
     private JTextField txtStreet, txtPhone, txtEmail, txtUniqueId, txtIdType;
     private JButton btnProfilePic, btnPhotoId, btnDone;
+    private JLabel lblPhoneError, lblEmailError;
+
+    private void updateAge() {
+        try {
+            int birthYear = Integer.parseInt((String) cmbYear.getSelectedItem());
+            int birthMonth = cmbMonth.getSelectedIndex() + 1;
+            int birthDay = Integer.parseInt((String) cmbDay.getSelectedItem());
+
+            LocalDate birthDate = LocalDate.of(birthYear, birthMonth, birthDay);
+            LocalDate today = LocalDate.now();
+
+            int age = today.getYear() - birthDate.getYear();
+
+            if (today.getMonthValue() < birthDate.getMonthValue() ||
+                    (today.getMonthValue() == birthDate.getMonthValue() && today.getDayOfMonth() < birthDate.getDayOfMonth())) {
+                age--;
+            }
+
+            txtAge.setText(String.valueOf(age));
+        } catch (Exception e) {
+            txtAge.setText("0");
+        }
+    }
+
+    private void updateDaysInMonth() {
+        try {
+            int selectedMonth = cmbMonth.getSelectedIndex() + 1;
+            int selectedYear = Integer.parseInt((String) cmbYear.getSelectedItem());
+
+            String currentDay = (String) cmbDay.getSelectedItem();
+            int currentDayInt = currentDay != null ? Integer.parseInt(currentDay) : 1;
+
+            LocalDate date = LocalDate.of(selectedYear, selectedMonth, 1);
+            int maxDays = date.lengthOfMonth();
+
+            ActionListener[] listeners = cmbDay.getActionListeners();
+            for (ActionListener listener : listeners) {
+                cmbDay.removeActionListener(listener);
+            }
+
+            cmbDay.removeAllItems();
+            for (int i = 1; i <= maxDays; i++) {
+                cmbDay.addItem(String.valueOf(i));
+            }
+
+            if (currentDayInt <= maxDays) {
+                cmbDay.setSelectedItem(String.valueOf(currentDayInt));
+            } else {
+                cmbDay.setSelectedItem(String.valueOf(maxDays));
+            }
+
+            for (ActionListener listener : listeners) {
+                cmbDay.addActionListener(listener);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private boolean validatePhoneNumber() {
+        String phone = txtPhone.getText().trim();
+
+        // Check if exactly 11 digits
+        if (phone.length() != 11) {
+            lblPhoneError.setText("Phone must be exactly 11 digits");
+            lblPhoneError.setVisible(true);
+            return false;
+        }
+
+        // Check if starts with 09
+        if (!phone.startsWith("09")) {
+            lblPhoneError.setText("Phone must start with 09");
+            lblPhoneError.setVisible(true);
+            return false;
+        }
+
+        // Check if all characters are digits
+        if (!phone.matches("\\d+")) {
+            lblPhoneError.setText("Phone must contain only numbers");
+            lblPhoneError.setVisible(true);
+            return false;
+        }
+
+        lblPhoneError.setVisible(false);
+        return true;
+    }
+
+    private boolean validateEmail() {
+        String email = txtEmail.getText().trim();
+
+        if (email.isEmpty()) {
+            lblEmailError.setText("Email is required");
+            lblEmailError.setVisible(true);
+            return false;
+        }
+
+        if (!EMAIL_PATTERN.matcher(email).matches()) {
+            lblEmailError.setText("Invalid email format");
+            lblEmailError.setVisible(true);
+            return false;
+        }
+
+        lblEmailError.setVisible(false);
+        return true;
+    }
+
+    private void validateForm() {
+        boolean isPhoneValid = validatePhoneNumber();
+        boolean isEmailValid = validateEmail();
+
+        btnDone.setEnabled(isPhoneValid && isEmailValid);
+
+        if (btnDone.isEnabled()) {
+            btnDone.setBackground(new Color(0, 51, 204));
+        } else {
+            btnDone.setBackground(new Color(150, 150, 150));
+        }
+    }
+
     private void loadUserDataIntoForm() {
-        // Try to get current staff first
         BarangayStaff currentStaff = UserDataManager.getInstance().getCurrentStaff();
 
         if (currentStaff != null) {
-            // Populate fields from staff data
             txtFirstName.setText(currentStaff.getFirstName() != null ? currentStaff.getFirstName() : "");
             txtLastName.setText(currentStaff.getLastName() != null ? currentStaff.getLastName() : "");
             txtPosition.setText(currentStaff.getPosition() != null ? currentStaff.getPosition() : "");
             txtEmail.setText(currentStaff.getEmail() != null ? currentStaff.getEmail() : "");
             txtPhone.setText(currentStaff.getContactNo() != null ? currentStaff.getContactNo() : "");
+            txtSuffix.setText(currentStaff.getSuffix() != null ? currentStaff.getSuffix():"");
+            cmbCivilStatus.setSelectedItem(currentStaff.getCivilStatus()!=null ?currentStaff.getCivilStatus():"");
+            txtCitizenship.setText(currentStaff.getCitizenship()!=null?currentStaff.getCitizenship():"");
 
-
-            String uniqueId = ""+currentStaff.getStaffId();
+            String uniqueId = ""+currentStaff.getIdNumber();
             txtUniqueId.setText(uniqueId);
             LocalDate dob = currentStaff.getDob();
             if (dob != null) {
@@ -59,35 +186,10 @@ public class PersonalInformation extends JPanel {
                 txtMiddleName.setText(currentStaff.getMiddleName());
             }
 
-            System.out.println("Loaded staff data: " + currentStaff.getFirstName() + " " + currentStaff.getLastName());
+            validateForm();
             return;
         }
-        Resident currentResident = UserDataManager.getInstance().getCurrentResident();
 
-        if (currentResident != null) {
-            // Populate fields from resident data
-            txtFirstName.setText(currentResident.getFirstName() != null ? currentResident.getFirstName() : "");
-            txtLastName.setText(currentResident.getLastName() != null ? currentResident.getLastName() : "");
-            txtEmail.setText(currentResident.getEmail() != null ? currentResident.getEmail() : "");
-            txtPhone.setText(currentResident.getPhoneNumber() != null ? currentResident.getPhoneNumber() : "");
-           // txtAddress.setText(currentResident.getAddress() != null ? currentResident.getAddress() : "");
-            txtAge.setText(String.valueOf(currentResident.getAge()));
-            txtUniqueId.setText(currentResident.getNationalId() != null ? currentResident.getNationalId() : "");
-
-            if (currentResident.getGender() != null) {
-                setComboBoxValue(cmbSex, currentResident.getGender());
-            }
-            if (currentResident.getVoterStatus() != null) {
-          //      setComboBoxValue(cmbStatus, currentResident.getVoterStatus());
-            }
-            if (currentResident.getMiddleName() != null) {
-                txtMiddleName.setText(currentResident.getMiddleName());
-            }
-
-            System.out.println("Loaded resident data: " + currentResident.getFirstName() + " " + currentResident.getLastName());
-        } else {
-            System.out.println("No user logged in, loading from properties file");
-        }
     }
 
     private <T> void setComboBoxValue(JComboBox<T> comboBox, String value) {
@@ -103,15 +205,14 @@ public class PersonalInformation extends JPanel {
             comboBox.setSelectedIndex(0);
         }
     }
+
     public PersonalInformation() {
         setLayout(new BorderLayout(0, 0));
         setBackground(new Color(229, 231, 235));
 
-        // Header
         JPanel headerPanel = createHeaderPanel();
         add(headerPanel, BorderLayout.NORTH);
 
-        // Form
         JPanel formPanel = createFormPanel();
         JScrollPane scrollPane = new JScrollPane(formPanel);
         scrollPane.setBorder(null);
@@ -122,15 +223,15 @@ public class PersonalInformation extends JPanel {
 
     private JPanel createHeaderPanel() {
         JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBackground(new Color(40, 40, 40));
+        headerPanel.setBackground(HEADER_BG);
         headerPanel.setBorder(BorderFactory.createCompoundBorder(
-            new CaptainDashboard.RoundedBorder(30, true, false),
-            new EmptyBorder(25, 40, 25, 40)
+                new CaptainDashboard.RoundedBorder(30, true, false),
+                new EmptyBorder(25, 40, 25, 40)
         ));
 
         JPanel titlePanel = new JPanel();
         titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
-        titlePanel.setBackground(new Color(40, 40, 40));
+        titlePanel.setBackground(HEADER_BG);
 
         JLabel lblDocumentary = new JLabel("Documentary");
         lblDocumentary.setFont(new Font("Arial", Font.BOLD, 26));
@@ -144,7 +245,7 @@ public class PersonalInformation extends JPanel {
         titlePanel.add(lblRequest);
 
         JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
-        userPanel.setBackground(new Color(40, 40, 40));
+        userPanel.setBackground(HEADER_BG);
         BarangayStaff staff = new StaffDAO().findStaffByPosition("Brgy.Captain");
 
         JLabel lblUser = new JLabel("Hi Mr. "+staff.getFirstName());
@@ -159,7 +260,7 @@ public class PersonalInformation extends JPanel {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(Color.WHITE);
                 g2.fillOval(0, 0, 45, 45);
-                g2.setColor(new Color(40, 40, 40));
+                g2.setColor(HEADER_BG);
                 g2.fillOval(12, 8, 20, 20);
                 g2.fillArc(5, 25, 35, 30, 0, 180);
             }
@@ -178,13 +279,12 @@ public class PersonalInformation extends JPanel {
 
         return headerPanel;
     }
-
+    BarangayStaff brgyStaff = UserDataManager.getInstance().getCurrentStaff();
     private JPanel createFormPanel() {
         JPanel formPanel = new JPanel();
         formPanel.setLayout(new BoxLayout(formPanel, BoxLayout.Y_AXIS));
         formPanel.setBackground(new Color(229, 231, 235));
         formPanel.setBorder(new EmptyBorder(35, 60, 35, 60));
-
         JLabel lblPersonalInfo = new JLabel("Personal Information");
         lblPersonalInfo.setFont(new Font("Arial", Font.BOLD, 18));
         lblPersonalInfo.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -196,9 +296,9 @@ public class PersonalInformation extends JPanel {
         namePanel.setBackground(new Color(229, 231, 235));
         namePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 65));
 
-        namePanel.add(createFieldPanel("First Name *", txtFirstName = createTextField("Cardo")));
-        namePanel.add(createFieldPanel("Middle Name *", txtMiddleName = createTextField("Demesa")));
-        namePanel.add(createFieldPanel("Last Name *", txtLastName = createTextField("Dalisay")));
+        namePanel.add(createFieldPanel("First Name *", txtFirstName = createTextField(brgyStaff.getFirstName())));
+        namePanel.add(createFieldPanel("Middle Name *", txtMiddleName = createTextField(brgyStaff.getMiddleName())));
+        namePanel.add(createFieldPanel("Last Name *", txtLastName = createTextField(brgyStaff.getLastName())));
 
         formPanel.add(namePanel);
         formPanel.add(Box.createVerticalStrut(18));
@@ -208,18 +308,16 @@ public class PersonalInformation extends JPanel {
         detailsPanel.setBackground(new Color(229, 231, 235));
         detailsPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 65));
 
-        detailsPanel.add(createFieldPanel("Suffix", txtSuffix = createTextField("N/A")));
-
-        cmbSex = new JComboBox<>(new String[]{"Male", "Female"});
-        styleComboBox(cmbSex);
+        detailsPanel.add(createFieldPanel("Suffix", txtSuffix = createTextField(brgyStaff.getSuffix())));
+        String [] arr = new SystemConfigDAO().getOptionsNature("sex");
+        cmbSex = new JComboBox<>(arr);styleComboBox(cmbSex);
         detailsPanel.add(createFieldPanel("Sex *", cmbSex));
-
-        cmbCivilStatus = new JComboBox<>(new String[]{"Single", "Married", "Widowed", "Separated"});
-        styleComboBox(cmbCivilStatus);
+        String [] arr1 = new SystemConfigDAO().getOptionsNature("civilStatus");
+        cmbCivilStatus = new JComboBox<>(arr1);  styleComboBox(cmbCivilStatus);
         cmbCivilStatus.setSelectedItem("Married");
         detailsPanel.add(createFieldPanel("Civil Status *", cmbCivilStatus));
 
-        detailsPanel.add(createFieldPanel("Citizenships *", txtCitizenship = createTextField("Filipino")));
+        detailsPanel.add(createFieldPanel("Citizenship *", txtCitizenship = createTextField(brgyStaff.getCitizenship())));
 
         formPanel.add(detailsPanel);
         formPanel.add(Box.createVerticalStrut(18));
@@ -230,17 +328,15 @@ public class PersonalInformation extends JPanel {
         birthPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 65));
 
         String[] months = {"January", "February", "March", "April", "May", "June",
-                          "July", "August", "September", "October", "November", "December"};
+                "July", "August", "September", "October", "November", "December"};
         cmbMonth = new JComboBox<>(months);
         styleComboBox(cmbMonth);
-        cmbMonth.setSelectedItem("May");
         birthPanel.add(createFieldPanel("Birth Date *", cmbMonth));
 
         String[] days = new String[31];
         for (int i = 0; i < 31; i++) days[i] = String.valueOf(i + 1);
         cmbDay = new JComboBox<>(days);
         styleComboBox(cmbDay);
-        cmbDay.setSelectedItem("15");
         JPanel dayPanel = createFieldPanel("", cmbDay);
         dayPanel.setBorder(new EmptyBorder(20, 0, 0, 0));
         birthPanel.add(dayPanel);
@@ -249,10 +345,25 @@ public class PersonalInformation extends JPanel {
         for (int i = 0; i < 100; i++) years[i] = String.valueOf(2024 - i);
         cmbYear = new JComboBox<>(years);
         styleComboBox(cmbYear);
-        cmbYear.setSelectedItem("1990");
         JPanel yearPanel = createFieldPanel("", cmbYear);
         yearPanel.setBorder(new EmptyBorder(20, 0, 0, 0));
         birthPanel.add(yearPanel);
+
+        cmbMonth.setSelectedItem("May");
+        cmbYear.setSelectedItem("1990");
+
+        updateDaysInMonth();
+        cmbDay.setSelectedItem("15");
+
+        cmbMonth.addActionListener(e -> {
+            updateDaysInMonth();
+            updateAge();
+        });
+        cmbYear.addActionListener(e -> {
+            updateDaysInMonth();
+            updateAge();
+        });
+        cmbDay.addActionListener(e -> updateAge());
 
         birthPanel.add(createFieldPanel("Age", txtAge = createTextField("45")));
         txtAge.setEditable(false);
@@ -266,7 +377,7 @@ public class PersonalInformation extends JPanel {
         positionPanel.setBackground(new Color(229, 231, 235));
         positionPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 65));
 
-        txtPosition = createTextField("Barangay Captain");
+        txtPosition = createTextField(brgyStaff.getPosition());
         txtPosition.setHorizontalAlignment(JTextField.CENTER);
         txtPosition.setFont(new Font("Arial", Font.BOLD, 14));
         txtPosition.setEditable(false);
@@ -290,8 +401,8 @@ public class PersonalInformation extends JPanel {
         streetPanel.setBackground(new Color(229, 231, 235));
         streetPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 65));
         streetPanel.add(createFieldPanel("Street/Barangay/Municipality *",
-            txtStreet = createTextField("Purok 5 San Vicente rd Brg. Alawihao Daet Camarines Norte")),
-            BorderLayout.CENTER);
+                        txtStreet = createTextField("Purok 5 San Vicente rd Brg. Alawihao Daet Camarines Norte")),
+                BorderLayout.CENTER);
 
         formPanel.add(streetPanel);
         formPanel.add(Box.createVerticalStrut(18));
@@ -300,9 +411,43 @@ public class PersonalInformation extends JPanel {
         contactPanel.setBackground(new Color(229, 231, 235));
         contactPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 65));
 
-        contactPanel.add(createFieldPanel("Phone Number *", txtPhone = createTextField("09123456789")));
-        contactPanel.add(createFieldPanel("Email Address", txtEmail = createTextField("Dalisay@gmail.com")));
-        contactPanel.add(createFieldPanel("Unique ID NO.", txtUniqueId = createTextField("1234-5678-9101-1213")));
+        // Phone Number with validation
+        JPanel phoneFieldPanel = new JPanel(new BorderLayout());
+        phoneFieldPanel.setBackground(new Color(229, 231, 235));
+
+        txtPhone = createPhoneTextField(brgyStaff.getContactNo());
+        lblPhoneError = new JLabel("");
+        lblPhoneError.setFont(new Font("Arial", Font.PLAIN, 11));
+        lblPhoneError.setForeground(new Color(220, 38, 38));
+        lblPhoneError.setVisible(false);
+
+        JPanel phoneWithError = new JPanel(new BorderLayout());
+        phoneWithError.setBackground(new Color(229, 231, 235));
+        phoneWithError.add(txtPhone, BorderLayout.CENTER);
+        phoneWithError.add(lblPhoneError, BorderLayout.SOUTH);
+
+        phoneFieldPanel.add(createFieldPanelWithComponent("Phone Number *", phoneWithError));
+        contactPanel.add(phoneFieldPanel);
+
+        // Email with validation
+        JPanel emailFieldPanel = new JPanel(new BorderLayout());
+        emailFieldPanel.setBackground(new Color(229, 231, 235));
+
+        txtEmail = createTextField(brgyStaff.getEmail());
+        lblEmailError = new JLabel("");
+        lblEmailError.setFont(new Font("Arial", Font.PLAIN, 11));
+        lblEmailError.setForeground(new Color(220, 38, 38));
+        lblEmailError.setVisible(false);
+
+        JPanel emailWithError = new JPanel(new BorderLayout());
+        emailWithError.setBackground(new Color(229, 231, 235));
+        emailWithError.add(txtEmail, BorderLayout.CENTER);
+        emailWithError.add(lblEmailError, BorderLayout.SOUTH);
+
+        emailFieldPanel.add(createFieldPanelWithComponent("Email Address *", emailWithError));
+        contactPanel.add(emailFieldPanel);
+
+        contactPanel.add(createFieldPanel("Unique ID NO.", txtUniqueId = createTextField(brgyStaff.getIdNumber())));
 
         formPanel.add(contactPanel);
         formPanel.add(Box.createVerticalStrut(18));
@@ -340,21 +485,61 @@ public class PersonalInformation extends JPanel {
             }
         };
         btnDone.setFont(new Font("Arial", Font.BOLD, 18));
-        btnDone.setBackground(new Color(0, 51, 204));
+        btnDone.setBackground(new Color(150, 150, 150));
         btnDone.setForeground(Color.WHITE);
         btnDone.setFocusPainted(false);
         btnDone.setBorder(new EmptyBorder(15, 60, 15, 60));
         btnDone.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnDone.setOpaque(false);
         btnDone.setContentAreaFilled(false);
-        btnDone.addActionListener(e -> JOptionPane.showMessageDialog(this, "Form submitted!"));
+        btnDone.setEnabled(false);
+        txtAge.setEditable(false);
+        txtPosition.setEditable(false);
+        txtUniqueId.setEditable(false);
+        cmbSex.setEnabled(false);
+        cmbMonth.setEnabled(false);
+        cmbDay.setEnabled(false);
+        cmbYear.setEnabled(false);
+        txtUniqueId.setEditable(false);
+        txtUniqueId.setEditable(false);
+        btnDone.addActionListener(e -> {
+            if (validatePhoneNumber() && validateEmail()) {
+                JOptionPane.showMessageDialog(this, "Form submitted successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            }
+            BarangayStaff currentStaff = UserDataManager.getInstance().getCurrentStaff();
+            if (currentStaff != null) {
+                // Update the staff object with form data
+                BarangayStaff updatedStaff = currentStaff.toBuilder()
+                        .firstName(txtFirstName.getText().trim())
+                        .middleName(txtMiddleName.getText().trim())
+                        .lastName(txtLastName.getText().trim())
+                        .suffix(txtSuffix.getText().trim())
+                        .position(txtPosition.getText().trim())
+                        .suffix(txtSuffix.getText())
+                        .contactNo(txtPhone.getText().trim())
+                        .email(txtEmail.getText().trim())
+                        .civilStatus(cmbCivilStatus.getSelectedItem().toString())
+                        .updatedAt(java.time.LocalDateTime.now()) // Mark the time
+                        .build();
+                UserDataManager.getInstance().updateStaff(updatedStaff);
+
+                UserDataManager.getInstance().setCurrentStaff(updatedStaff);
+                System.out.println("Staff data updated successfully!");
+            }
+        });
 
         btnDone.addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) {
-                btnDone.setBackground(new Color(0, 68, 255));
+                if (btnDone.isEnabled()) {
+                    btnDone.setBackground(new Color(0, 68, 255));
+                }
             }
             public void mouseExited(MouseEvent e) {
-                btnDone.setBackground(new Color(0, 51, 204));
+                if (btnDone.isEnabled()) {
+                    btnDone.setBackground(new Color(0, 51, 204));
+                } else {
+                    btnDone.setBackground(new Color(150, 150, 150));
+                }
             }
         });
 
@@ -368,10 +553,64 @@ public class PersonalInformation extends JPanel {
         JTextField textField = new JTextField(text);
         textField.setFont(new Font("Arial", Font.PLAIN, 14));
         textField.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(Color.BLACK, 2),
-            new EmptyBorder(10, 15, 10, 15)
+                BorderFactory.createLineBorder(Color.BLACK, 2),
+                new EmptyBorder(10, 15, 10, 15)
         ));
         textField.setBackground(Color.WHITE);
+        return textField;
+    }
+
+    private JTextField createPhoneTextField(String text) {
+        JTextField textField = new JTextField(text);
+        textField.setFont(new Font("Arial", Font.PLAIN, 14));
+        textField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Color.BLACK, 2),
+                new EmptyBorder(10, 15, 10, 15)
+        ));
+        textField.setBackground(Color.WHITE);
+
+        // Add document filter to accept only numbers and limit to 11 digits
+        ((AbstractDocument) textField.getDocument()).setDocumentFilter(new DocumentFilter() {
+            @Override
+            public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr) throws BadLocationException {
+                if (string == null) return;
+
+                String currentText = fb.getDocument().getText(0, fb.getDocument().getLength());
+                String newText = currentText.substring(0, offset) + string + currentText.substring(offset);
+
+                if (newText.matches("\\d*") && newText.length() <= 11) {
+                    super.insertString(fb, offset, string, attr);
+                    validateForm();
+                }
+            }
+
+            @Override
+            public void replace(FilterBypass fb, int offset, int length, String string, AttributeSet attrs) throws BadLocationException {
+                if (string == null) return;
+
+                String currentText = fb.getDocument().getText(0, fb.getDocument().getLength());
+                String newText = currentText.substring(0, offset) + string + currentText.substring(offset + length);
+
+                if (newText.matches("\\d*") && newText.length() <= 11) {
+                    super.replace(fb, offset, length, string, attrs);
+                    validateForm();
+                }
+            }
+
+            @Override
+            public void remove(FilterBypass fb, int offset, int length) throws BadLocationException {
+                super.remove(fb, offset, length);
+                validateForm();
+            }
+        });
+
+        textField.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyReleased(KeyEvent e) {
+                validateForm();
+            }
+        });
+
         return textField;
     }
 
@@ -379,8 +618,8 @@ public class PersonalInformation extends JPanel {
         comboBox.setFont(new Font("Arial", Font.PLAIN, 14));
         comboBox.setBackground(Color.WHITE);
         comboBox.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(Color.BLACK, 2),
-            new EmptyBorder(2, 10, 2, 10)
+                BorderFactory.createLineBorder(Color.BLACK, 2),
+                new EmptyBorder(2, 10, 2, 10)
         ));
     }
 
@@ -390,8 +629,8 @@ public class PersonalInformation extends JPanel {
         button.setBackground(Color.WHITE);
         button.setForeground(new Color(180, 180, 180));
         button.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(Color.BLACK, 2),
-            new EmptyBorder(10, 15, 10, 15)
+                BorderFactory.createLineBorder(Color.BLACK, 2),
+                new EmptyBorder(10, 15, 10, 15)
         ));
         button.setFocusPainted(false);
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -404,6 +643,22 @@ public class PersonalInformation extends JPanel {
     }
 
     private JPanel createFieldPanel(String labelText, JComponent component) {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BorderLayout(0, 8));
+        panel.setBackground(new Color(229, 231, 235));
+
+        if (!labelText.isEmpty()) {
+            JLabel label = new JLabel(labelText);
+            label.setFont(new Font("Arial", Font.PLAIN, 13));
+            label.setForeground(Color.BLACK);
+            panel.add(label, BorderLayout.NORTH);
+        }
+
+        panel.add(component, BorderLayout.CENTER);
+        return panel;
+    }
+
+    private JPanel createFieldPanelWithComponent(String labelText, JComponent component) {
         JPanel panel = new JPanel();
         panel.setLayout(new BorderLayout(0, 8));
         panel.setBackground(new Color(229, 231, 235));

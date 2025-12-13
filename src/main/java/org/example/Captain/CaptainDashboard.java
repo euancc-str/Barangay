@@ -50,9 +50,6 @@ public class CaptainDashboard extends JFrame {
         treasurerReportsTab = new TreasurerReportsTab();
         contentContainer.add(treasurerReportsTab, "total");
         contentContainer.add(new BarangayOfficialProfile(), "profile");
-        String population = ""+new StaffDAO().countPopulationFromDb();
-        contentContainer.add(createPlaceholderPanel("Barangay Population: " + population), "population");
-
         contentArea.add(contentContainer, BorderLayout.CENTER);
         mainPanel.add(contentArea, BorderLayout.CENTER);
 
@@ -126,8 +123,6 @@ public class CaptainDashboard extends JFrame {
         sidebar.add(createMenuItem("approved", "Approved Request", false));
         sidebar.add(createMenuItem("total", "Total Request", true));
         sidebar.add(createMenuItem("profile", "Barangay Official Profile", false));
-        sidebar.add(createMenuItem("population", "Barangay Population", false));
-
         sidebar.add(Box.createVerticalGlue());
 
         // Logout button
@@ -252,11 +247,10 @@ public class CaptainDashboard extends JFrame {
         menuItem.add(iconPanel);
         menuItem.add(textLabel);
 
-        // Click handler to switch tabs
         menuItem.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
                 cardLayout.show(contentContainer, type);
-                art.loadData();
+
                 updateSelectedMenuItem(menuItem);
             }
 
@@ -282,8 +276,8 @@ public class CaptainDashboard extends JFrame {
             if (comp instanceof JPanel) {
                 JPanel panel = (JPanel) comp;
                 if (panel.getCursor().getType() == Cursor.HAND_CURSOR &&
-                    panel.getMaximumSize() != null &&
-                    panel.getMaximumSize().height == 65) {
+                        panel.getMaximumSize() != null &&
+                        panel.getMaximumSize().height == 65) {
                     panel.setBackground(Color.BLACK);
                 }
             }
@@ -317,8 +311,8 @@ public class CaptainDashboard extends JFrame {
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(new Color(40, 40, 40));
         headerPanel.setBorder(BorderFactory.createCompoundBorder(
-            new RoundedBorder(30, true, false),
-            new EmptyBorder(25, 40, 25, 40)
+                new RoundedBorder(30, true, false),
+                new EmptyBorder(25, 40, 25, 40)
         ));
 
         JPanel titlePanel = new JPanel();

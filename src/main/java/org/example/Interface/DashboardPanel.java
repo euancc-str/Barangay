@@ -1,7 +1,9 @@
 package org.example.Interface;
 
+
 import org.example.Documents.DocumentRequest;
 import org.example.ResidentDAO;
+
 
 import java.awt.*;
 import java.awt.event.*;
@@ -20,15 +22,18 @@ import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.table.*;
 
+
 public class DashboardPanel extends JPanel {
     private JTable documentTable;
     private JButton pendingBtn, verifiedBtn, rejectBtn;
     private DefaultTableModel model;
     private TableRowSorter<DefaultTableModel> sorter;
 
+
     // ===== DATA PERSISTENCE =====
     private List<Object[]> allData = new ArrayList<>();
     private String currentFilter = "Pending";
+
 
     // ===== NEW COMPONENTS =====
     private JComboBox<String> docTypeFilterBox;
@@ -36,45 +41,75 @@ public class DashboardPanel extends JPanel {
     private JLabel lblRecordCount;
     private JButton btnPrint;
 
+
     private JLabel hiLabel;
     private JLabel dashboardProfilePicture;
 
+
+    // Gradient colors
+    private final Color CERULEAN_BLUE = new Color(100, 149, 237);
+    private final Color LIGHT_BLUE = new Color(173, 216, 230);
+    private final Color VERY_LIGHT_BLUE = new Color(225, 245, 254);
+
+
     public DashboardPanel() {
         setLayout(new BorderLayout());
-        setBackground(new Color(240, 240, 240));
+        setBackground(VERY_LIGHT_BLUE);
+
 
         // ===== HEADER =====
         add(createHeader(), BorderLayout.NORTH);
 
+
         // ===== CENTER CONTENT (Buttons + Filters + Table) =====
-        JPanel centerContent = new JPanel();
+        JPanel centerContent = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                GradientPaint gradient = new GradientPaint(
+                        0, 0, LIGHT_BLUE,
+                        getWidth(), getHeight(), VERY_LIGHT_BLUE
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
         centerContent.setLayout(new BoxLayout(centerContent, BoxLayout.Y_AXIS));
-        centerContent.setBackground(new Color(240, 240, 240));
+        centerContent.setOpaque(false);
         centerContent.setBorder(new EmptyBorder(20, 50, 20, 50)); // Padding
+
 
         // 1. Status Buttons
         centerContent.add(createStatusButtonPanel());
         centerContent.add(Box.createVerticalStrut(20));
 
+
         // 2. Filter & Action Bar (NEW)
         centerContent.add(createFilterActionPanel());
         centerContent.add(Box.createVerticalStrut(10));
 
+
         // 3. Table
         centerContent.add(createTablePanel());
+
 
         // 4. Record Count Footer (NEW)
         centerContent.add(Box.createVerticalStrut(10));
         lblRecordCount = new JLabel("Total Records: 0");
         lblRecordCount.setFont(new Font("SansSerif", Font.BOLD, 14));
+        lblRecordCount.setForeground(Color.DARK_GRAY);
+
 
         // Wrap label in panel for alignment
         JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        footerPanel.setBackground(new Color(240, 240, 240));
+        footerPanel.setOpaque(false);
         footerPanel.add(lblRecordCount);
         centerContent.add(footerPanel);
 
+
         add(centerContent, BorderLayout.CENTER);
+
 
         // Initial Load
         loadDataFromFile();
@@ -82,94 +117,139 @@ public class DashboardPanel extends JPanel {
         startAutoRefresh();
     }
 
+
     // =========================================================================
     //  GUI CREATION METHODS
     // =========================================================================
 
+
     private JPanel createHeader() {
-        JPanel header = new JPanel(new BorderLayout());
-        header.setBackground(new Color(20, 20, 20));
+        JPanel header = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                GradientPaint gradient = new GradientPaint(
+                        0, 0, CERULEAN_BLUE,
+                        getWidth(), 0, new Color(70, 130, 180)
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        header.setOpaque(false);
         header.setPreferredSize(new Dimension(0, 120));
         header.setBorder(new EmptyBorder(15, 25, 15, 25));
+
 
         JLabel title = new JLabel("<html><b>Documentary<br>Request</b></html>");
         title.setForeground(Color.WHITE);
         title.setFont(new Font("SansSerif", Font.BOLD, 26));
         header.add(title, BorderLayout.WEST);
 
+
         // Stack greeting and profile vertically
         JPanel rightPanel = new JPanel();
         rightPanel.setOpaque(false);
         rightPanel.setLayout(new BoxLayout(rightPanel, BoxLayout.Y_AXIS));
+
 
         hiLabel = new JLabel(getGreetingFromProperties());
         hiLabel.setForeground(Color.WHITE);
         hiLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         hiLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        dashboardProfilePicture = new JLabel();
+
+        dashboardProfilePicture = new JLabel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                GradientPaint gradient = new GradientPaint(
+                        0, 0, LIGHT_BLUE,
+                        getWidth(), getHeight(), CERULEAN_BLUE
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 50, 50);
+                super.paintComponent(g2d);
+            }
+        };
         dashboardProfilePicture.setPreferredSize(new Dimension(50, 50));
-        dashboardProfilePicture.setOpaque(true);
-        dashboardProfilePicture.setBackground(Color.WHITE);
-        dashboardProfilePicture.setBorder(new LineBorder(Color.GRAY, 1, true));
+        dashboardProfilePicture.setOpaque(false);
+        dashboardProfilePicture.setBorder(new LineBorder(Color.WHITE, 2, true));
         dashboardProfilePicture.setHorizontalAlignment(SwingConstants.CENTER);
         dashboardProfilePicture.setAlignmentX(Component.CENTER_ALIGNMENT);
         setProfilePicture(dashboardProfilePicture);
+
 
         rightPanel.add(hiLabel);
         rightPanel.add(Box.createVerticalStrut(5));
         rightPanel.add(dashboardProfilePicture);
 
+
         header.add(rightPanel, BorderLayout.EAST);
         return header;
     }
 
+
     private JPanel createStatusButtonPanel() {
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 0));
-        buttonPanel.setBackground(new Color(240, 240, 240));
+        buttonPanel.setOpaque(false);
         buttonPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
 
         pendingBtn = createSectionButton("Pending Documents", new Color(255, 140, 0));
         verifiedBtn = createSectionButton("Verified Documents", new Color(46, 139, 87));
         rejectBtn = createSectionButton("Rejected Documents", new Color(220, 20, 60));
+
 
         // Actions
         pendingBtn.addActionListener(e -> switchSection("Pending"));
         verifiedBtn.addActionListener(e -> switchSection("Approved"));
         rejectBtn.addActionListener(e -> switchSection("Rejected"));
 
+
         buttonPanel.add(pendingBtn);
         buttonPanel.add(verifiedBtn);
         buttonPanel.add(rejectBtn);
 
+
         return buttonPanel;
     }
 
+
     private JPanel createFilterActionPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(new Color(240, 240, 240));
+        panel.setOpaque(false);
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
 
+
         // LEFT: Filters
         JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        filterPanel.setBackground(new Color(240, 240, 240));
+        filterPanel.setOpaque(false);
+
 
         // Doc Type Filter
         JLabel lblDoc = new JLabel("Document:");
         lblDoc.setFont(new Font("SansSerif", Font.BOLD, 14));
+        lblDoc.setForeground(Color.DARK_GRAY);
         String[] docTypes = {"All Documents", "Barangay Clearance", "Business Clearance", "Certificate of Indigency", "Certificate of Residency"};
         docTypeFilterBox = new JComboBox<>(docTypes);
         docTypeFilterBox.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        docTypeFilterBox.setBackground(Color.WHITE);
         docTypeFilterBox.addActionListener(e -> applyFilters());
+
 
         // Date Filter
         JLabel lblDate = new JLabel("Date:");
         lblDate.setFont(new Font("SansSerif", Font.BOLD, 14));
+        lblDate.setForeground(Color.DARK_GRAY);
         String[] dateOptions = {"All Time", "Today", "This Week", "Last Month", "This Year"};
         dateFilterBox = new JComboBox<>(dateOptions);
         dateFilterBox.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        dateFilterBox.setBackground(Color.WHITE);
         dateFilterBox.addActionListener(e -> applyFilters());
+
 
         filterPanel.add(lblDoc);
         filterPanel.add(docTypeFilterBox);
@@ -177,42 +257,70 @@ public class DashboardPanel extends JPanel {
         filterPanel.add(lblDate);
         filterPanel.add(dateFilterBox);
 
+
         // RIGHT: Print Button
         JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        actionPanel.setBackground(new Color(240, 240, 240));
+        actionPanel.setOpaque(false);
 
-        btnPrint = new JButton("🖨 Print Report");
+
+        btnPrint = new JButton("🖨 Print Report") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                GradientPaint gradient = new GradientPaint(
+                        0, 0, CERULEAN_BLUE,
+                        getWidth(), getHeight(), new Color(70, 130, 180)
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                super.paintComponent(g2d);
+            }
+        };
         btnPrint.setFont(new Font("SansSerif", Font.BOLD, 14));
-        btnPrint.setBackground(new Color(60, 60, 60));
         btnPrint.setForeground(Color.WHITE);
         btnPrint.setFocusPainted(false);
         btnPrint.setPreferredSize(new Dimension(150, 35));
+        btnPrint.setBorderPainted(false);
+        btnPrint.setContentAreaFilled(false);
+        btnPrint.setOpaque(false);
         btnPrint.addActionListener(e -> handlePrint());
 
+
         actionPanel.add(btnPrint);
+
 
         panel.add(filterPanel, BorderLayout.WEST);
         panel.add(actionPanel, BorderLayout.EAST);
 
+
         return panel;
     }
 
+
     private JPanel createTablePanel() {
         JPanel tablePanel = new JPanel(new BorderLayout());
+        tablePanel.setOpaque(false);
+
 
         // Added "Date" column
         String[] columns = {"Request ID", "Resident Name", "Document Type", "Status", "Date"};
 
+
         model = new DefaultTableModel(columns, 0) {
             public boolean isCellEditable(int row, int column) { return false; }
         };
+
 
         documentTable = new JTable(model);
         documentTable.setFont(new Font("SansSerif", Font.PLAIN, 14));
         documentTable.setRowHeight(45);
         documentTable.setShowGrid(false);
         documentTable.setIntercellSpacing(new Dimension(0, 0));
+        documentTable.setBackground(VERY_LIGHT_BLUE);
+        documentTable.setSelectionBackground(LIGHT_BLUE);
+        documentTable.setSelectionForeground(Color.BLACK);
         JTableHeaderStyle(documentTable);
+
 
         // Double Click Action
         documentTable.addMouseListener(new MouseAdapter() {
@@ -222,10 +330,12 @@ public class DashboardPanel extends JPanel {
                     if (viewRow != -1) {
                         int modelRow = documentTable.convertRowIndexToModel(viewRow);
 
+
                         int id = Integer.parseInt(model.getValueAt(modelRow, 0).toString());
                         String name = (String) model.getValueAt(modelRow, 1);
                         String doc = (String) model.getValueAt(modelRow, 2);
                         String status = (String) model.getValueAt(modelRow, 3);
+
 
                         showRequestDetails(id, name, doc, status);
                     }
@@ -233,21 +343,30 @@ public class DashboardPanel extends JPanel {
             }
         });
 
+
         // Sorter for Filtering
         sorter = new TableRowSorter<>(model);
         documentTable.setRowSorter(sorter);
 
+
         // Listener to update count when filter changes results
         sorter.addRowSorterListener(e -> updateRecordCount());
 
+
         JScrollPane scrollPane = new JScrollPane(documentTable);
-        scrollPane.setBorder(new LineBorder(new Color(200, 200, 200), 1, true));
-        scrollPane.getViewport().setBackground(Color.WHITE);
+        scrollPane.setBorder(new LineBorder(CERULEAN_BLUE, 2, true));
+        scrollPane.getViewport().setBackground(VERY_LIGHT_BLUE);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+
 
         tablePanel.add(scrollPane, BorderLayout.CENTER);
         return tablePanel;
-    }private void startAutoRefresh() {
-        autoRefreshTimer = new javax.swing.Timer(5000, e -> {
+    }
+
+
+    private void startAutoRefresh() {
+        javax.swing.Timer autoRefreshTimer = new javax.swing.Timer(5000, e -> {
             // Only refresh if user is NOT selecting a row (to avoid disruption)
             if (documentTable != null && documentTable.getSelectedRow() == -1) {
                 // Run DB fetch in background to prevent UI freeze
@@ -266,16 +385,18 @@ public class DashboardPanel extends JPanel {
         });
         autoRefreshTimer.start();
     }
-    private javax.swing.Timer autoRefreshTimer;
+
 
     // =========================================================================
     //  LOGIC METHODS
     // =========================================================================
 
+
     private void loadDataFromFile() {
         allData.clear();
         ResidentDAO rd = new ResidentDAO();
         List<DocumentRequest> residents = rd.getAllResidentsDocument();
+
 
         for (DocumentRequest res : residents) {
             allData.add(new Object[]{
@@ -289,16 +410,20 @@ public class DashboardPanel extends JPanel {
         System.out.println("✅ Loaded " + allData.size() + " records.");
     }
 
+
     private void switchSection(String status) {
         currentFilter = status;
         highlightButton(status.equals("Pending") ? pendingBtn : (status.equals("Approved") ? verifiedBtn : rejectBtn));
 
+
         if (model == null) return;
+
 
         model.setRowCount(0);
         for (Object[] row : allData) {
             String rowStatus = (String) row[3];
             boolean matchesStatus = false;
+
 
             if (rowStatus != null) {
                 if (status.equals("Approved")) {
@@ -307,6 +432,7 @@ public class DashboardPanel extends JPanel {
                     matchesStatus = rowStatus.equalsIgnoreCase(status);
                 }
             }
+
 
             if (matchesStatus) {
                 if (status.equals("Pending")) {
@@ -321,6 +447,8 @@ public class DashboardPanel extends JPanel {
         }
         applyFilters();
     }
+
+
     private boolean isRecent(Object dateObj) {
         if (dateObj == null) return false;
         try {
@@ -329,7 +457,9 @@ public class DashboardPanel extends JPanel {
             if (dateStr.contains(".")) dateStr = dateStr.split("\\.")[0];
             dateStr = dateStr.replace("T", " ");
 
+
             DateTimeFormatter formatter;
+
 
             // Check format based on length
             if (dateStr.length() == 19) {
@@ -341,30 +471,39 @@ public class DashboardPanel extends JPanel {
                 return false; // Invalid format
             }
 
+
             LocalDateTime reqTime = LocalDateTime.parse(dateStr, formatter);
             LocalDateTime now = LocalDateTime.now();
 
+
             long diff = ChronoUnit.MINUTES.between(reqTime, now);
             return diff >= 0 && diff <= 5; // 5 Minute Rule
+
 
         } catch (Exception e) {
             // e.printStackTrace(); // Hide parsing errors
             return false;
         }
     }
+
+
     // Apply Dropdown Filters
     private void applyFilters() {
         if (sorter == null) return;
 
+
         String selectedDoc = (String) docTypeFilterBox.getSelectedItem();
         String dateFilter = (String) dateFilterBox.getSelectedItem();
 
+
         List<RowFilter<Object, Object>> filters = new ArrayList<>();
+
 
         // 1. Document Type Filter (Column 2)
         if (selectedDoc != null && !selectedDoc.equals("All Documents")) {
             filters.add(RowFilter.regexFilter("(?i)^" + selectedDoc + "$", 2));
         }
+
 
         // 2. Date Filter (Column 4)
         if (dateFilter != null && !dateFilter.equals("All Time")) {
@@ -376,8 +515,10 @@ public class DashboardPanel extends JPanel {
                         if(dateStr.contains("T")) dateStr = dateStr.split("T")[0];
                         else if(dateStr.contains(" ")) dateStr = dateStr.split(" ")[0];
 
+
                         LocalDate rowDate = LocalDate.parse(dateStr);
                         LocalDate today = LocalDate.now();
+
 
                         if (dateFilter.equals("Today")) {
                             return rowDate.equals(today);
@@ -394,16 +535,20 @@ public class DashboardPanel extends JPanel {
             });
         }
 
+
         if (filters.isEmpty()) sorter.setRowFilter(null);
         else sorter.setRowFilter(RowFilter.andFilter(filters));
 
+
         updateRecordCount();
     }
+
 
     private void updateRecordCount() {
         int count = documentTable.getRowCount();
         lblRecordCount.setText("Total Records: " + count);
     }
+
 
     private void handlePrint() {
         MessageFormat header = new MessageFormat("Document Requests Report - " + currentFilter);
@@ -416,9 +561,11 @@ public class DashboardPanel extends JPanel {
         }
     }
 
+
     // =========================================================================
     //  HELPER / STYLE METHODS
     // =========================================================================
+
 
     private void highlightButton(JButton activeBtn) {
         JButton[] buttons = {pendingBtn, verifiedBtn, rejectBtn};
@@ -430,44 +577,101 @@ public class DashboardPanel extends JPanel {
         }
     }
 
+
     private void showRequestDetails(int requestId, String name, String docType, String status) {
         JOptionPane.showMessageDialog(this,
                 "Details for Request #" + requestId + "\nName: " + name + "\nDoc: " + docType + "\nStatus: " + status);
     }
 
+
     // Placeholder methods from your original code
     private String getGreetingFromProperties() { return "Hi User"; }
     private void setProfilePicture(JLabel l) { l.setText("👤"); }
 
+
     private void JTableHeaderStyle(JTable t) {
         t.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 16));
-        t.getTableHeader().setBackground(new Color(245, 245, 245));
-        t.getTableHeader().setForeground(Color.BLACK);
+        t.getTableHeader().setDefaultRenderer(new GradientHeaderRenderer());
         t.getTableHeader().setReorderingAllowed(false);
-        ((DefaultTableCellRenderer) t.getTableHeader().getDefaultRenderer()).setHorizontalAlignment(SwingConstants.CENTER);
     }
 
+
+    // Custom Table Header Renderer with Cerulean Gradient
+    private class GradientHeaderRenderer extends DefaultTableCellRenderer {
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value,
+                                                       boolean isSelected, boolean hasFocus, int row, int column) {
+            super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            setHorizontalAlignment(JLabel.CENTER);
+            setFont(new Font("SansSerif", Font.BOLD, 16));
+            setForeground(Color.WHITE);
+            setOpaque(false);
+            return this;
+        }
+
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2d = (Graphics2D) g.create();
+
+
+            // Cerulean gradient colors
+            GradientPaint gradient = new GradientPaint(
+                    0, 0, CERULEAN_BLUE,
+                    getWidth(), getHeight(), new Color(70, 130, 180)
+            );
+
+
+            g2d.setPaint(gradient);
+            g2d.fillRect(0, 0, getWidth(), getHeight());
+
+
+            // Paint the text
+            super.paintComponent(g2d);
+            g2d.dispose();
+        }
+    }
+
+
     private JButton createSectionButton(String text, Color color) {
-        JButton btn = new JButton(text);
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                Color currentColor = getBackground();
+                GradientPaint gradient = new GradientPaint(
+                        0, 0, currentColor,
+                        getWidth(), getHeight(), currentColor.brighter()
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+                super.paintComponent(g2d);
+            }
+        };
         btn.setFocusPainted(false);
         btn.setFont(new Font("SansSerif", Font.BOLD, 15));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setPreferredSize(new Dimension(220, 48));
         btn.setBorderPainted(false);
-        btn.setOpaque(true);
+        btn.setOpaque(false);
         btn.setForeground(Color.WHITE);
         btn.setBorder(new RoundedBorder(20, color));
         Color inactiveColor = new Color(color.getRed(), color.getGreen(), color.getBlue(), 130);
         btn.setBackground(inactiveColor);
         btn.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { btn.setBackground(color); }
+            public void mouseEntered(MouseEvent e) {
+                btn.setBackground(color);
+                btn.repaint();
+            }
             public void mouseExited(MouseEvent e) {
                 if (btn != pendingBtn && btn != verifiedBtn && btn != rejectBtn) btn.setBackground(inactiveColor);
-                else if (!currentFilter.equals(text.split(" ")[0])) btn.setBackground(inactiveColor); // Simple check
+                else if (!currentFilter.equals(text.split(" ")[0])) btn.setBackground(inactiveColor);
+                btn.repaint();
             }
         });
         return btn;
     }
+
 
     private static class RoundedBorder extends AbstractBorder {
         private final int radius; private final Color color;
@@ -482,3 +686,4 @@ public class DashboardPanel extends JPanel {
         public Insets getBorderInsets(Component c) { return new Insets(10, 10, 10, 10); }
     }
 }
+

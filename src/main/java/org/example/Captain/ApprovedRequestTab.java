@@ -12,121 +12,131 @@ import java.awt.event.*;
 import java.awt.print.PrinterException;
 import java.text.MessageFormat;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.border.*;
-import javax.swing.event.RowSorterEvent;
-import javax.swing.event.RowSorterListener;
 import javax.swing.table.*;
 
 public class ApprovedRequestTab extends JPanel {
+
+    // Color Palette - Professional Barangay Theme
+    private static final Color PRIMARY_COLOR = new Color(25, 118, 210);
+    private static final Color SECONDARY_COLOR = new Color(13, 71, 161);
+    private static final Color ACCENT_COLOR = new Color(76, 175, 80);
+    private static final Color DANGER_COLOR = new Color(244, 67, 54);
+    private static final Color BACKGROUND_COLOR = new Color(245, 247, 250);
+    private static final Color CARD_COLOR = Color.WHITE;
+    private static final Color TEXT_PRIMARY = new Color(33, 33, 33);
+    private static final Color TEXT_SECONDARY = new Color(117, 117, 117);
+    private static final Color BORDER_COLOR = new Color(224, 224, 224);
+    private static final Color HEADER_BG = new Color(21, 101, 192);
 
     private JTable requestTable;
     private DefaultTableModel tableModel;
     private TableRowSorter<DefaultTableModel> sorter;
 
-    // --- FILTER COMPONENTS ---
     private JLabel lblRecordCount;
     private JComboBox<String> statusFilterBox;
     private JComboBox<String> dateFilterBox;
     private JTextField searchField;
 
-    // Timer
-    private javax.swing.Timer autoRefreshTimer;
 
     public ApprovedRequestTab() {
         setLayout(new BorderLayout(0, 0));
-        setBackground(new Color(229, 231, 235));
+        setBackground(BACKGROUND_COLOR);
 
-        // Header
         JPanel headerPanel = createHeaderPanel();
         add(headerPanel, BorderLayout.NORTH);
 
-        // Content
         JPanel contentPanel = createContentPanel();
         JScrollPane scrollPane = new JScrollPane(contentPanel);
         scrollPane.setBorder(null);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        scrollPane.setBackground(new Color(229, 231, 235));
+        scrollPane.setBackground(BACKGROUND_COLOR);
         add(scrollPane, BorderLayout.CENTER);
 
-        // Initial Load
-        loadData();
+        loadRequestData();
 
-        // Start Timer
-        startAutoRefresh();
     }
+    private boolean isLoading = false;
 
-    private void startAutoRefresh() {
-        autoRefreshTimer = new javax.swing.Timer(5000, new ActionListener() {
+    public void loadRequestData() {
+        if (isLoading) return; // Prevent stacking requests
+        isLoading = true;
+        new SwingWorker<List<Object[]>, Void>() {
             @Override
-            public void actionPerformed(ActionEvent e) {
-                // Only refresh if user is NOT interacting with the table
-                if (requestTable != null && requestTable.getSelectedRow() == -1) {
-                    loadData();
+            protected List<Object[]> doInBackground() throws Exception {
+                ResidentDAO residentDAO = new ResidentDAO();
+                List<DocumentRequest> rawList = residentDAO.getAllResidentsDocument();
+                List<Object[]> processedRows = new ArrayList<>();
+
+                for (DocumentRequest doc : rawList) {
+                    // Filter: ONLY Approved
+                    if (doc != null && "Approved".equalsIgnoreCase(doc.getStatus()) || "Released".equalsIgnoreCase(doc.getStatus())) {
+
+                        Object dateObj = doc.getRequestDate();
+                        LocalDateTime finalDate = null;
+                        try {
+                            if (dateObj instanceof java.sql.Timestamp) {
+                                finalDate = ((java.sql.Timestamp) dateObj).toLocalDateTime();
+                            } else if (dateObj != null) {
+                                String s = dateObj.toString().replace("T", " ");
+                                if (s.length() >= 19) finalDate = LocalDateTime.parse(s.substring(0, 19), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                                else if (s.length() >= 16) finalDate = LocalDateTime.parse(s, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                                else if (s.length() >= 10) finalDate = LocalDate.parse(s.substring(0, 10)).atStartOfDay();
+                            }
+                        } catch (Exception ignored) {}
+
+                        processedRows.add(new Object[]{
+                                doc.getRequestId(),      // Col 0: ID (int)
+                                doc.getFullName(),       // Col 1: Name (String)
+                                doc.getName(),           // Col 2: Doc Type (String)
+                                doc.getStatus() ,        // Col 3: Purpose (String)
+                                finalDate,               // Col 4: Date (LocalDateTime Object)
+                                doc.getStatus()          // Col 5: Status (String)
+                        });
+                    }
                 }
-            }
-        });
-        autoRefreshTimer.start();
-    }
-
-    // =========================================================================
-    //  DATA LOADING
-    // =========================================================================
-    public void loadData() {
-        // Use SwingWorker to run the DB call in the background
-        new SwingWorker<List<DocumentRequest>, Void>() {
-            @Override
-            protected List<DocumentRequest> doInBackground() throws Exception {
-                // THIS RUNS IN THE BACKGROUND (No UI Freeze!)
-                ResidentDAO rd = new ResidentDAO();
-                return rd.getAllResidentsDocument();
+                return processedRows;
             }
 
             @Override
             protected void done() {
-                // THIS RUNS ON THE UI THREAD (Once data is ready)
                 try {
-                    List<DocumentRequest> residents = get();
-
-                    // 1. Clear existing rows
+                    List<Object[]> rows = get();
                     if (tableModel != null) {
-                        tableModel.setRowCount(0);
-                    }
-
-                    // 2. Populate Table
-                    if (residents != null) {
-                        for (DocumentRequest res : residents) {
-                            String requestId = "" + res.getRequestId();
-                            String fullName = res.getFullName();
-                            String docTypeName = res.getName();
-                            String status = res.getStatus();
-                            Object date = res.getRequestDate();
-
-                            if (tableModel != null) {
-                                tableModel.addRow(new Object[]{requestId, fullName, docTypeName, status, date});
-                            }
+                        // Safely clear table
+                        RowFilter<? super DefaultTableModel, ? super Integer> currentFilter = null;
+                        if (sorter != null) {
+                            currentFilter = sorter.getRowFilter();
+                            sorter.setRowFilter(null);
                         }
-                    }
 
-                    // 3. Refresh UI logic
-                    if (statusFilterBox != null) {
-                        applyFilters(); // Re-apply filters to new data
-                    } else {
-                        updateRecordCount();
+                        tableModel.setRowCount(0);
+
+                        for (Object[] row : rows) {
+                            tableModel.addRow(row);
+                        }
+
+                        if (sorter != null) sorter.setRowFilter(currentFilter);
+                        applyFilters();
                     }
+                    updateRecordCount();
+                    if (requestTable != null) requestTable.repaint();
 
                 } catch (Exception e) {
                     e.printStackTrace();
+                }finally {
+                    isLoading = false; // Release lock
                 }
             }
-        }.execute(); // Don't forget this!
+        }.execute();
     }
-    // =========================================================================
-    // FILTER LOGIC (FIXED: TODAY, THIS WEEK, THIS MONTH)
-    // =========================================================================
+
+
     private void applyFilters() {
         String text = searchField.getText();
         String status = (String) statusFilterBox.getSelectedItem();
@@ -144,36 +154,50 @@ public class ApprovedRequestTab extends JPanel {
             filters.add(RowFilter.regexFilter("(?i)^" + status + "$", 3));
         }
 
-        // 3. Date Filter (FIXED for 'T' format)
+        // 3. Date Filter (ROBUST VERSION)
         if (dateFilter != null && !dateFilter.equals("All Time")) {
             filters.add(new RowFilter<Object, Object>() {
                 @Override
                 public boolean include(Entry<?, ?> entry) {
-                    // Get string from Date column (index 4)
-                    String dateStr = entry.getStringValue(4);
                     try {
+                        // Get the date string from column 4
+                        Object dateObj = entry.getValue(4);
+                        if (dateObj == null) return false;
+
+                        String dateStr = dateObj.toString();
+
+                        // Handle "T" separator (Java LocalDateTime) or Space (SQL DateTime)
                         if (dateStr.contains("T")) {
                             dateStr = dateStr.split("T")[0];
-                        }
-                        else if (dateStr.contains(" ")) {
+                        } else if (dateStr.contains(" ")) {
                             dateStr = dateStr.split(" ")[0];
                         }
 
-                        LocalDate rowDate = LocalDate.parse(dateStr);
+                        // Parse Date
+                        LocalDate rowDate;
+                        try {
+                            rowDate = LocalDate.parse(dateStr); // Expects yyyy-MM-dd
+                        } catch (Exception e) {
+                            // If format is wrong, try another or just return false to hide row
+                            return false;
+                        }
+
                         LocalDate today = LocalDate.now();
 
                         if (dateFilter.equals("Today")) {
                             return rowDate.isEqual(today);
-                        }
-                        else if (dateFilter.equals("This Week")) {
+                        } else if (dateFilter.equals("This Week")) {
+                            // Logic: Is it after 7 days ago AND before/equal to today?
                             return !rowDate.isBefore(today.minusDays(7)) && !rowDate.isAfter(today);
-                        }
-                        else if (dateFilter.equals("This Month")) {
+                        } else if (dateFilter.equals("This Month")) {
                             return rowDate.getMonth() == today.getMonth() &&
                                     rowDate.getYear() == today.getYear();
                         }
+
                     } catch (Exception e) {
-                        return true; // Show row if parse fails
+                        // Catch-all to prevent crash. Return true to show row, or false to hide.
+                        // False is safer for filtering.
+                        return false;
                     }
                     return true;
                 }
@@ -196,16 +220,13 @@ public class ApprovedRequestTab extends JPanel {
             lblRecordCount.setText("Total Records: " + count);
         }
     }
+
     private void handlePrintTable() {
-        // 1. Create Header and Footer
         MessageFormat header = new MessageFormat("Document Requests Report - " + statusFilterBox.getSelectedItem());
         MessageFormat footer = new MessageFormat("Page {0,number,integer}");
 
         try {
-            // 2. Print the Table
-            // FIT_WIDTH mode ensures all columns fit on one page
             boolean complete = requestTable.print(JTable.PrintMode.FIT_WIDTH, header, footer);
-
             if (complete) {
                 JOptionPane.showMessageDialog(this, "Report Printed Successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
             }
@@ -213,73 +234,99 @@ public class ApprovedRequestTab extends JPanel {
             JOptionPane.showMessageDialog(this, "Printing Failed: " + pe.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
-    // =========================================================================
-    // GUI SETUP
-    // =========================================================================
+
     private JPanel createContentPanel() {
         JPanel contentPanel = new JPanel();
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
-        contentPanel.setBackground(new Color(229, 231, 235));
-        contentPanel.setBorder(new EmptyBorder(35, 60, 35, 60));
+        contentPanel.setBackground(BACKGROUND_COLOR);
+        contentPanel.setBorder(new EmptyBorder(30, 50, 30, 50));
 
-        // Buttons
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 30, 0));
-        buttonPanel.setBackground(new Color(229, 231, 235));
-        buttonPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
+        // Title and Filters in one clean bar
+        JPanel topBar = createTopBar();
+        contentPanel.add(topBar);
+        contentPanel.add(Box.createVerticalStrut(25));
 
+        // Table Card
+        JPanel tableCard = createTableCard();
+        contentPanel.add(tableCard);
 
+        return contentPanel;
+    }
 
-        contentPanel.add(buttonPanel);
-        contentPanel.add(Box.createVerticalStrut(40));
+    private JPanel createTopBar() {
+        JPanel topBar = new JPanel(new BorderLayout(20, 0));
+        topBar.setBackground(BACKGROUND_COLOR);
+        topBar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
 
-        // --- SEARCH & FILTER PANEL ---
-        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        searchPanel.setBackground(new Color(229, 231, 235));
-        searchPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        // Left: Title
+        JLabel titleLabel = new JLabel("Document Requests");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        titleLabel.setForeground(TEXT_PRIMARY);
 
-        JLabel searchLabel = new JLabel("Search: ");
-        searchLabel.setFont(new Font("Arial", Font.BOLD, 14));
-        JButton btnPrint = createRoundedButton("Print List", new Color(100, 100, 100)); // Grey
-        btnPrint.setForeground(Color.WHITE);
-        btnPrint.addActionListener(e -> handlePrintTable());
-        buttonPanel.add(btnPrint);
-        searchField = new JTextField(15);
-        searchField.setFont(new Font("Arial", Font.PLAIN, 14));
+        // Center: Filters
+        JPanel filtersPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
+        filtersPanel.setBackground(BACKGROUND_COLOR);
+
+        // Search Field
+        searchField = new JTextField(18);
+        searchField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         searchField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Color.GRAY, 1, true),
-                new EmptyBorder(5, 5, 5, 5)
+                new RoundedBorder(8, BORDER_COLOR),
+                new EmptyBorder(8, 12, 8, 12)
         ));
-        searchField.addKeyListener(new java.awt.event.KeyAdapter() {
-            public void keyReleased(java.awt.event.KeyEvent e) {
+        searchField.setToolTipText("Search by name, ID, or document type");
+        searchField.addKeyListener(new KeyAdapter() {
+            public void keyReleased(KeyEvent e) {
                 applyFilters();
             }
         });
 
-        JLabel lblStatus = new JLabel("  Status: ");
-        lblStatus.setFont(new Font("Arial", Font.BOLD, 14));
-        String[] statusOpts = {"All Status", "Pending", "Approved", "Rejected"};
-        statusFilterBox = new JComboBox<>(statusOpts);
+        // Status Filter
+        statusFilterBox = new JComboBox<>(new String[]{"All Status", "Approved","Released"});
+        statusFilterBox.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        statusFilterBox.setBackground(CARD_COLOR);
+        statusFilterBox.setBorder(BorderFactory.createCompoundBorder(
+                new RoundedBorder(8, BORDER_COLOR),
+                new EmptyBorder(8, 12, 8, 12)
+        ));
         statusFilterBox.addActionListener(e -> applyFilters());
 
-        // --- UPDATED DATE OPTIONS ---
-        JLabel lblDate = new JLabel("  Date: ");
-        lblDate.setFont(new Font("Arial", Font.BOLD, 14));
-        String[] dateOpts = { "Today", "This Week", "This Month","All Time"}; // Changed "Last Month" to "This Month"
-        dateFilterBox = new JComboBox<>(dateOpts);
+        // Date Filter
+        dateFilterBox = new JComboBox<>(new String[]{ "Today","This Week", "This Month", "All Time"});
+        dateFilterBox.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        dateFilterBox.setBackground(CARD_COLOR);
+        dateFilterBox.setBorder(BorderFactory.createCompoundBorder(
+                new RoundedBorder(8, BORDER_COLOR),
+                new EmptyBorder(8, 12, 8, 12)
+        ));
         dateFilterBox.addActionListener(e -> applyFilters());
 
-        searchPanel.add(searchLabel);
-        searchPanel.add(searchField);
-        searchPanel.add(lblStatus);
-        searchPanel.add(statusFilterBox);
-        searchPanel.add(lblDate);
-        searchPanel.add(dateFilterBox);
+        filtersPanel.add(searchField);
+        filtersPanel.add(statusFilterBox);
+        filtersPanel.add(dateFilterBox);
 
-        contentPanel.add(searchPanel);
-        contentPanel.add(Box.createVerticalStrut(10));
+        // Right: Print Button
+        JButton btnPrint = createModernButton("Print Report", PRIMARY_COLOR, Color.WHITE);
+        btnPrint.setPreferredSize(new Dimension(130, 38));
+        btnPrint.addActionListener(e -> handlePrintTable());
 
-        // --- TABLE SETUP ---
-        String[] columnNames = {"Request ID", "Name", "Types of Documents", "Status", "Date"};
+        topBar.add(titleLabel, BorderLayout.WEST);
+        topBar.add(filtersPanel, BorderLayout.CENTER);
+        topBar.add(btnPrint, BorderLayout.EAST);
+
+        return topBar;
+    }
+
+    private JPanel createTableCard() {
+        JPanel card = new JPanel(new BorderLayout(0, 15));
+        card.setBackground(CARD_COLOR);
+        card.setBorder(BorderFactory.createCompoundBorder(
+                new RoundedBorder(12, BORDER_COLOR),
+                new EmptyBorder(25, 25, 25, 25)
+        ));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 600));
+
+        String[] columnNames = {"Request ID", "Name", "Document Type", "Status", "Request Date"};
 
         tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
@@ -289,416 +336,161 @@ public class ApprovedRequestTab extends JPanel {
         };
 
         requestTable = new JTable(tableModel);
-        requestTable.setFont(new Font("Arial", Font.PLAIN, 14));
-        requestTable.setRowHeight(60);
-        requestTable.setGridColor(new Color(200, 200, 200));
-        requestTable.setSelectionBackground(new Color(200, 240, 240));
+        requestTable.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        requestTable.setRowHeight(50);
+        requestTable.setGridColor(BORDER_COLOR);
+        requestTable.setSelectionBackground(new Color(227, 242, 253));
+        requestTable.setSelectionForeground(TEXT_PRIMARY);
         requestTable.setShowVerticalLines(true);
         requestTable.setShowHorizontalLines(true);
-
-        // Mouse Listener
-        requestTable.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-
-            }
-        });
+        requestTable.setIntercellSpacing(new Dimension(8, 8));
 
         sorter = new TableRowSorter<>(tableModel);
         requestTable.setRowSorter(sorter);
 
-        // Sort by Date (Col 4) Descending
         List<RowSorter.SortKey> sortKeys = new ArrayList<>();
         sortKeys.add(new RowSorter.SortKey(4, SortOrder.DESCENDING));
         sorter.setSortKeys(sortKeys);
-
         sorter.addRowSorterListener(e -> updateRecordCount());
 
         JTableHeader header = requestTable.getTableHeader();
-        header.setFont(new Font("Arial", Font.BOLD, 15));
-        header.setBackground(new Color(34, 197, 94));
-        header.setForeground(Color.BLACK);
-        header.setPreferredSize(new Dimension(header.getWidth(), 50));
+        header.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        header.setBackground(HEADER_BG);
+        header.setForeground(Color.WHITE);
+        header.setPreferredSize(new Dimension(header.getWidth(), 42));
         header.setBorder(BorderFactory.createEmptyBorder());
 
-        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
-        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-        for (int i = 0; i < requestTable.getColumnCount(); i++) {
-            requestTable.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
-        }
+        // Custom Cell Renderer with Status Badges
+        requestTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                                                           boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
+                setHorizontalAlignment(JLabel.CENTER);
+
+                if (column == 3 && value != null) {
+                    String status = value.toString();
+                    JLabel label = new JLabel(status);
+                    label.setOpaque(true);
+                    label.setHorizontalAlignment(JLabel.CENTER);
+                    label.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                    label.setBorder(new EmptyBorder(5, 15, 5, 15));
+
+                    if (status.equalsIgnoreCase("Approved")) {
+                        label.setBackground(new Color(200, 230, 201));
+                        label.setForeground(new Color(27, 94, 32));
+                    } else if (status.equalsIgnoreCase("Pending")) {
+                        label.setBackground(new Color(255, 224, 178));
+                        label.setForeground(new Color(230, 81, 0));
+                    } else if (status.equalsIgnoreCase("Rejected")) {
+                        label.setBackground(new Color(255, 205, 210));
+                        label.setForeground(new Color(183, 28, 28));
+                    }
+
+                    if (isSelected) {
+                        label.setOpaque(false);
+                    }
+
+                    return label;
+                }
+
+                if (isSelected) {
+                    c.setBackground(table.getSelectionBackground());
+                } else {
+                    c.setBackground(row % 2 == 0 ? Color.WHITE : new Color(250, 250, 250));
+                }
+
+                return c;
+            }
+        });
 
         JScrollPane tableScrollPane = new JScrollPane(requestTable);
-        tableScrollPane.setBorder(BorderFactory.createLineBorder(new Color(34, 197, 94), 2));
-        tableScrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, 400));
+        tableScrollPane.setBorder(new RoundedBorder(8, BORDER_COLOR));
 
-        contentPanel.add(tableScrollPane);
-
-        // Footer
-        contentPanel.add(Box.createVerticalStrut(10));
+        // Footer with record count
         JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        footerPanel.setBackground(new Color(229, 231, 235));
+        footerPanel.setBackground(CARD_COLOR);
         lblRecordCount = new JLabel("Total Records: 0");
-        lblRecordCount.setFont(new Font("Arial", Font.BOLD, 13));
+        lblRecordCount.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lblRecordCount.setForeground(TEXT_SECONDARY);
         footerPanel.add(lblRecordCount);
-        contentPanel.add(footerPanel);
 
-        return contentPanel;
+        card.add(tableScrollPane, BorderLayout.CENTER);
+        card.add(footerPanel, BorderLayout.SOUTH);
+
+        return card;
     }
 
-    // =========================================================================
-    //  ACTION / VIEW LOGIC (Unchanged)
-    // =========================================================================
-    private void handleViewRequest() {
-        int selectedRow = requestTable.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a request to view.", "No Selection", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
 
-        int modelRow = requestTable.convertRowIndexToModel(selectedRow);
-        String requestIdStr = (String) tableModel.getValueAt(modelRow, 0);
-        String name = (String) tableModel.getValueAt(modelRow, 1);
-        String documentType = (String) tableModel.getValueAt(modelRow, 2);
-        String status = (String) tableModel.getValueAt(modelRow, 3);
 
-        int requestId = Integer.parseInt(requestIdStr);
-
-        ResidentDAO r = new ResidentDAO();
-        DocumentRequest docRequest = r.findPurposeByFullName(name, requestId);
-
-        if (docRequest != null) {
-            UserDataManager.getInstance().setResidentId(docRequest.getResidentId());
-            UserDataManager.getInstance().setFullName(name);
-            UserDataManager.getInstance().setPurpose(docRequest.getPurpose());
-            UserDataManager.getInstance().setAddress(docRequest.getAddress());
-            UserDataManager.getInstance().setAge(docRequest.getAge());
-            UserDataManager.getInstance().setReqDate(docRequest.getRequestDate());
-            showRequestDetailsDialog(name, documentType, modelRow, status);
-        } else {
-            JOptionPane.showMessageDialog(this, "Error finding details.");
-        }
-    }
-
-    // ... [Dialog and Helper methods below] ...
-
-    private JTextArea purposeArea;
-    private JLabel addressLabel;
-
-    private void showRequestDetailsDialog(String name, String documentType, int rowIndex, String currentStatus) {
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Approved Request", true);
-        dialog.setSize(700, 750);
-        dialog.setLocationRelativeTo(this);
-        dialog.setLayout(new BorderLayout());
-
-        JPanel mainPanel = new JPanel(new BorderLayout(0, 20));
-        mainPanel.setBackground(Color.WHITE);
-        mainPanel.setBorder(new EmptyBorder(30, 30, 30, 30));
-
-        JLabel titleLabel = new JLabel("Approved " + name + " Request?", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 20));
-        JLabel docTypeLabel = new JLabel(documentType, SwingConstants.CENTER);
-        docTypeLabel.setFont(new Font("Arial", Font.PLAIN, 14));
-
-        JPanel titlePanel = new JPanel(new BorderLayout(0, 5));
-        titlePanel.setBackground(Color.WHITE);
-        titlePanel.add(titleLabel, BorderLayout.NORTH);
-        titlePanel.add(docTypeLabel, BorderLayout.CENTER);
-
-        JPanel detailsPanel = new JPanel();
-        detailsPanel.setLayout(new BoxLayout(detailsPanel, BoxLayout.Y_AXIS));
-        detailsPanel.setBackground(Color.WHITE);
-        detailsPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
-
-        addDetailRow(detailsPanel, "Name:", name.split(" ")[0]);
-
-        JPanel genderPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        genderPanel.setBackground(Color.WHITE);
-        JButton genderBtn = new JButton("Male");
-        genderBtn.setBackground(Color.WHITE); genderBtn.setEnabled(false);
-        genderBtn.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.BLACK, 2), new EmptyBorder(8, 30, 8, 30)));
-        genderPanel.add(genderBtn);
-        addDetailRowCustom(detailsPanel, "", genderPanel);
-
-        addDetailRow(detailsPanel, "Last Name:", name.split(" ")[1]);
-        addDetailRow(detailsPanel, "Age:", String.valueOf(UserDataManager.getInstance().getAge()));
-
-        JPanel birthPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        birthPanel.setBackground(Color.WHITE);
-        JButton birthBtn = new JButton("");
-        birthBtn.setBackground(Color.WHITE); birthBtn.setEnabled(false);
-        birthBtn.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.BLACK, 2), new EmptyBorder(8, 20, 8, 20)));
-        birthPanel.add(birthBtn);
-        addDetailRowCustom(detailsPanel, "", birthPanel);
-        addDetailRow(detailsPanel, "Date:", String.valueOf(UserDataManager.getInstance().getReqDate()));
-
-        detailsPanel.add(Box.createVerticalStrut(10));
-        addressLabel = new JLabel("Current Address:");
-        addressLabel.setFont(new Font("Arial", Font.BOLD, 13));
-        addressLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        detailsPanel.add(addressLabel);
-        detailsPanel.add(Box.createVerticalStrut(5));
-        JLabel addressValue = new JLabel(UserDataManager.getInstance().getAddress());
-        addressValue.setFont(new Font("Arial", Font.PLAIN, 12));
-        addressValue.setAlignmentX(Component.LEFT_ALIGNMENT);
-        detailsPanel.add(addressValue);
-        detailsPanel.add(Box.createVerticalStrut(15));
-
-        JLabel purposeLabel = new JLabel("Purpose:");
-        purposeLabel.setFont(new Font("Arial", Font.BOLD, 13));
-        purposeLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        detailsPanel.add(purposeLabel);
-        detailsPanel.add(Box.createVerticalStrut(5));
-
-        purposeArea = new JTextArea(UserDataManager.getInstance().getPurpose());
-        purposeArea.setFont(new Font("Arial", Font.PLAIN, 12));
-        purposeArea.setLineWrap(true);
-        purposeArea.setWrapStyleWord(true);
-        purposeArea.setEditable(false);
-        purposeArea.setBackground(Color.WHITE);
-        purposeArea.setAlignmentX(Component.LEFT_ALIGNMENT);
-        detailsPanel.add(purposeArea);
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
-        buttonPanel.setBackground(Color.WHITE);
-
-        JButton rejectBtn = createDialogButton("Reject", new Color(255, 77, 77));
-        rejectBtn.addActionListener(e -> {
-            dialog.dispose();
-            showRejectDialog(name, documentType, rowIndex);
-        });
-
-        JButton approveBtn = createDialogButton("Approve", new Color(76, 175, 80));
-        approveBtn.addActionListener(e -> {
-            dialog.dispose();
-            showCertificateDialog(name, documentType, rowIndex);
-        });
-
-        buttonPanel.add(rejectBtn);
-        buttonPanel.add(approveBtn);
-
-        mainPanel.add(titlePanel, BorderLayout.NORTH);
-        mainPanel.add(new JScrollPane(detailsPanel), BorderLayout.CENTER);
-        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
-
-        dialog.add(mainPanel);
-        dialog.setVisible(true);
-    }
-
-    private void showCertificateDialog(String name, String documentType, int rowIndex) {
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Barangay Clearance", true);
-        dialog.setSize(750, 850);
-        dialog.setLocationRelativeTo(this);
-        dialog.setLayout(new BorderLayout());
-
-        JPanel mainPanel = new JPanel(new BorderLayout(0, 0));
-        mainPanel.setBackground(new Color(240, 242, 255));
-
-        JPanel certPanel = new JPanel();
-        certPanel.setBackground(new Color(240, 242, 255));
-        certPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK, 3));
-        JScrollPane certScrollPane = new JScrollPane(certPanel);
-        certScrollPane.setBorder(new EmptyBorder(30, 40, 20, 40));
-        certScrollPane.setBackground(new Color(240, 242, 255));
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        buttonPanel.setBackground(new Color(240, 242, 255));
-        buttonPanel.setBorder(new EmptyBorder(10, 0, 20, 0));
-
-        JButton printBtn = createDialogButton("Print", new Color(76, 175, 80));
-        printBtn.addActionListener(e -> {
-            tableModel.setValueAt("Approved", rowIndex, 3);
-
-            JOptionPane.showMessageDialog(dialog, "Document printed successfully!");
-            BarangayStaff staff = UserDataManager.getInstance().getCurrentStaff();
-            UserDataManager.getInstance().staffOperations(staff, "Approved", UserDataManager.getInstance().getResidentId());
-            SystemLogDAO systemLogDAO = new SystemLogDAO();
-            systemLogDAO.addLog("Approved Request", UserDataManager.getInstance().getFullName(), Integer.parseInt(staff.getStaffId()));
-
-            loadData();
-            dialog.dispose();
-        });
-
-        buttonPanel.add(printBtn);
-        mainPanel.add(certScrollPane, BorderLayout.CENTER);
-        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
-        dialog.add(mainPanel);
-        dialog.setVisible(true);
-    }
-
-    private JTextArea reasonText;
-    private void showRejectDialog(String name, String documentType, int rowIndex) {
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Reject Request", true);
-        dialog.setSize(650, 550);
-        dialog.setLocationRelativeTo(this);
-        dialog.setLayout(new BorderLayout());
-
-        JPanel mainPanel = new JPanel(new BorderLayout(0, 20));
-        mainPanel.setBackground(Color.WHITE);
-        mainPanel.setBorder(new EmptyBorder(30, 30, 30, 30));
-
-        JLabel titleLabel = new JLabel("Reject " + name + " Request?", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 20));
-
-        JLabel docTypeLabel = new JLabel(documentType, SwingConstants.CENTER);
-        docTypeLabel.setFont(new Font("Arial", Font.PLAIN, 14));
-
-        JPanel titlePanel = new JPanel(new BorderLayout(0, 5));
-        titlePanel.setBackground(Color.WHITE);
-        titlePanel.add(titleLabel, BorderLayout.NORTH);
-        titlePanel.add(docTypeLabel, BorderLayout.CENTER);
-
-        JPanel detailsPanel = new JPanel();
-        detailsPanel.setLayout(new BoxLayout(detailsPanel, BoxLayout.Y_AXIS));
-        detailsPanel.setBackground(Color.WHITE);
-        detailsPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
-
-        addDetailRow(detailsPanel, "Name:", name.split(" ")[0]);
-
-        JPanel genderPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        genderPanel.setBackground(Color.WHITE);
-        JButton genderBtn = new JButton("Male");
-        genderBtn.setBackground(Color.WHITE);
-        genderBtn.setEnabled(false);
-        genderBtn.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.BLACK, 2), new EmptyBorder(8, 30, 8, 30)));
-        genderPanel.add(genderBtn);
-        addDetailRowCustom(detailsPanel, "", genderPanel);
-
-        addDetailRow(detailsPanel, "Last Name:", name.split(" ")[1]);
-        addDetailRow(detailsPanel, "Middle Name:", "");
-
-        detailsPanel.add(Box.createVerticalStrut(20));
-
-        JPanel reasonPanel = new JPanel(new BorderLayout(0, 15));
-        reasonPanel.setBackground(Color.WHITE);
-        reasonPanel.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.BLACK, 3), new EmptyBorder(20, 20, 20, 20)));
-
-        JLabel reasonTitle = new JLabel("Please provide a reason", SwingConstants.CENTER);
-        reasonTitle.setFont(new Font("Arial", Font.BOLD, 16));
-
-        JPanel reasonContent = new JPanel(new BorderLayout(0, 10));
-        reasonContent.setBackground(Color.WHITE);
-        JLabel reasonLabel = new JLabel("Reason:");
-        reasonLabel.setFont(new Font("Arial", Font.BOLD, 13));
-
-        reasonText = new JTextArea("");
-        reasonText.setFont(new Font("Arial", Font.PLAIN, 13));
-        reasonText.setLineWrap(true);
-        reasonText.setWrapStyleWord(true);
-        reasonText.setRows(4);
-        reasonText.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY, 1), new EmptyBorder(8, 8, 8, 8)));
-
-        reasonContent.add(reasonLabel, BorderLayout.NORTH);
-        reasonContent.add(new JScrollPane(reasonText), BorderLayout.CENTER);
-        reasonPanel.add(reasonTitle, BorderLayout.NORTH);
-        reasonPanel.add(reasonContent, BorderLayout.CENTER);
-        detailsPanel.add(reasonPanel);
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        buttonPanel.setBackground(Color.WHITE);
-
-        JButton sendBtn = createDialogButton("Send to Requester", new Color(76, 175, 80));
-        sendBtn.addActionListener(e -> {
-            String reason = reasonText.getText().trim();
-            if (reason.isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "Please provide a reason.", "Required", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            String reasonOfStaff = reasonText.getText().toString();
-            BarangayStaff staff = UserDataManager.getInstance().getCurrentStaff();
-            int staffId = Integer.parseInt(staff.getStaffId());
-            StaffDAO staffDao = new StaffDAO();
-            staffDao.addReasonForRejection(UserDataManager.getInstance().getResidentId(), reasonOfStaff, staffId);
-            SystemLogDAO systemLogDAO = new SystemLogDAO();
-            systemLogDAO.addLog("Rejected Request", UserDataManager.getInstance().getFullName(), staffId);
-
-            tableModel.setValueAt("Rejected", rowIndex, 3);
-            JOptionPane.showMessageDialog(dialog, "Rejection sent!", "Success", JOptionPane.INFORMATION_MESSAGE);
-
-            loadData();
-            dialog.dispose();
-        });
-
-        buttonPanel.add(sendBtn);
-        mainPanel.add(titlePanel, BorderLayout.NORTH);
-        mainPanel.add(detailsPanel, BorderLayout.CENTER);
-        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
-        dialog.add(mainPanel);
-        dialog.setVisible(true);
-    }
-
-    private void addDetailRow(JPanel panel, String label, String value) {
-        JPanel rowPanel = new JPanel(new BorderLayout(10, 0));
-        rowPanel.setBackground(panel.getBackground());
-        rowPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 25));
-        JLabel lblLabel = new JLabel(label); lblLabel.setFont(new Font("Arial", Font.BOLD, 13)); lblLabel.setPreferredSize(new Dimension(150, 25));
-        JLabel lblValue = new JLabel(value); lblValue.setFont(new Font("Arial", Font.PLAIN, 13));
-        rowPanel.add(lblLabel, BorderLayout.WEST); rowPanel.add(lblValue, BorderLayout.CENTER);
-        panel.add(rowPanel); panel.add(Box.createVerticalStrut(5));
-    }
-    private void addDetailRowCustom(JPanel panel, String label, JPanel customComponent) {
-        JPanel rowPanel = new JPanel(new BorderLayout(10, 0));
-        rowPanel.setBackground(panel.getBackground());
-        rowPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
-        if (!label.isEmpty()) { JLabel lblLabel = new JLabel(label); lblLabel.setFont(new Font("Arial", Font.BOLD, 13)); lblLabel.setPreferredSize(new Dimension(150, 35)); rowPanel.add(lblLabel, BorderLayout.WEST); }
-        rowPanel.add(customComponent, BorderLayout.CENTER);
-        panel.add(rowPanel); panel.add(Box.createVerticalStrut(5));
-    }
-
-    private JButton createDialogButton(String text, Color bgColor) {
+    private JButton createModernButton(String text, Color bgColor, Color fgColor) {
         JButton button = new JButton(text) {
+            @Override
             protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create(); g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getBackground()); g2.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
-                g2.setColor(getForeground()); g2.drawString(getText(), (getWidth()-getFontMetrics(getFont()).stringWidth(getText()))/2, (getHeight()/2)+5); g2.dispose();
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (getModel().isPressed()) {
+                    g2.setColor(bgColor.darker());
+                } else if (getModel().isRollover()) {
+                    g2.setColor(bgColor.brighter());
+                } else {
+                    g2.setColor(getBackground());
+                }
+
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+
+                g2.setColor(getForeground());
+                FontMetrics fm = g2.getFontMetrics();
+                int x = (getWidth() - fm.stringWidth(getText())) / 2;
+                int y = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
+                g2.drawString(getText(), x, y);
+
+                g2.dispose();
             }
         };
-        button.setFont(new Font("Arial", Font.BOLD, 14)); button.setBackground(bgColor); button.setForeground(Color.WHITE);
-        button.setFocusPainted(false); button.setBorder(new EmptyBorder(12, 40, 12, 40)); button.setCursor(new Cursor(Cursor.HAND_CURSOR)); button.setContentAreaFilled(false);
-        return button;
-    }
 
-    private JButton createRoundedButton(String text, Color bgColor) {
-        JButton button = new JButton(text) {
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create(); g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getBackground()); g2.fillRoundRect(0, 0, getWidth(), getHeight(), 25, 25);
-                g2.setColor(getForeground()); g2.drawString(getText(), (getWidth()-getFontMetrics(getFont()).stringWidth(getText()))/2, (getHeight()/2)+5); g2.dispose();
-            }
-        };
-        button.setFont(new Font("Arial", Font.BOLD, 16)); button.setBackground(bgColor); button.setForeground(Color.BLACK);
-        button.setFocusPainted(false); button.setBorder(new EmptyBorder(15, 50, 15, 50)); button.setCursor(new Cursor(Cursor.HAND_CURSOR)); button.setContentAreaFilled(false); button.setPreferredSize(new Dimension(250, 50));
+        button.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        button.setBackground(bgColor);
+        button.setForeground(fgColor);
+        button.setFocusPainted(false);
+        button.setBorderPainted(false);
+        button.setContentAreaFilled(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.setBorder(new EmptyBorder(10, 20, 10, 20));
+
         return button;
     }
 
     private JPanel createHeaderPanel() {
         JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBackground(new Color(40, 40, 40));
-        headerPanel.setBorder(BorderFactory.createCompoundBorder(
-                new CaptainDashboard.RoundedBorder(30, true, false),
-                new EmptyBorder(25, 40, 25, 40)
-        ));
+        headerPanel.setBackground(HEADER_BG);
+        headerPanel.setBorder(new EmptyBorder(30, 50, 30, 50));
 
         JPanel titlePanel = new JPanel();
         titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
-        titlePanel.setBackground(new Color(40, 40, 40));
+        titlePanel.setBackground(HEADER_BG);
 
-        JLabel lblDocumentary = new JLabel("Documentary");
-        lblDocumentary.setFont(new Font("Arial", Font.BOLD, 26));
-        lblDocumentary.setForeground(Color.WHITE);
+        JLabel lblMain = new JLabel("Documentary Request Management");
+        lblMain.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        lblMain.setForeground(Color.WHITE);
 
-        JLabel lblRequest = new JLabel("Request");
-        lblRequest.setFont(new Font("Arial", Font.BOLD, 22));
-        lblRequest.setForeground(Color.WHITE);
+        JLabel lblSub = new JLabel("Barangay Document Processing System");
+        lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        lblSub.setForeground(new Color(200, 220, 255));
 
-        titlePanel.add(lblDocumentary);
-        titlePanel.add(lblRequest);
+        titlePanel.add(lblMain);
+        titlePanel.add(Box.createVerticalStrut(5));
+        titlePanel.add(lblSub);
 
         JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
-        userPanel.setBackground(new Color(40, 40, 40));
+        userPanel.setBackground(HEADER_BG);
+
         BarangayStaff staff = new StaffDAO().findStaffByPosition("Brgy.Captain");
 
-        JLabel lblUser = new JLabel("Hi Mr. "+staff.getFirstName());
-        lblUser.setFont(new Font("Arial", Font.PLAIN, 15));
+        JLabel lblUser = new JLabel("Hi Mr. " + staff.getFirstName());
+        lblUser.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         lblUser.setForeground(Color.WHITE);
 
         JPanel userIcon = new JPanel() {
@@ -709,10 +501,11 @@ public class ApprovedRequestTab extends JPanel {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(Color.WHITE);
                 g2.fillOval(0, 0, 45, 45);
-                g2.setColor(new Color(40, 40, 40));
+                g2.setColor(PRIMARY_COLOR);
                 g2.fillOval(12, 8, 20, 20);
                 g2.fillArc(5, 25, 35, 30, 0, 180);
             }
+
             @Override
             public Dimension getPreferredSize() {
                 return new Dimension(45, 45);
@@ -729,6 +522,30 @@ public class ApprovedRequestTab extends JPanel {
         return headerPanel;
     }
 
+    static class RoundedBorder extends AbstractBorder {
+        private int radius;
+        private Color borderColor;
+
+        RoundedBorder(int radius, Color borderColor) {
+            this.radius = radius;
+            this.borderColor = borderColor;
+        }
+
+        @Override
+        public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(borderColor);
+            g2.drawRoundRect(x, y, width - 1, height - 1, radius, radius);
+            g2.dispose();
+        }
+
+        @Override
+        public Insets getBorderInsets(Component c) {
+            return new Insets(2, 2, 2, 2);
+        }
+    }
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
@@ -737,8 +554,12 @@ public class ApprovedRequestTab extends JPanel {
                 e.printStackTrace();
             }
 
-            CaptainDashboard dashboard = new CaptainDashboard();
-            dashboard.setVisible(true);
+            JFrame frame = new JFrame("Barangay Document System");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setSize(1400, 900);
+            frame.add(new ApprovedRequestTab());
+            frame.setLocationRelativeTo(null);
+            frame.setVisible(true);
         });
     }
 }

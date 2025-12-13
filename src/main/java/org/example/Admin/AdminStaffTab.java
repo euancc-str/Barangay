@@ -1,18 +1,20 @@
 package org.example.Admin;
 
+import org.example.Admin.AdminSettings.SystemConfigDAO;
+import org.example.ResidentDAO;
 import org.example.StaffDAO;
 import org.example.UserDataManager;
 import org.example.Users.BarangayStaff;
+import org.example.Users.Resident;
 
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.table.*;
+import java.sql.Date;
+import java.time.*;
 import java.util.List;
-import java.time.LocalDate;
-import java.time.Period;
-import java.time.Month;
 
 public class AdminStaffTab extends JPanel {
 
@@ -21,12 +23,12 @@ public class AdminStaffTab extends JPanel {
     private TableRowSorter<DefaultTableModel> sorter;
 
     // --- VISUAL STYLE VARIABLES ---
-    private final Color BG_COLOR = new Color(229, 231, 235);
-    private final Color HEADER_BG = new Color(40, 40, 40);
-    private final Color TABLE_HEADER_BG = new Color(34, 197, 94);
-    private final Color BTN_ADD_COLOR = new Color(76, 175, 80);      // Green
+    private final Color BG_COLOR = new Color(245, 247, 250);
+    private final Color HEADER_BG = new Color(44, 62, 80);
+    private final Color TABLE_HEADER_BG = new Color(52, 152, 219);
+    private final Color BTN_ADD_COLOR = new Color(39, 174, 96);      // Green
     private final Color BTN_UPDATE_COLOR = new Color(100, 149, 237); // Blue
-    private final Color BTN_DEACTIVATE_COLOR = new Color(255, 77, 77); // Red
+    private final Color BTN_DEACTIVATE_COLOR = new Color(231, 76, 60); // Red
 
     public AdminStaffTab() {
         setLayout(new BorderLayout(0, 0));
@@ -37,82 +39,72 @@ public class AdminStaffTab extends JPanel {
         loadStaffData();
     }
 
+    // =========================================================================
+    // DATA LOADING
+    // =========================================================================
     public void loadStaffData() {
-        tableModel.setRowCount(0);
-        StaffDAO staffDAO = new StaffDAO();
-        List <BarangayStaff> staffList = staffDAO.getAllStaff();
-        for(BarangayStaff staff: staffList){
-            tableModel.addRow(new Object[]{staff.getStaffId(),staff.getName(),staff.getPosition(),staff.getContactNo(),staff.getStatus(),staff.getLastLogin()});
-        }
-        if(staffTable!=null){
-            staffTable.repaint();
-        }
+        new SwingWorker<List<BarangayStaff>, Void>() {
+            @Override
+            protected List<BarangayStaff> doInBackground() throws Exception {
+                return new StaffDAO().getAllStaff();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<BarangayStaff> staffList = get();
+
+                    if (tableModel != null) {
+                        tableModel.setRowCount(0);
+
+                        for (BarangayStaff s : staffList) {
+                            tableModel.addRow(new Object[]{
+                                    s.getStaffId(),
+                                    s.getName(),
+                                    s.getPosition(),
+                                    s.getContactNo(),
+                                    s.getStatus(),
+                                    s.getLastLogin()
+                            });
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
     }
 
     // =========================================================================
-    // 1. DEACTIVATE LOGIC (With Warning/Error Prevention)
-    // =========================================================================
-    private void handleDeactivate() {
-        int selectedRow = staffTable.getSelectedRow();
-        System.out.println(selectedRow);
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a staff member.", "No Selection", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        int modelRow = staffTable.convertRowIndexToModel(selectedRow);
-        String name = (String) tableModel.getValueAt(modelRow, 1);
-        String currentStatus = (String) tableModel.getValueAt(modelRow, 4);
-
-        if("Inactive".equals(currentStatus)) {
-            JOptionPane.showMessageDialog(this, "This staff member is already inactive.", "Info", JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
-
-        // ERROR PREVENTION: Warning Dialog
-        int confirm = JOptionPane.showConfirmDialog(this,
-                "<html><body style='width: 300px;'>" +
-                        "<b>WARNING: Account Deactivation</b><br><br>" +
-                        "Are you sure you want to deactivate <b>" + name + "</b>?<br>" +
-                        "They will lose access to the system immediately.<br>" +
-                        "<i>(This preserves history, unlike Delete)</i>" +
-                        "</body></html>",
-                "Confirm Deactivation",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE);
-
-        if (confirm == JOptionPane.YES_OPTION) {
-            tableModel.setValueAt("Inactive", modelRow, 4);
-            StaffDAO dao = new StaffDAO();
-            dao.deactivateStaff("Inactive",name, selectedRow+1);
-            SystemLogDAO logDAO = new SystemLogDAO();
-            logDAO.addLog("Inactivated staff",name, Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
-            JOptionPane.showMessageDialog(this, "Staff access deactivated.", "Success", JOptionPane.INFORMATION_MESSAGE);
-        }
-    }
-
-    // =========================================================================
-    // 2. UPDATE LOGIC (The "Nice GUI" Dialog)
+    // 1. UPDATE LOGIC (Full Implementation)
     // =========================================================================
     private void handleUpdate() {
         int selectedRow = staffTable.getSelectedRow();
-        if (selectedRow == -1) return;
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a staff member to edit.");
+            return;
+        }
 
         int modelRow = staffTable.convertRowIndexToModel(selectedRow);
 
-        // Retrieve current values
-        String id = (String) tableModel.getValueAt(modelRow, 0);
-        String name = (String) tableModel.getValueAt(modelRow, 1);
-        String position = (String) tableModel.getValueAt(modelRow, 2);
-        String contact = (String) tableModel.getValueAt(modelRow, 3);
-        String status = (String) tableModel.getValueAt(modelRow, 4);
+        // 1. Get the ID safely
+        String idStr = String.valueOf(tableModel.getValueAt(modelRow, 0));
+        int staffId = Integer.parseInt(idStr);
 
-        showUpdateStaffDialog(id, name, position, contact, status, modelRow);
+        // 2. Fetch FULL object from DB to get split names (First, Middle, Last)
+        // The table only has "Full Name", so we need the fresh object from DB.
+        BarangayStaff currentStaff = new StaffDAO().findStaffById(staffId);
+
+        if (currentStaff != null) {
+            showUpdateStaffDialog(currentStaff);
+        } else {
+            JOptionPane.showMessageDialog(this, "Error fetching staff details from database.");
+        }
     }
 
-    private void showUpdateStaffDialog(String id, String currentName, String currentPos, String currentContact, String currentStatus, int modelRow) {
+    private void showUpdateStaffDialog(BarangayStaff staff) {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Update Staff Profile", true);
-        dialog.setSize(550, 650);
+        dialog.setSize(600, 800);
         dialog.setLocationRelativeTo(this);
         dialog.setLayout(new BorderLayout());
 
@@ -120,60 +112,113 @@ public class AdminStaffTab extends JPanel {
         mainPanel.setBackground(Color.WHITE);
         mainPanel.setBorder(new EmptyBorder(30, 30, 30, 30));
 
-        // Header
         JLabel titleLabel = new JLabel("Edit Staff Profile", SwingConstants.CENTER);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 22));
         titleLabel.setForeground(HEADER_BG);
         mainPanel.add(titleLabel, BorderLayout.NORTH);
 
-        // Form Details Panel
         JPanel detailsPanel = new JPanel();
         detailsPanel.setLayout(new BoxLayout(detailsPanel, BoxLayout.Y_AXIS));
         detailsPanel.setBackground(Color.WHITE);
         detailsPanel.setBorder(new EmptyBorder(10, 20, 10, 20));
 
-        // --- EDITABLE FIELDS ---
-
-        // Staff ID (Read-Only)
-        JTextField txtId = createStyledTextField(id);
-
+        // --- 1. ID ---
+        JTextField txtId = createStyledTextField(staff.getStaffId());
+        txtId.setEditable(false);
         txtId.setBackground(new Color(250, 250, 250));
         addStyledRow(detailsPanel, "Staff ID:", txtId);
 
-        // Full Name (Editable)
-        JTextField txtName = createStyledTextField(currentName);
+        // --- 2. SPLIT NAMES & RESIDENT LINK ---
+        JTextField txtFirst = createStyledTextField(staff.getFirstName());
+        JTextField txtMiddle = createStyledTextField(staff.getMiddleName() != null ? staff.getMiddleName() : "");
+        JTextField txtLast = createStyledTextField(staff.getLastName());
+        JTextField txtSuffix = createStyledTextField(staff.getSuffix() != null ? staff.getSuffix() : "");
 
-        addStyledRow(detailsPanel, "Full Name:", txtName);
+        JTextField txtContact = createStyledTextField(staff.getContactNo());
+        JTextField txtAddress = createStyledTextField(staff.getAddress() != null ? staff.getAddress() : "");
+        JTextField txtEmail = createStyledTextField(staff.getEmail() != null ? staff.getEmail() : "");
 
-        // Position (ComboBox)
-        String[] positions = {"Secretary", "Treasurer", "Brgy.Captain"};
+        // Link Button
+        JButton btnLink = new JButton("<html><center>Select from<br>Resident List</center></html>");
+        btnLink.setFont(new Font("Arial", Font.PLAIN, 10));
+        btnLink.setFocusPainted(false);
+        btnLink.setBackground(new Color(240, 240, 240));
+
+        // LINKING LOGIC: Pass all fields to be auto-filled
+        btnLink.addActionListener(e -> openResidentSelector(dialog, txtFirst, txtMiddle, txtLast, txtSuffix, txtContact, txtAddress, txtEmail));
+
+        JPanel nameHeader = new JPanel(new BorderLayout());
+        nameHeader.setBackground(Color.WHITE);
+        nameHeader.add(new JLabel("Personal Information"), BorderLayout.CENTER);
+        nameHeader.add(btnLink, BorderLayout.EAST);
+
+        addStyledPanelRow(detailsPanel, "", nameHeader);
+        addStyledRow(detailsPanel, "First Name:", txtFirst);
+        addStyledRow(detailsPanel, "Middle Initial:", txtMiddle);
+        addStyledRow(detailsPanel, "Last Name:", txtLast);
+        addStyledRow(detailsPanel, "Suffix:", txtSuffix);
+        addStyledRow(detailsPanel, "Address:", txtAddress);
+
+        // --- 3. POSITION & TERM LIMIT ---
+        String[] positions = {"Secretary", "Treasurer", "Brgy.Captain", "Admin"};
         JComboBox<String> cbPosition = new JComboBox<>(positions);
-        cbPosition.setSelectedItem(currentPos);
-        cbPosition.setFont(new Font("Arial", Font.PLAIN, 14));
+        cbPosition.setSelectedItem(staff.getPosition());
         cbPosition.setBackground(Color.WHITE);
-        cbPosition.setPopupVisible(false);
         addStyledRow(detailsPanel, "Position:", cbPosition);
-        // Contact (Editable)
-        JTextField txtContact = createStyledTextField(currentContact);
-        addStyledRow(detailsPanel, "Contact No:", txtContact);
 
-        // Status (ComboBox)
+        // Term Fields
+        JTextField txtTermStart = createStyledTextField(LocalDate.now().toString());
+        JTextField txtTermEnd = createStyledTextField(LocalDate.now().plusYears(4).toString());
+        txtTermEnd.setEditable(false);
+
+        JPanel termPanel = new JPanel(new GridLayout(1, 2, 10, 0));
+        termPanel.setBackground(Color.WHITE);
+        termPanel.add(wrapField("Term Start:", txtTermStart));
+        termPanel.add(wrapField("Term End (4yrs):", txtTermEnd));
+
+        JPanel termWrapper = new JPanel(new BorderLayout());
+        termWrapper.setBackground(Color.WHITE);
+        termWrapper.setBorder(BorderFactory.createTitledBorder("Term of Office"));
+        termWrapper.add(termPanel, BorderLayout.CENTER);
+
+        // Only show term for Captain
+        termWrapper.setVisible("Brgy.Captain".equals(staff.getPosition()));
+
+        // Listeners for Term
+        txtTermStart.addFocusListener(new FocusAdapter() {
+            public void focusLost(FocusEvent e) {
+                try {
+                    LocalDate start = LocalDate.parse(txtTermStart.getText());
+                    txtTermEnd.setText(start.plusYears(4).toString());
+                } catch(Exception ex) {}
+            }
+        });
+
+        cbPosition.addActionListener(e -> {
+            termWrapper.setVisible("Brgy.Captain".equals(cbPosition.getSelectedItem()));
+            dialog.revalidate();
+        });
+
+        detailsPanel.add(termWrapper);
+        detailsPanel.add(Box.createVerticalStrut(10));
+
+        // --- 4. CONTACT & STATUS ---
+        addStyledRow(detailsPanel, "Contact No:", txtContact);
+        addStyledRow(detailsPanel, "Email:", txtEmail);
 
         String[] statuses = {"Active", "Inactive", "Suspended"};
         JComboBox<String> cbStatus = new JComboBox<>(statuses);
-        cbStatus.setSelectedItem(currentStatus);
-        cbStatus.setFont(new Font("Arial", Font.PLAIN, 14));
-
+        cbStatus.setSelectedItem(staff.getStatus());
         cbStatus.setBackground(Color.WHITE);
         addStyledRow(detailsPanel, "Account Status:", cbStatus);
-        BarangayStaff staff = new StaffDAO().findStaffById(Integer.parseInt(id));
-        JTextField txtUser = createStyledTextField("");
 
-        addStyledRow(detailsPanel,"Set new username:",txtUser);
+        // --- 5. CREDENTIALS ---
+        JTextField txtUser = createStyledTextField("*****");
+        addStyledRow(detailsPanel, "New Username:", txtUser);
 
-        JTextField txtPass = createStyledTextField("");
+        JTextField txtPass = createStyledTextField("*****");
+        addStyledRow(detailsPanel, "New Password:", txtPass);
 
-        addStyledRow(detailsPanel,"Set new password",txtPass);
         mainPanel.add(new JScrollPane(detailsPanel), BorderLayout.CENTER);
 
         // Buttons
@@ -187,96 +232,275 @@ public class AdminStaffTab extends JPanel {
         JButton btnSave = createRoundedButton("Save Changes", BTN_UPDATE_COLOR);
         btnSave.setPreferredSize(new Dimension(200, 45));
 
-        // SAVE ACTION (With Validation & Confirm)
+        // --- SAVE ACTION ---
         btnSave.addActionListener(e -> {
-            String newName = txtName.getText().trim();
-            String newContact = txtContact.getText().trim();
-            String pass = txtPass.getText().trim();
-            String user = txtUser.getText().trim();
-            if(pass.isEmpty() || user.isEmpty()){
-                JOptionPane.showMessageDialog(dialog, "User or pass cannot be empty!!!!!", "Validation Error", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-            if(pass.length() < 5 && user.length() <5){
-                JOptionPane.showMessageDialog(dialog, "pass or username's length cant be less than 5", "Validation Error", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-            // ERROR PREVENTION
-            if (newName.isEmpty() || newContact.isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "Name and Contact Number cannot be empty.", "Validation Error", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-            if(newContact.length() != 11 || !newContact.matches("\\d*")){
-                JOptionPane.showMessageDialog(dialog,"Contact number's length must be 11 and must only contain numbers!!!","Validation Error",JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-            // CONFIRMATION
-            int confirm = JOptionPane.showConfirmDialog(dialog,
-                    "Are you sure you want to update details for " + currentName + "?",
-                    "Confirm Update",
-                    JOptionPane.YES_NO_OPTION);
+            // A. Get Inputs
+            String newFirst = txtFirst.getText().trim();
+            String newLast = txtLast.getText().trim();
 
-            if (confirm == JOptionPane.YES_OPTION) {
-                // Update Table Model
-                tableModel.setValueAt(newName, modelRow, 1);
-                tableModel.setValueAt(cbPosition.getSelectedItem(), modelRow, 2);
-                tableModel.setValueAt(newContact, modelRow, 3);
-                tableModel.setValueAt(cbStatus.getSelectedItem(), modelRow, 4);
-                StaffDAO staffDAO = new StaffDAO();
-                staffDAO.setStaffStatus(cbStatus.getSelectedItem().toString(),newName,Integer.parseInt(txtId.getText()), newContact,cbPosition.getSelectedItem().toString(),txtPass.getText(),txtUser.getText());
-                SystemLogDAO logDAO = new SystemLogDAO();
-                logDAO.addLog("Updated staff status",newName, Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
-                JOptionPane.showMessageDialog(dialog, "Staff details updated successfully!");
-                dialog.dispose();
+            String inputUser = txtUser.getText().trim();
+            String inputPass = txtPass.getText().trim();
+
+            // B. Validation
+            if (newFirst.isEmpty() || newLast.isEmpty()) {
+                JOptionPane.showMessageDialog(dialog, "First and Last names are required.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
             }
+            String mName = txtMiddle.getText().trim();
+            if (!mName.isEmpty()) {
+                if (!mName.matches("^[a-zA-Z]\\.?$")) {
+                    JOptionPane.showMessageDialog(dialog,
+                            "Middle Initial must be a single letter (e.g., 'A' or 'A.').",
+                            "Invalid Format",
+                            JOptionPane.WARNING_MESSAGE);
+                    return; // Stop here
+                }
+
+                // Format: Remove any existing dot, uppercase the letter, then append a dot
+                mName = mName.replace(".", "").toUpperCase() + ".";
+            }
+
+            // C. Credential Logic (Keep old if *****)
+            String finalUser = (!inputUser.equals("*****") && !inputUser.isEmpty()) ? inputUser : staff.getUsername();
+            String finalPass = (!inputPass.equals("*****") && !inputPass.isEmpty()) ? inputPass : staff.getPassword();
+
+            // D. Captain Override Warning
+            Object selectedPos = cbPosition.getSelectedItem();
+            String posStr = (selectedPos != null) ? selectedPos.toString() : "";
+
+            if ("Brgy.Captain".equals(posStr)) {
+                int override = JOptionPane.showConfirmDialog(dialog,
+                        "You are updating the BARANGAY CAPTAIN.\n" +
+                                "The new name '" + newFirst + " " + newLast + "' will replace the current captain.\n" +
+                                "Term: " + txtTermStart.getText() + " to " + txtTermEnd.getText() + ".\n\nProceed?",
+                        "Confirm Leadership Change", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                if (override != JOptionPane.YES_OPTION) return;
+            }
+
+            Object selectedStatus = cbStatus.getSelectedItem();
+            String statusStr = (selectedStatus != null) ? selectedStatus.toString() : "Active";
+
+            BarangayStaff updatedStaff = BarangayStaff.builder()
+                    .staffId(staff.getStaffId()) // Primary Key
+                    .firstName(newFirst)
+                    .middleName(txtMiddle.getText().trim())
+                    .lastName(newLast)
+                    .suffix(txtSuffix.getText().trim())
+                    .position(posStr)
+                    .role(posStr)
+                    .contactNo(txtContact.getText().trim())
+                    .email(txtEmail.getText().trim())
+                    .username(finalUser)
+                    .password(finalPass)
+                    .status(statusStr)
+                    .address(txtAddress.getText().trim())
+                    // Keep existing fields we didn't edit
+                    .dob(staff.getDob())
+                    .citizenship(staff.getCitizenship())
+                    .civilStatus(staff.getCivilStatus())
+                    .department(staff.getDepartment())
+                    .lastLogin(staff.getLastLogin())
+                    .idNumber(staff.getIdNumber())
+                    .build();
+
+            // F. Call Your Method (NO LOGS as requested)
+            UserDataManager.getInstance().updateStaff(updatedStaff);
+            addStaffAsResident(staff);
+            JOptionPane.showMessageDialog(dialog, "Staff updated successfully!");
+            loadStaffData(); // Refresh Table
+            dialog.dispose();
         });
 
         btnPanel.add(btnCancel);
         btnPanel.add(btnSave);
-
         mainPanel.add(btnPanel, BorderLayout.SOUTH);
+
         dialog.add(mainPanel);
         dialog.setVisible(true);
     }
+    public void addStaffAsResident(BarangayStaff staff){
+        java.sql.Date staffDob = Date.valueOf(staff.getDob());
+        java.sql.Date finalDob = (staffDob != null) ? staffDob : null;
+
+         Resident staffToResident = Resident.builder()
+                .firstName(staff.getFirstName())
+                .middleName(staff.getMiddleName())
+                .lastName(staff.getLastName())
+                .suffix(staff.getSuffix())
+                .position("Resident")
+                 .age(staff.getAge())
+                .contactNo(staff.getContactNo())
+                .email(staff.getEmail())
+                .status("Active")
+                .gender(staff.getSex())
+                .address(staff.getAddress())
+                .dob(finalDob.toLocalDate())
+                .civilStatus(staff.getCivilStatus())
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        ResidentDAO rDao = new ResidentDAO();
+        if (rDao.isResidentExists(staffToResident.getFirstName(), staff.getLastName(),staff.getMiddleName())) {
+            JOptionPane.showMessageDialog(this,
+                    "Resident '" + staffToResident.getFirstName() + " " + staff.getLastName() + "' is already registered in resident database!",
+                    "Duplicate Entry",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        UserDataManager.getInstance().addResident(staffToResident);
+    }
 
     // =========================================================================
-    // VISUAL HELPERS (Matches AdminRequestTab)
+    // RESIDENT SELECTOR (Auto-Fill Fields)
     // =========================================================================
+    private void openResidentSelector(JDialog parent, JTextField first, JTextField middle, JTextField last, JTextField suffix, JTextField contact, JTextField address, JTextField email) {
+        JDialog resDialog = new JDialog(parent, "Select Resident", true);
+        resDialog.setSize(600, 500);
+        resDialog.setLocationRelativeTo(parent);
+
+        ResidentDAO rDao = new ResidentDAO();
+        java.util.List<Resident> residents = rDao.getAllResidents();
+
+        String[] cols = {"ID", "Name", "Address"};
+        DefaultTableModel resModel = new DefaultTableModel(cols, 0) {
+            public boolean isCellEditable(int r, int c) { return false; }
+        };
+
+        for(Resident r : residents) {
+            resModel.addRow(new Object[]{r.getResidentId(), r.getFirstName() + " " + r.getLastName(), r.getAddress()});
+        }
+
+        JTable resTable = new JTable(resModel);
+        resTable.setRowHeight(35);
+        resTable.setFont(new Font("Arial", Font.PLAIN, 14));
+
+        JTextField search = new JTextField();
+        TableRowSorter<DefaultTableModel> resSorter = new TableRowSorter<>(resModel);
+        resTable.setRowSorter(resSorter);
+        search.addKeyListener(new KeyAdapter() {
+            public void keyReleased(KeyEvent e) {
+                resSorter.setRowFilter(RowFilter.regexFilter("(?i)" + search.getText()));
+            }
+        });
+
+        JButton btnSelect = new JButton("Use Selected Resident");
+        btnSelect.setBackground(BTN_ADD_COLOR);
+        btnSelect.setForeground(Color.WHITE);
+        btnSelect.addActionListener(e -> {
+            int row = resTable.getSelectedRow();
+            if(row != -1) {
+                int modelRow = resTable.convertRowIndexToModel(row);
+                int resId = (int) resModel.getValueAt(modelRow, 0);
+
+                // Fetch Full Resident
+                Resident r = rDao.findResidentById(resId);
+                if (r != null) {
+                    first.setText(r.getFirstName());
+                    middle.setText(r.getMiddleName() != null ? r.getMiddleName() : "");
+                    last.setText(r.getLastName());
+                    suffix.setText(r.getSuffix() != null ? r.getSuffix() : "");
+                    address.setText(r.getAddress());
+
+                    // Added Contact & Email as requested
+                    contact.setText(r.getContactNo() != null ? r.getContactNo() : "");
+                    email.setText(r.getEmail() != null ? r.getEmail() : "");
+
+                    resDialog.dispose();
+                }
+            } else {
+                JOptionPane.showMessageDialog(resDialog, "Please select a resident.");
+            }
+        });
+
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBorder(new EmptyBorder(10,10,10,10));
+        p.add(new JLabel("Search:"), BorderLayout.NORTH);
+        p.add(search, BorderLayout.NORTH);
+
+        JPanel center = new JPanel(new BorderLayout());
+        center.add(search, BorderLayout.NORTH);
+        center.add(new JScrollPane(resTable), BorderLayout.CENTER);
+
+        p.add(center, BorderLayout.CENTER);
+        p.add(btnSelect, BorderLayout.SOUTH);
+
+        resDialog.add(p);
+        resDialog.setVisible(true);
+    }
+
+    // =========================================================================
+    // HELPER METHODS
+    // =========================================================================
+    private void handleDeactivate() {
+        int selectedRow = staffTable.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a staff member.");
+            return;
+        }
+
+        int modelRow = staffTable.convertRowIndexToModel(selectedRow);
+        String idStr = String.valueOf(tableModel.getValueAt(modelRow, 0));
+        String name = (String) tableModel.getValueAt(modelRow, 1);
+        String currentStatus = (String) tableModel.getValueAt(modelRow, 4);
+
+        if ("Inactive".equals(currentStatus)) return;
+
+        int confirm = JOptionPane.showConfirmDialog(this, "Deactivate " + name + "?", "Confirm", JOptionPane.YES_NO_OPTION);
+        if (confirm == JOptionPane.YES_OPTION) {
+            // Assuming your deactivate method takes an ID
+            new StaffDAO().deactivateStaff("Inactive", name, Integer.parseInt(idStr));
+            loadStaffData();
+        }
+    }
+
+    private JPanel wrapField(String label, JComponent field) {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(Color.WHITE);
+        p.add(new JLabel(label), BorderLayout.NORTH);
+        p.add(field, BorderLayout.CENTER);
+        return p;
+    }
 
     private void addStyledRow(JPanel panel, String labelText, JComponent field) {
         JPanel rowPanel = new JPanel(new BorderLayout(10, 0));
         rowPanel.setBackground(Color.WHITE);
-        rowPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
-
+        rowPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
         JLabel label = new JLabel(labelText);
         label.setFont(new Font("Arial", Font.BOLD, 14));
-        label.setForeground(new Color(80, 80, 80));
         label.setPreferredSize(new Dimension(150, 35));
-
-        JPanel fieldWrapper = new JPanel(new BorderLayout());
-        fieldWrapper.setBackground(Color.WHITE);
-        fieldWrapper.setBorder(new EmptyBorder(5, 0, 15, 0));
-        fieldWrapper.add(field, BorderLayout.CENTER);
-
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setBackground(Color.WHITE);
+        wrapper.setBorder(new EmptyBorder(5, 0, 15, 0));
+        wrapper.add(field, BorderLayout.CENTER);
         rowPanel.add(label, BorderLayout.WEST);
-        rowPanel.add(fieldWrapper, BorderLayout.CENTER);
-
+        rowPanel.add(wrapper, BorderLayout.CENTER);
         panel.add(rowPanel);
+    }
+
+    private void addStyledPanelRow(JPanel panel, String labelText, JPanel fieldPanel) {
+        JPanel rowPanel = new JPanel(new BorderLayout(10, 0));
+        rowPanel.setBackground(Color.WHITE);
+        rowPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
+        JLabel label = new JLabel(labelText);
+        label.setFont(new Font("Arial", Font.BOLD, 14));
+        label.setPreferredSize(new Dimension(150, 35));
+        rowPanel.add(label, BorderLayout.WEST);
+
+        rowPanel.add(fieldPanel, BorderLayout.CENTER);
+        panel.add(rowPanel);
+        panel.add(Box.createVerticalStrut(10));
     }
 
     private JTextField createStyledTextField(String text) {
         JTextField field = new JTextField(text);
         field.setFont(new Font("Arial", Font.PLAIN, 14));
         field.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(200, 200, 200)),
-                new EmptyBorder(5, 10, 5, 10)
-        ));
+                BorderFactory.createLineBorder(new Color(200, 200, 200)), new EmptyBorder(5, 10, 5, 10)));
         return field;
     }
 
     private JButton createRoundedButton(String text, Color bgColor) {
         JButton button = new JButton(text) {
-            @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -295,10 +519,20 @@ public class AdminStaffTab extends JPanel {
         button.setForeground(Color.WHITE);
         button.setFocusPainted(false);
         button.setBorder(new EmptyBorder(10, 20, 10, 20));
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setOpaque(false);
         button.setContentAreaFilled(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
         return button;
+    }
+
+    private JPanel createHeaderPanel() {
+        JPanel h = new JPanel(new BorderLayout());
+        h.setBackground(HEADER_BG);
+        h.setBorder(new EmptyBorder(25, 40, 25, 40));
+        JLabel l = new JLabel("Staff Management");
+        l.setFont(new Font("Arial", Font.BOLD, 26));
+        l.setForeground(Color.WHITE);
+        h.add(l, BorderLayout.WEST);
+        return h;
     }
 
     private JPanel createContentPanel() {
@@ -341,7 +575,7 @@ public class AdminStaffTab extends JPanel {
         JTextField searchField = new JTextField(20);
         searchField.setFont(new Font("Arial", Font.PLAIN, 14));
         searchField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Color.GRAY, 1, true), new EmptyBorder(5, 5, 5, 5)));
+                BorderFactory.createLineBorder(new Color(189, 195, 199), 1, true), new EmptyBorder(5, 5, 5, 5)));
         searchField.addKeyListener(new KeyAdapter() {
             public void keyReleased(KeyEvent e) {
                 String text = searchField.getText();
@@ -364,7 +598,7 @@ public class AdminStaffTab extends JPanel {
         staffTable.setFont(new Font("Arial", Font.PLAIN, 14));
         staffTable.setRowHeight(50);
         staffTable.setGridColor(new Color(200, 200, 200));
-        staffTable.setSelectionBackground(new Color(200, 240, 240));
+        staffTable.setSelectionBackground(new Color(220, 237, 250));
         staffTable.setShowVerticalLines(true);
         staffTable.setShowHorizontalLines(true);
 
@@ -392,15 +626,12 @@ public class AdminStaffTab extends JPanel {
         }
 
         JScrollPane tableScrollPane = new JScrollPane(staffTable);
-        tableScrollPane.setBorder(BorderFactory.createLineBorder(TABLE_HEADER_BG, 2));
+        tableScrollPane.setBorder(BorderFactory.createLineBorder(new Color(189, 195, 199), 1));
         tableScrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, 500));
 
         contentPanel.add(tableScrollPane);
         return contentPanel;
     }
-
-
-
     private void handleAddStaff() {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Register New Staff", true);
         dialog.setSize(500, 800); // Slightly taller for extra fields
@@ -417,8 +648,15 @@ public class AdminStaffTab extends JPanel {
 
         String[] positions = {"Secretary", "Treasurer", "Brgy.Captain","Admin"};
         JComboBox<String> cbPosition = new JComboBox<>(positions);
+        cbPosition.setSelectedIndex(3);
+        cbPosition.setEnabled(false);
         cbPosition.setBackground(Color.WHITE);
         cbPosition.setFont(new Font("Arial", Font.PLAIN, 14));
+
+        String [] civilStatus = new SystemConfigDAO().getOptionsNature("civilStatus");
+        JComboBox<String> cbCivil = new JComboBox<>(civilStatus);
+        cbCivil.setBackground(Color.WHITE);
+        cbCivil.setFont(new Font("Arial", Font.PLAIN, 14));
 
         JTextField txtContact = createStyledTextField("");
         // Apply Phone Filter immediately
@@ -442,6 +680,10 @@ public class AdminStaffTab extends JPanel {
         txtAge.setEditable(false);
         txtAge.setBackground(new Color(245, 245, 245));
         txtAge.setText("0");
+
+        JTextField txtMiddleName = createStyledTextField("");
+        txtAge.setEditable(false);
+        txtAge.setBackground(new Color(245, 245, 245));
 
         String[] months = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
         JComboBox<String> cbMonth = new JComboBox<>(months);
@@ -489,10 +731,12 @@ public class AdminStaffTab extends JPanel {
 
         // --- 3. ADD TO PANEL ---
         addStyledRow(formPanel, "First Name:", txtName);
+        addStyledRow(formPanel,"Middle Initial: ", txtMiddleName);
         addStyledRow(formPanel, "Last Name:", txtLastName);
         addStyledRow(formPanel, "Position:", cbPosition);
         addStyledRow(formPanel, "Date of Birth:", datePanel);
         addStyledRow(formPanel, "Age (Auto):", txtAge);
+        addStyledRow(formPanel,"Civil status:",cbCivil);
         addStyledRow(formPanel, "Contact No. (09...):", txtContact);
         addStyledRow(formPanel, "Email:", txtEmail);
         addStyledRow(formPanel, "Address:", txtAddress);
@@ -556,12 +800,14 @@ public class AdminStaffTab extends JPanel {
                         .position((String) cbPosition.getSelectedItem())
                         .age(age)
                         .role((String) cbPosition.getSelectedItem())
+                        .middleName(txtMiddleName.getText())
                         .dob(birthDate) // Use java.sql.Date for DB
                         .contactNo(txtContact.getText())
                         .email(txtEmail.getText())
                         .address(txtAddress.getText())
                         .username(txtUsername.getText())
                         .password(new String(txtPassword.getPassword()))
+                        .civilStatus(cbCivil.getSelectedItem().toString())
                         .status("Active")
                         .lastLogin(java.time.LocalDateTime.now())
                         .createdAt(java.time.LocalDateTime.now())
@@ -691,45 +937,13 @@ public class AdminStaffTab extends JPanel {
         }
     }
 
-    private JPanel createHeaderPanel() {
-        JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBackground(HEADER_BG);
-        headerPanel.setBorder(BorderFactory.createCompoundBorder(
-                new AbstractBorder() {
-                    @Override
-                    public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
-                        Graphics2D g2 = (Graphics2D) g;
-                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                        g2.setColor(HEADER_BG);
-                        g2.fillRoundRect(x, y, width, height, 30, 30);
-                    }
-                }, new EmptyBorder(25, 40, 25, 40)));
-
-        JPanel titlePanel = new JPanel();
-        titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
-        titlePanel.setBackground(HEADER_BG);
-        JLabel lblSystem = new JLabel("Barangay System");
-        lblSystem.setFont(new Font("Arial", Font.BOLD, 26));
-        lblSystem.setForeground(Color.WHITE);
-        JLabel lblModule = new JLabel("Staff Management");
-        lblModule.setFont(new Font("Arial", Font.BOLD, 22));
-        lblModule.setForeground(Color.WHITE);
-        titlePanel.add(lblSystem);
-        titlePanel.add(lblModule);
-        headerPanel.add(titlePanel, BorderLayout.WEST);
-        return headerPanel;
-    }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception e) {}
-            JFrame frame = new JFrame("Admin Staff Dashboard");
-            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setSize(1200, 800);
-            frame.add(new AdminStaffTab());
-            frame.setLocationRelativeTo(null);
-            frame.setVisible(true);
+            JFrame f = new JFrame();
+            f.setSize(1200, 800);
+            f.add(new AdminStaffTab());
+            f.setVisible(true);
         });
     }
-
 }

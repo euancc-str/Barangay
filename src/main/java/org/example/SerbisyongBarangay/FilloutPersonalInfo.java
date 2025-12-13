@@ -102,7 +102,6 @@ public class FilloutPersonalInfo extends JFrame {
             txtCitizenship.setText("Filipino");
             txtAge.setText(String.valueOf(currentResident.getAge()));
             txtAddress.setText(currentResident.getAddress() != null ? currentResident.getAddress() : "");
-            txtPhone.setText(currentResident.getPhoneNumber() != null ? currentResident.getPhoneNumber() : "");
             txtEmail.setText(currentResident.getEmail() != null ? currentResident.getEmail() : "");
             txtIdNo.setText(currentResident.getNationalId() != null ? currentResident.getNationalId() : "");
             LocalDate dob = currentResident.getDob();
@@ -423,7 +422,6 @@ public class FilloutPersonalInfo extends JFrame {
                         .civilStatus(civilStatus)
                         .age(Integer.parseInt(age))
                         .address(address)
-                        .phoneNumber(phone)
                         .contactNo(phone)
                         .email(email)
                         .nationalId(idNo)

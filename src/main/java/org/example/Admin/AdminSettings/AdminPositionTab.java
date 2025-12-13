@@ -1,3 +1,4 @@
+// AdminPositionTab.java
 package org.example.Admin.AdminSettings;
 
 import org.example.Admin.AdminSystemSettings;
@@ -16,24 +17,25 @@ public class AdminPositionTab extends JPanel {
     private TableRowSorter<DefaultTableModel> sorter;
     private AdminSystemSettings dao;
 
-    // Style Variables
-    private final Color BG_COLOR = new Color(229, 231, 235);
-    private final Color HEADER_BG = new Color(40, 40, 40);
-    private final Color TABLE_HEADER_BG = new Color(34, 197, 94);
-    private final Color BTN_ADD_COLOR = new Color(76, 175, 80);
-    private final Color BTN_EDIT_COLOR = new Color(100, 149, 237);
-    private final Color BTN_DELETE_COLOR = new Color(255, 77, 77);
+    // Modern Color Scheme
+    private final Color PRIMARY_COLOR = new Color(59, 130, 246);    // Modern blue
+    private final Color SECONDARY_COLOR = new Color(107, 114, 128); // Cool gray
+    private final Color BACKGROUND_COLOR = new Color(249, 250, 251); // Light gray
+    private final Color CARD_COLOR = Color.WHITE;
+    private final Color SUCCESS_COLOR = new Color(16, 185, 129);    // Modern green
+    private final Color DANGER_COLOR = new Color(239, 68, 68);      // Modern red
+    private final Color HEADER_BG = new Color(30, 41, 59);          // Dark blue-gray
+    private final Color BORDER_COLOR = new Color(229, 231, 235);    // Light border
+    private final Color TABLE_HEADER_BG = new Color(59, 130, 246);  // Blue header
 
     public AdminPositionTab() {
         this.dao = new AdminSystemSettings();
 
         setLayout(new BorderLayout(0, 0));
-        setBackground(BG_COLOR);
-
+        setBackground(BACKGROUND_COLOR);
 
         add(createHeaderPanel(), BorderLayout.NORTH);
         add(new JScrollPane(createContentPanel()), BorderLayout.CENTER);
-
 
         refreshTableData();
     }
@@ -72,11 +74,12 @@ public class AdminPositionTab extends JPanel {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), title, true);
         dialog.setSize(400, 350);
         dialog.setLocationRelativeTo(this);
+        dialog.getContentPane().setBackground(BACKGROUND_COLOR);
 
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBorder(new EmptyBorder(20, 20, 20, 20));
-        panel.setBackground(Color.WHITE);
+        panel.setBackground(CARD_COLOR);
 
         JTextField txtName = createStyledTextField(currentName);
         JTextField txtUid = createStyledTextField(currentUid);
@@ -86,10 +89,11 @@ public class AdminPositionTab extends JPanel {
 
         // Hint Label
         JLabel lblHint = new JLabel("<html><small><i>Note: Unique ID is used for auto-selecting<br>roles during registration.</i></small></html>");
-        lblHint.setForeground(Color.GRAY);
+        lblHint.setForeground(SECONDARY_COLOR);
+        lblHint.setFont(new Font("Arial", Font.ITALIC, 12));
         panel.add(lblHint);
 
-        JButton btnSave = createRoundedButton("Save", BTN_ADD_COLOR);
+        JButton btnSave = createModernButton("Save", SUCCESS_COLOR);
         btnSave.addActionListener(e -> {
             String name = txtName.getText().trim();
             String uid = txtUid.getText().trim();
@@ -116,7 +120,7 @@ public class AdminPositionTab extends JPanel {
         });
 
         JPanel btnPanel = new JPanel();
-        btnPanel.setBackground(Color.WHITE);
+        btnPanel.setBackground(CARD_COLOR);
         btnPanel.add(btnSave);
 
         dialog.add(panel, BorderLayout.CENTER);
@@ -153,27 +157,29 @@ public class AdminPositionTab extends JPanel {
     private JPanel createContentPanel() {
         JPanel contentPanel = new JPanel();
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
-        contentPanel.setBackground(BG_COLOR);
+        contentPanel.setBackground(BACKGROUND_COLOR);
         contentPanel.setBorder(new EmptyBorder(35, 60, 35, 60));
 
         // 1. Buttons & Search
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        topPanel.setBackground(BG_COLOR);
+        topPanel.setBackground(BACKGROUND_COLOR);
         topPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
 
-        JButton btnAdd = createRoundedButton("Add Position", BTN_ADD_COLOR);
+        JButton btnAdd = createModernButton("Add Position", SUCCESS_COLOR);
         btnAdd.addActionListener(e -> handleAdd());
 
-        JButton btnEdit = createRoundedButton("Edit", BTN_EDIT_COLOR);
+        JButton btnEdit = createModernButton("Edit", PRIMARY_COLOR);
         btnEdit.addActionListener(e -> handleEdit());
 
-        JButton btnDelete = createRoundedButton("Delete", BTN_DELETE_COLOR);
+        JButton btnDelete = createModernButton("Delete", DANGER_COLOR);
         btnDelete.addActionListener(e -> handleDelete());
 
         JTextField txtSearch = new JTextField(15);
         txtSearch.setFont(new Font("Arial", Font.PLAIN, 14));
         txtSearch.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Color.GRAY, 1, true), new EmptyBorder(5, 5, 5, 5)));
+                BorderFactory.createLineBorder(BORDER_COLOR, 1, true),
+                new EmptyBorder(5, 5, 5, 5)));
+        txtSearch.setBackground(CARD_COLOR);
 
         txtSearch.addKeyListener(new KeyAdapter() {
             public void keyReleased(KeyEvent e) {
@@ -186,7 +192,7 @@ public class AdminPositionTab extends JPanel {
         topPanel.add(btnAdd);
         topPanel.add(btnEdit);
         topPanel.add(btnDelete);
-        topPanel.add(new JLabel("Search:"));
+        topPanel.add(createStyledLabel("Search:"));
         topPanel.add(txtSearch);
 
         contentPanel.add(topPanel);
@@ -200,6 +206,8 @@ public class AdminPositionTab extends JPanel {
         posTable = new JTable(tableModel);
         posTable.setFont(new Font("Arial", Font.PLAIN, 14));
         posTable.setRowHeight(40);
+        posTable.setBackground(CARD_COLOR);
+        posTable.setGridColor(BORDER_COLOR);
         posTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
         // Double click to edit
@@ -219,7 +227,7 @@ public class AdminPositionTab extends JPanel {
         header.setPreferredSize(new Dimension(header.getWidth(), 40));
 
         JScrollPane tableScrollPane = new JScrollPane(posTable);
-        tableScrollPane.setBorder(BorderFactory.createLineBorder(TABLE_HEADER_BG, 2));
+        tableScrollPane.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 2));
 
         contentPanel.add(tableScrollPane);
 
@@ -231,21 +239,28 @@ public class AdminPositionTab extends JPanel {
         JTextField field = new JTextField(text);
         field.setFont(new Font("Arial", Font.PLAIN, 14));
         field.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(200, 200, 200)),
+                BorderFactory.createLineBorder(BORDER_COLOR),
                 new EmptyBorder(5, 10, 5, 10)));
+        field.setBackground(CARD_COLOR);
         return field;
+    }
+
+    private JLabel createStyledLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(new Font("Arial", Font.BOLD, 14));
+        label.setForeground(SECONDARY_COLOR);
+        return label;
     }
 
     private void addStyledRow(JPanel panel, String labelText, JComponent field) {
         JPanel row = new JPanel(new BorderLayout(10, 0));
-        row.setBackground(Color.WHITE);
+        row.setBackground(CARD_COLOR);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
-        JLabel label = new JLabel(labelText);
-        label.setFont(new Font("Arial", Font.BOLD, 14));
+        JLabel label = createStyledLabel(labelText);
         label.setPreferredSize(new Dimension(150, 35));
 
         JPanel wrapper = new JPanel(new BorderLayout());
-        wrapper.setBackground(Color.WHITE);
+        wrapper.setBackground(CARD_COLOR);
         wrapper.setBorder(new EmptyBorder(5, 0, 15, 0));
         wrapper.add(field, BorderLayout.CENTER);
 
@@ -277,7 +292,7 @@ public class AdminPositionTab extends JPanel {
         return header;
     }
 
-    private JButton createRoundedButton(String text, Color bg) {
+    private JButton createModernButton(String text, Color bg) {
         JButton btn = new JButton(text) {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -290,11 +305,23 @@ public class AdminPositionTab extends JPanel {
             }
         };
         btn.setBackground(bg);
-        btn.setForeground(Color.WHITE);
+        btn.setForeground(Color.BLACK);
         btn.setFont(new Font("Arial", Font.BOLD, 14));
         btn.setFocusPainted(false);
         btn.setContentAreaFilled(false);
         btn.setBorder(new EmptyBorder(10, 20, 10, 20));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        // Add hover effect
+        btn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) {
+                btn.setBackground(bg.darker());
+            }
+            public void mouseExited(MouseEvent e) {
+                btn.setBackground(bg);
+            }
+        });
+
         return btn;
     }
 

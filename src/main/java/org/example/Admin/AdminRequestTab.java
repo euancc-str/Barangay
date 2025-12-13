@@ -1,7 +1,9 @@
+// AdminRequestTab.java - Updated color scheme
 package org.example.Admin;
 
 import org.example.Documents.DocumentRequest;
 import org.example.ResidentDAO;
+import org.example.StaffDAO;
 
 import java.awt.*;
 import java.awt.event.*;
@@ -22,12 +24,12 @@ public class AdminRequestTab extends JPanel {
     private JTextField searchField;
     private JComboBox<String> statusFilterBox;
 
-    // --- VISUAL STYLE VARIABLES ---
-    private final Color BG_COLOR = new Color(229, 231, 235);
-    private final Color HEADER_BG = new Color(40, 40, 40);
-    private final Color TABLE_HEADER_BG = new Color(34, 197, 94);
-    private final Color BTN_UPDATE_COLOR = new Color(100, 149, 237); // Cornflower Blue
-    private final Color BTN_DELETE_COLOR = new Color(255, 77, 77);   // Red
+    // --- UPDATED VISUAL STYLE VARIABLES ---
+    private final Color BG_COLOR = new Color(245, 247, 250); // Lighter, cleaner background
+    private final Color HEADER_BG = new Color(44, 62, 80); // Dark blue-gray for header
+    private final Color TABLE_HEADER_BG = new Color(52, 152, 219); // Modern blue for table header
+    private final Color BTN_UPDATE_COLOR = new Color(41, 128, 185); // Deeper blue for update
+    private final Color BTN_DELETE_COLOR = new Color(231, 76, 60); // Coral red for delete
 
     public AdminRequestTab() {
         setLayout(new BorderLayout(0, 0));
@@ -37,6 +39,12 @@ public class AdminRequestTab extends JPanel {
         add(new JScrollPane(createContentPanel()), BorderLayout.CENTER);
         updateRecordCount();
         loadRequestData();
+        // Ensure table text is black for readability
+        if (requestTable != null) {
+            requestTable.setForeground(Color.BLACK);
+            JTableHeader rh = requestTable.getTableHeader();
+            if (rh != null) rh.setForeground(Color.BLACK);
+        }
     }
     public void loadRequestData() {
         new SwingWorker<List<DocumentRequest>, Void>() {
@@ -138,6 +146,7 @@ public class AdminRequestTab extends JPanel {
 
         if (confirm == JOptionPane.YES_OPTION) {
             // TODO: Call DAO delete method here (e.g., residentDAO.deleteRequest(reqId))
+            new StaffDAO().deleteRequest(Integer.parseInt(reqId));
             tableModel.removeRow(modelRow);
             JOptionPane.showMessageDialog(this, "Record deleted successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
         }
@@ -195,7 +204,7 @@ public class AdminRequestTab extends JPanel {
         addStyledRow(detailsPanel, "Document Type:", txtDoc);
 
         // 2. Editable Fields
-        String[] statuses = {"Pending", "Approved", "Rejected", "Completed"};
+        String[] statuses = {"Pending", "Approved", "Rejected", "Released"};
         JComboBox<String> cbStatus = new JComboBox<>(statuses);
         cbStatus.setSelectedItem(currentStatus);
         cbStatus.setFont(new Font("Arial", Font.PLAIN, 14));
@@ -222,7 +231,7 @@ public class AdminRequestTab extends JPanel {
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
         btnPanel.setBackground(Color.WHITE);
 
-        JButton btnCancel = createRoundedButton("Cancel", Color.GRAY);
+        JButton btnCancel = createRoundedButton("Cancel", new Color(149, 165, 166));
         btnCancel.setPreferredSize(new Dimension(150, 45));
         btnCancel.addActionListener(e -> dialog.dispose());
 
@@ -292,6 +301,32 @@ public class AdminRequestTab extends JPanel {
         return field;
     }
 
+    private JButton createRoundedButton(String text, Color bgColor) {
+        JButton button = new JButton(text) {
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getBackground());
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 25, 25);
+                g2.setColor(getForeground());
+                FontMetrics fm = g2.getFontMetrics();
+                int x = (getWidth() - fm.stringWidth(getText())) / 2;
+                int y = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+                g2.drawString(getText(), x, y);
+                g2.dispose();
+            }
+        };
+        button.setFont(new Font("Arial", Font.BOLD, 14));
+        button.setBackground(bgColor);
+        button.setForeground(Color.WHITE);
+        button.setFocusPainted(false);
+        button.setBorder(new EmptyBorder(10, 20, 10, 20));
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.setOpaque(false);
+        button.setContentAreaFilled(false);
+        return button;
+    }
+
     private JPanel createContentPanel() {
         JPanel contentPanel = new JPanel();
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
@@ -330,7 +365,7 @@ public class AdminRequestTab extends JPanel {
         searchField = new JTextField(20);
         searchField.setFont(new Font("Arial", Font.PLAIN, 14));
         searchField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Color.GRAY, 1, true), new EmptyBorder(5, 5, 5, 5)));
+                BorderFactory.createLineBorder(new Color(189, 195, 199), 1, true), new EmptyBorder(5, 5, 5, 5)));
 
         searchField.addKeyListener(new KeyAdapter() {
             public void keyReleased(KeyEvent e) {
@@ -368,15 +403,9 @@ public class AdminRequestTab extends JPanel {
         requestTable.setFont(new Font("Arial", Font.PLAIN, 14));
         requestTable.setRowHeight(50);
         requestTable.setGridColor(new Color(200, 200, 200));
-        requestTable.setSelectionBackground(new Color(200, 240, 240));
+        requestTable.setSelectionBackground(new Color(220, 237, 250));
         requestTable.setShowVerticalLines(true);
         requestTable.setShowHorizontalLines(true);
-
-        requestTable.addMouseListener(new MouseAdapter() {
-            public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2) handleUpdate();
-            }
-        });
 
         sorter = new TableRowSorter<>(tableModel);
 
@@ -412,10 +441,10 @@ public class AdminRequestTab extends JPanel {
         }
 
         JScrollPane tableScrollPane = new JScrollPane(requestTable);
-        tableScrollPane.setBorder(BorderFactory.createLineBorder(TABLE_HEADER_BG, 2));
+        tableScrollPane.setBorder(BorderFactory.createLineBorder(new Color(189, 195, 199), 1));
         tableScrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, 500));
         JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        footerPanel.setBackground(new Color(229, 231, 235));
+        footerPanel.setBackground(BG_COLOR);
 
         lblRecordCount = new JLabel("Total Records: " + tableModel.getRowCount());
         lblRecordCount.setFont(new Font("Arial", Font.BOLD, 13));
@@ -432,32 +461,6 @@ public class AdminRequestTab extends JPanel {
         lblRecordCount.setText("Total Records: " + count);
     }
 
-
-    private JButton createRoundedButton(String text, Color bgColor) {
-        JButton button = new JButton(text) {
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getBackground());
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 25, 25);
-                g2.setColor(getForeground());
-                FontMetrics fm = g2.getFontMetrics();
-                int x = (getWidth() - fm.stringWidth(getText())) / 2;
-                int y = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
-                g2.drawString(getText(), x, y);
-                g2.dispose();
-            }
-        };
-        button.setFont(new Font("Arial", Font.BOLD, 14));
-        button.setBackground(bgColor);
-        button.setForeground(Color.WHITE);
-        button.setFocusPainted(false);
-        button.setBorder(new EmptyBorder(10, 20, 10, 20));
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setOpaque(false);
-        button.setContentAreaFilled(false);
-        return button;
-    }
 
     private JPanel createHeaderPanel() {
         JPanel headerPanel = new JPanel(new BorderLayout());

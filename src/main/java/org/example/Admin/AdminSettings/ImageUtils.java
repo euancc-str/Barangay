@@ -11,62 +11,78 @@ import java.nio.file.StandardCopyOption;
 
 public class ImageUtils {
 
-    // Define a folder relative to the project for portability
-    // "user.dir" gets the project root folder
-    private static final String IMAGE_DIR = System.getProperty("user.dir") + File.separator + "resident_photos" + File.separator;
 
-    // Use a classpath resource for the default icon so it works inside the JAR
-    // Make sure you have a default image at src/main/resources/profile.png
     private static final String DEFAULT_ICON_PATH = "/org/example/resources/profile.png";
-    // In ImageUtils.java
+
     public String getImageDir() {
-        return IMAGE_DIR;
+        return new SystemConfigDAO().getImageDir();
     }
-    // 1. SAVE IMAGE
-    public static String saveImage(File originalFile, String residentId) {
+
+
+    public static String saveImage(File originalFile, String fileNameIdentifier) {
         try {
-            File folder = new File(IMAGE_DIR);
+
+            SystemConfigDAO config = new SystemConfigDAO();
+            String sharedFolderPath = config.getImageDir();
+            //   Ensure folder exists (Network permissions required)
+            File folder = new File(sharedFolderPath);
             if (!folder.exists()) {
                 folder.mkdirs();
             }
 
+
             String extension = getFileExtension(originalFile);
-            String newFileName = "resident_" + residentId + extension;
-            File destination = new File(IMAGE_DIR + newFileName);
+
+            // If the identifier is "resident_1", the file becomes "resident_1.jpg"
+            // If it is "system_logoPath", it becomes "system_logoPath.png"
+            String finalName;
+            if (fileNameIdentifier.startsWith("resident_") || fileNameIdentifier.startsWith("system_")) {
+                finalName = fileNameIdentifier + extension;
+            } else {
+                // Default prefix for residents if just ID is passed
+                finalName = "resident_" + fileNameIdentifier + extension;
+            }
+
+            File destination = new File(sharedFolderPath + finalName);
+
 
             Files.copy(originalFile.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            return newFileName;
+
+            return finalName; // Return just the name to save in DB
+
         } catch (IOException e) {
             e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Error saving to network folder: " + e.getMessage());
             return null;
         }
     }
 
-    // 2. DISPLAY IMAGE (Updated with explicit dimensions)
     public static void displayImage(JLabel label, String imageName, int width, int height) {
-        // 1. Construct the file path
-        String path = (imageName != null && !imageName.isEmpty()) ? IMAGE_DIR + imageName : "";
-        File imgFile = new File(path);
+        // A. Get Full Network Path
+        SystemConfigDAO config = new SystemConfigDAO();
+        // This returns: \\LAPTOP-NH6HI8IB\BarangayImages\imageName.jpg
+        String fullPath = config.getPhotoPath(imageName);
+
+        File imgFile = (fullPath != null) ? new File(fullPath) : null;
         BufferedImage img = null;
 
         try {
-            // 2. Try to read the specific resident photo
-            if (imgFile.exists()) {
+
+            if (imgFile != null && imgFile.exists()) {
                 img = ImageIO.read(imgFile);
             }
 
-            // 3. If failed or missing, try to read the default icon from resources
+
             if (img == null) {
-                // Using getResource allows loading from inside a JAR file
                 java.net.URL defaultUrl = ImageUtils.class.getResource(DEFAULT_ICON_PATH);
                 if (defaultUrl != null) {
                     img = ImageIO.read(defaultUrl);
                 }
             }
 
-            // 4. If we have an image (resident or default), scale and show it
+
             if (img != null) {
-                // Use provided width/height, or fallback to label preferred size, or hard fallback 100
+
                 int w = (width > 0) ? width : (label.getWidth() > 0 ? label.getWidth() : 100);
                 int h = (height > 0) ? height : (label.getHeight() > 0 ? label.getHeight() : 100);
 
@@ -75,17 +91,18 @@ public class ImageUtils {
                 label.setText("");
                 label.setBorder(BorderFactory.createLineBorder(Color.BLACK));
             } else {
-                // 5. Absolute fail-safe (text only)
                 throw new IOException("No image found");
             }
 
-        } catch (IOException e) {
+        } catch (Exception e) {
+
             label.setIcon(null);
             label.setText("<html><center>No Photo</center></html>");
             label.setHorizontalAlignment(SwingConstants.CENTER);
             label.setBorder(BorderFactory.createLineBorder(Color.GRAY));
         }
     }
+
 
     private static String getFileExtension(File file) {
         String name = file.getName();

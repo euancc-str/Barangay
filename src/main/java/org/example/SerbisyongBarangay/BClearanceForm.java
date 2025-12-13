@@ -14,6 +14,8 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -27,11 +29,12 @@ public class BClearanceForm extends JDialog {
     private JComboBox<String> cmbBirthDate;
     private JTextField txtCivilStatus, txtDate, txtPerYearIncome, txtCurrentAddress, txtPurpose;
     private JTextField txtCtcNumber;
-    private JTextField txtCtcDateIssued;
+
     private JTextField txtCtcPlaceIssued;
     // --- NEW FIELDS ---
     private JTextField street;
     private JComboBox<String> txtPurok;
+    private JComboBox<String> cmbCtcMonth, cmbCtcDay, cmbCtcYear;
 
     private Resident currentResident;
     private BClearanceFormData formData;
@@ -56,8 +59,12 @@ public class BClearanceForm extends JDialog {
         pack();
         setLocationRelativeTo(null);
 
+
         loadResidentData();
     }
+
+
+
 
     // --- DATA RETRIEVAL ---
     private void loadResidentData() {
@@ -71,8 +78,38 @@ public class BClearanceForm extends JDialog {
             if (currentResident.getSuffix() != null) txtSuffix.setText(currentResident.getSuffix());
             street.setText(currentResident.getStreet());
             txtCurrentAddress.setText(currentResident.getAddress() != null ? currentResident.getAddress() : "");
+            txtDate.setText(LocalDate.now().format(DateTimeFormatter.ofPattern("MM/dd/yyyy")));
+            txtPurok.setSelectedItem(currentResident.getPurok());
+            // Load CTC Info
+            txtCtcNumber.setText(currentResident.getCtcNumber() != null ? currentResident.getCtcNumber() : "CC");
 
+            // --- LOAD CTC DATE INTO DROPDOWNS ---
+            try {
+                Object ctcDateObj = currentResident.getCtcDateIssued();
+                if (ctcDateObj != null) {
+                    String dateStr = ctcDateObj.toString();
+                    // Check if it's not "null" string and not empty
+                    if (!dateStr.equalsIgnoreCase("null") && !dateStr.trim().isEmpty()) {
+                        LocalDate ctcDate;
+                        if (ctcDateObj instanceof java.sql.Date) {
+                            ctcDate = ((java.sql.Date) ctcDateObj).toLocalDate();
+                        } else {
+                            ctcDate = LocalDate.parse(dateStr);
+                        }
+
+                        if (cmbCtcMonth.getItemCount() > 0) cmbCtcMonth.setSelectedIndex(ctcDate.getMonthValue() - 1);
+                        cmbCtcDay.setSelectedItem(String.valueOf(ctcDate.getDayOfMonth()));
+                        cmbCtcYear.setSelectedItem(String.valueOf(ctcDate.getYear()));
+                    }
+                }
+            } catch (Exception e) {
+                // Ignore parsing errors, leave dropdowns as default
+                System.err.println("Error loading CTC Date: " + e.getMessage());
+            }
             // Set Date
+            SystemConfigDAO config = new SystemConfigDAO();
+            String defaultPlace = config.getConfig("defaultCtcPlace");
+            txtCtcPlaceIssued.setText(defaultPlace);
             txtDate.setText(LocalDate.now().format(DateTimeFormatter.ofPattern("MM/dd/yyyy")));
         }
     }
@@ -140,8 +177,8 @@ public class BClearanceForm extends JDialog {
         // --- NEW FIELDS: STREET & PUROK ---
         street = new JTextField(20);
         row = addField(formPanel, gbc, "Street:", street, row, 1, 3);
-        dao=new SystemConfigDAO();
-        String [] puroks = dao.getOptionsNature("purok");
+
+        String[] puroks = new SystemConfigDAO().getOptionsNature("purok");
         txtPurok = new JComboBox<>(puroks);
         customizeComboBox(txtPurok);
         gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 1; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE;
@@ -160,51 +197,55 @@ public class BClearanceForm extends JDialog {
         // Filler
         gbc.gridx = 0; gbc.gridy = row; gbc.weighty = 1.0; gbc.fill = GridBagConstraints.VERTICAL;
         formPanel.add(Box.createVerticalGlue(), gbc);
-        // ... existing address/purpose fields ...
 
-        // --- NEW SECTION: CEDULA (CTC) DETAILS ---
-        JPanel ctcPanel = new JPanel(new GridLayout(0, 2, 10, 10)); // 2 Columns
-        ctcPanel.setBackground(Color.WHITE);
-        ctcPanel.setBorder(BorderFactory.createTitledBorder("Community Tax Certificate (Cedula)"));
-
-        // 1. CTC Number
-        txtCtcNumber = new JTextField();
-        // Retrieve existing data if available
-        txtCtcNumber.setText(currentResident != null && currentResident.getCtcNumber() != null ? currentResident.getCtcNumber() : "");
-        ctcPanel.add(new JLabel("CTC Number:"));
-        ctcPanel.add(txtCtcNumber);
-
-        txtCtcDateIssued = new JTextField();
-        String ctcDate = (currentResident != null && currentResident.getCtcDateIssued() != null)
-                ? currentResident.getCtcDateIssued().toString() : "";
-        txtCtcDateIssued.setText(ctcDate);
-        ctcPanel.add(new JLabel("Date Issued (yyyy-MM-dd):"));
-        ctcPanel.add(txtCtcDateIssued);
-
-        // 3. Place Issued
-        txtCtcPlaceIssued = new JTextField();
-        String ctcPlace = new SystemConfigDAO().getConfig("defaultCtcPlace");
-        txtCtcPlaceIssued.setText(ctcPlace);
-        ctcPanel.add(new JLabel("Place Issued:"));
-        ctcPanel.add(txtCtcPlaceIssued);
-
-
-        gbc.gridx = 0;
-        gbc.gridy = row; // Continue from last row index
-        gbc.gridwidth = 4; // Span full width
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        formPanel.add(ctcPanel, gbc);
+        // --- CEDULA SECTION (UPDATED) ---
+        gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 4;
+        formPanel.add(new JSeparator(), gbc);
         row++;
 
+        JLabel lblCtc = new JLabel("Community Tax Certificate (Cedula) Details");
+        lblCtc.setFont(new Font("Arial", Font.BOLD, 12));
+        gbc.gridy = row;
+        formPanel.add(lblCtc, gbc);
+        row++;
+
+        txtCtcNumber = new JTextField(20);
+        row = addField(formPanel, gbc, "CTC Number:", txtCtcNumber, row, 1, 3);
+        txtCtcNumber.setText("CC");
+        // --- DATE DROPDOWNS ---
+        String[] months = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
+        cmbCtcMonth = new JComboBox<>(months);
+
+        String[] days = new String[31];
+        for (int i = 0; i < 31; i++) days[i] = String.valueOf(i + 1);
+        cmbCtcDay = new JComboBox<>(days);
+
+        int currentYear = LocalDate.now().getYear();
+        String[] years = new String[10];
+        for (int i = 0; i < 10; i++) years[i] = String.valueOf(currentYear - i);
+        cmbCtcYear = new JComboBox<>(years);
+
+        customizeComboBox(cmbCtcMonth);
+        customizeComboBox(cmbCtcDay);
+        customizeComboBox(cmbCtcYear);
+
+        JPanel ctcDatePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        ctcDatePanel.setBackground(Color.WHITE);
+        ctcDatePanel.add(cmbCtcMonth);
+        ctcDatePanel.add(cmbCtcDay);
+        ctcDatePanel.add(cmbCtcYear);
+
+        gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 1;
+        formPanel.add(new JLabel("Date Issued:"), gbc);
+        gbc.gridx = 1; gbc.gridwidth = 3; gbc.fill = GridBagConstraints.HORIZONTAL;
+        formPanel.add(ctcDatePanel, gbc);
+        row++;
+
+        txtCtcPlaceIssued = new JTextField(20);
+        row = addField(formPanel, gbc, "Place Issued:", txtCtcPlaceIssued, row, 1, 3);
+
+        // --- PHOTO SECTION ---
         addPhotoSection(formPanel, gbc, row);
-
-        txtPurok.setEditable(false);
-        txtAge.setEditable(false);
-        cmbBirthDate.setEditable(false);
-
-        txtLastName.setEditable(false);
-        txtMiddleName.setEditable(false);
-
 
         return formPanel;
     }
@@ -274,16 +315,21 @@ public class BClearanceForm extends JDialog {
             if (validateForm()) {
                 collectFormData();
                 String ctcNum = txtCtcNumber.getText().trim();
-                String ctcDate = txtCtcDateIssued.getText().trim();
-                String ctcPlace = txtCtcPlaceIssued.getText().trim();
+                String ctcDate = null;
+                if (cmbCtcMonth.isEnabled() && !ctcNum.isEmpty()) {
+                    try {
+                        String mStr = (String) cmbCtcMonth.getSelectedItem();
+                        int m = java.time.Month.valueOf(mStr.toUpperCase()).getValue();
+                        String d = (String) cmbCtcDay.getSelectedItem();
+                        String y = (String) cmbCtcYear.getSelectedItem();
+                        ctcDate = y + "-" + String.format("%02d", m) + "-" + String.format("%02d", Integer.parseInt(d));
+                    } catch (Exception ex) {
+                        ctcDate = null; // Fallback if date parsing fails
+                    }
+                }
                 ResidentDAO dao = new ResidentDAO();
-                String fullDetails = txtPurpose.getText() +
-                        " | Years: " + formData.getYearsResiding() +
-                        " | Citizenship: " + formData.getCitizenship() +
-                        " | CTC: " + txtCtcNumber.getText() +
-                        " | Issued: " + txtCtcDateIssued.getText() +
-                        " | At: " + txtCtcPlaceIssued.getText();
-                dao.updateResidentCedula(currentResident.getResidentId(), ctcNum, ctcDate);
+                String fullDetails = txtPurpose.getText();
+                dao.updateResidentCedula(currentResident.getResidentId(), ctcNum.isEmpty() ? null : ctcNum, ctcDate);
                 DocumentType docType = UserDataManager.getInstance().getDocumentTypeByName("Barangay Clearance");UserDataManager.getInstance().residentRequestsDocument(currentResident, null, docType, fullDetails);
 
                 JOptionPane.showMessageDialog(this, "Barangay Clearance request submitted!");

@@ -19,7 +19,6 @@ public class Resident extends Person {
     @ToString.Exclude
     private String password;
     private int age;
-    private String phoneNumber;
     private String voterStatus;
     private String ctcNumber;
     private String householdNo;

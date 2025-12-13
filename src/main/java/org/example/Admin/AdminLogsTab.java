@@ -1,3 +1,4 @@
+// AdminLogsTab.java - Updated color scheme
 package org.example.Admin;
 
 import java.awt.*;
@@ -18,10 +19,10 @@ public class AdminLogsTab extends JPanel {
     // Class-level variable for filter access
     private JComboBox<String> dateFilterBox;
 
-    // --- VISUAL STYLE VARIABLES ---
-    private final Color BG_COLOR = new Color(229, 231, 235);
-    private final Color HEADER_BG = new Color(40, 40, 40);
-    private final Color TABLE_HEADER_BG = new Color(34, 197, 94);
+    // --- UPDATED VISUAL STYLE VARIABLES ---
+    private final Color BG_COLOR = new Color(245, 247, 250);
+    private final Color HEADER_BG = new Color(44, 62, 80);
+    private final Color TABLE_HEADER_BG = new Color(52, 152, 219);
 
     public AdminLogsTab() {
         setLayout(new BorderLayout(0, 0));
@@ -34,15 +35,10 @@ public class AdminLogsTab extends JPanel {
         loadLogData();
     }
 
-    // =========================================================================
-    //  THE FIX: USE SWINGWORKER (Background Thread)
-    // =========================================================================
     public void loadLogData() {
         // 1. Get current filter (safely)
         String filter = (dateFilterBox != null) ? (String) dateFilterBox.getSelectedItem() : "All Time";
 
-        // 2. Run Database Fetch in Background
-        // This prevents the UI from freezing!
         new SwingWorker<List<Object[]>, Void>() {
             @Override
             protected List<Object[]> doInBackground() throws Exception {
@@ -118,7 +114,7 @@ public class AdminLogsTab extends JPanel {
         JTextField searchField = new JTextField(15);
         searchField.setFont(new Font("Arial", Font.PLAIN, 14));
         searchField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Color.GRAY, 1, true), new EmptyBorder(5, 5, 5, 5)));
+                BorderFactory.createLineBorder(new Color(189, 195, 199), 1, true), new EmptyBorder(5, 5, 5, 5)));
 
         searchField.addKeyListener(new KeyAdapter() {
             public void keyReleased(KeyEvent e) {
@@ -150,7 +146,7 @@ public class AdminLogsTab extends JPanel {
         // Right: Print Button
         JPanel rightPrint = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         rightPrint.setBackground(BG_COLOR);
-        JButton btnPrint = createRoundedButton("🖨 Print Report", new Color(60, 60, 60));
+        JButton btnPrint = createRoundedButton("🖨 Print Report", new Color(44, 62, 80));
         btnPrint.setForeground(Color.WHITE);
         btnPrint.setPreferredSize(new Dimension(160, 40));
         btnPrint.addActionListener(e -> handlePrint());
@@ -173,7 +169,7 @@ public class AdminLogsTab extends JPanel {
         logsTable.setFont(new Font("Arial", Font.PLAIN, 14));
         logsTable.setRowHeight(45);
         logsTable.setGridColor(new Color(200, 200, 200));
-        logsTable.setSelectionBackground(new Color(220, 220, 220));
+        logsTable.setSelectionBackground(new Color(220, 237, 250));
         logsTable.setSelectionForeground(Color.BLACK);
         logsTable.setShowVerticalLines(true);
         logsTable.setShowHorizontalLines(true);
@@ -192,6 +188,9 @@ public class AdminLogsTab extends JPanel {
         header.setForeground(Color.BLACK);
         header.setPreferredSize(new Dimension(header.getWidth(), 50));
 
+        // Ensure table cell text is black for readability
+        logsTable.setForeground(Color.BLACK);
+
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(JLabel.CENTER);
         for (int i = 0; i < logsTable.getColumnCount(); i++) {
@@ -199,7 +198,7 @@ public class AdminLogsTab extends JPanel {
         }
 
         JScrollPane tableScrollPane = new JScrollPane(logsTable);
-        tableScrollPane.setBorder(BorderFactory.createLineBorder(TABLE_HEADER_BG, 2));
+        tableScrollPane.setBorder(BorderFactory.createLineBorder(new Color(189, 195, 199), 1));
         tableScrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, 600));
 
         contentPanel.add(tableScrollPane);
@@ -208,7 +207,7 @@ public class AdminLogsTab extends JPanel {
         contentPanel.add(Box.createVerticalStrut(10));
         lblRecordCount = new JLabel("Total Logs: 0");
         lblRecordCount.setFont(new Font("Arial", Font.BOLD, 13));
-        lblRecordCount.setForeground(Color.GRAY);
+        lblRecordCount.setForeground(new Color(100, 100, 100));
         contentPanel.add(lblRecordCount);
 
         return contentPanel;

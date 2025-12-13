@@ -16,8 +16,9 @@ public class AdminSystemConfigTab extends JPanel {
 
     // Tab 1 Components
     private JTextField txtBrgyName;
-    private JLabel lblLogoPreview;
-    private JLabel lblBigLogoPreview;
+    private JLabel lblLogoPreview;      // Left Logo (Barangay)
+    private JLabel lblBigLogoPreview;   // Center/Watermark Logo
+    private JLabel lblDaetLogoPreview;  // NEW: Right Logo (Daet)
 
     // Tab 2 Components
     private JComboBox<String> cbCategory;
@@ -25,24 +26,38 @@ public class AdminSystemConfigTab extends JPanel {
     private JTable optionsTable;
     private JTextField txtfullBrgyName;
     private AdminSettingsTab tab;
+
+    // Modern Color Scheme
+    private final Color PRIMARY_COLOR = new Color(59, 130, 246);
+    private final Color SECONDARY_COLOR = new Color(107, 114, 128);
+    private final Color BACKGROUND_COLOR = new Color(249, 250, 251);
+    private final Color CARD_COLOR = Color.WHITE;
+    private final Color SUCCESS_COLOR = new Color(16, 185, 129);
+    private final Color DANGER_COLOR = new Color(239, 68, 68);
+    private final Color HEADER_BG = new Color(30, 41, 59);
+    private final Color BORDER_COLOR = new Color(229, 231, 235);
+
     public AdminSystemConfigTab() {
         this.dao = new SystemConfigDAO();
         setLayout(new BorderLayout());
-        setBackground(new Color(240, 240, 240));
+        setBackground(BACKGROUND_COLOR);
         this.tab = new AdminSettingsTab();
-        // Header
+
         add(createHeader(), BorderLayout.NORTH);
 
-        // Main Content
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.setFont(new Font("Arial", Font.BOLD, 14));
+        tabbedPane.setBackground(BACKGROUND_COLOR);
+        tabbedPane.setForeground(PRIMARY_COLOR);
 
         tabbedPane.addTab("General Settings", createGeneralPanel());
         tabbedPane.addTab("Manage Dropdowns", createOptionsPanel());
-        tabbedPane.addTab("Document Fees",tab.createDocumentsPanel());
-        tabbedPane.addTab("Positions & Roles",tab.createPositionsPanel());
+        tabbedPane.addTab("Document Fees", tab.createDocumentsPanel());
+        tabbedPane.addTab("Positions & Roles", tab.createPositionsPanel());
 
         add(tabbedPane, BorderLayout.CENTER);
+
+        // Load data on startup
         loadSettings();
     }
 
@@ -52,86 +67,98 @@ public class AdminSystemConfigTab extends JPanel {
     private JPanel createGeneralPanel() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBackground(Color.WHITE);
+        panel.setBackground(BACKGROUND_COLOR);
         panel.setBorder(new EmptyBorder(30, 50, 30, 50));
 
-        // --- 1. SMALL LOGO (Top Left Icon) ---
-        JPanel logoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 0));
-        logoPanel.setBackground(Color.WHITE);
-        logoPanel.setBorder(BorderFactory.createTitledBorder("Barangay Logo:"));
+        // Container for Logos (Grid Layout to show them side-by-side)
+        JPanel logosContainer = new JPanel(new GridLayout(1, 3, 20, 0));
+        logosContainer.setBackground(BACKGROUND_COLOR);
+        logosContainer.setMaximumSize(new Dimension(Integer.MAX_VALUE, 220));
 
-        lblLogoPreview = new JLabel();
-        lblLogoPreview.setPreferredSize(new Dimension(120, 120));
-        lblLogoPreview.setBorder(BorderFactory.createLineBorder(Color.GRAY));
-        lblLogoPreview.setHorizontalAlignment(SwingConstants.CENTER);
+        // --- 1. BARANGAY LOGO (Left) ---
+        logosContainer.add(createLogoUploader("Barangay Logo", "logoPath", lblLogoPreview = createLogoLabel()));
 
-        // Load current path from DB
-        String logoPath = dao.getConfig("logoPath");
-        ImageUtils.displayImage(lblLogoPreview, logoPath, 120, 120);
+        // --- 2. DAET LOGO (Right) - NEW! ---
+        logosContainer.add(createLogoUploader("Daet Logo (Right)", "daetLogoPath", lblDaetLogoPreview = createLogoLabel()));
 
-        JButton btnUpload = new JButton("Change Logo");
-        // FIX: Pass the STRING KEY "logoPath", not the variable logoPath
-        btnUpload.addActionListener(e -> handleLogoUpload(lblLogoPreview, "logoPath"));
+        // --- 3. BIG LOGO (Center/Watermark) ---
+        logosContainer.add(createLogoUploader("Main Interface Logo", "bigLogoPath", lblBigLogoPreview = createLogoLabel()));
 
-        logoPanel.add(lblLogoPreview);
-        logoPanel.add(btnUpload);
-
-        // --- 2. BIG LOGO (For Reports/Certificates) ---
-        JPanel bigLogoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 0));
-        bigLogoPanel.setBackground(Color.WHITE);
-        bigLogoPanel.setBorder(BorderFactory.createTitledBorder("Main interface logo:"));
-
-        lblBigLogoPreview = new JLabel();
-        lblBigLogoPreview.setPreferredSize(new Dimension(120, 120));
-        lblBigLogoPreview.setBorder(BorderFactory.createLineBorder(Color.GRAY));
-        lblBigLogoPreview.setHorizontalAlignment(SwingConstants.CENTER);
-
-        String bigLogoPath = dao.getConfig("bigLogoPath");
-        ImageUtils.displayImage(lblBigLogoPreview, bigLogoPath, 120, 120);
-
-        JButton btnBigUpload = new JButton("Change Big Logo");
-        // FIX: Pass the STRING KEY "bigLogoPath"
-        btnBigUpload.addActionListener(e -> handleLogoUpload(lblBigLogoPreview, "bigLogoPath"));
-
-        bigLogoPanel.add(lblBigLogoPreview);
-        bigLogoPanel.add(btnBigUpload);
+        panel.add(logosContainer);
+        panel.add(Box.createVerticalStrut(20));
 
         // --- TEXT FIELDS ---
         JPanel fieldsPanel = new JPanel(new GridLayout(0, 1, 0, 5));
-        fieldsPanel.setBackground(Color.WHITE);
-        fieldsPanel.setBorder(BorderFactory.createTitledBorder("Information"));
+        fieldsPanel.setBackground(CARD_COLOR);
+        fieldsPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder(BorderFactory.createLineBorder(BORDER_COLOR), "Information"),
+                new EmptyBorder(10, 10, 10, 10)
+        ));
 
-        txtBrgyName = createStyledField(dao.getConfig("barangay_name"));
-        fieldsPanel.add(new JLabel("Barangay Name:"));
+        txtBrgyName = createStyledField("");
+        fieldsPanel.add(createStyledLabel("Barangay Name:"));
         fieldsPanel.add(txtBrgyName);
+
         // --- full barangay name ---
         JPanel fieldsPanel1 = new JPanel(new GridLayout(0, 1, 0, 5));
-        fieldsPanel1.setBackground(Color.WHITE);
-        txtfullBrgyName = createStyledField(dao.getConfig("defaultCtcPlace"));
-        fieldsPanel1.add(new JLabel("Barangay hall Location:"));
+        fieldsPanel1.setBackground(CARD_COLOR);
+        txtfullBrgyName = createStyledField("");
+        fieldsPanel1.add(createStyledLabel("Barangay Hall Location:"));
         fieldsPanel1.add(txtfullBrgyName);
 
         // Save Button
-        JButton btnSave = new JButton("Save General Settings");
-        btnSave.setBackground(new Color(46, 204, 113)); // Green
-        btnSave.setForeground(Color.WHITE);
+        JButton btnSave = createModernButton("Save General Settings", SUCCESS_COLOR);
         btnSave.addActionListener(e -> {
             dao.updateConfig("barangay_name", txtBrgyName.getText());
-            dao.updateConfig("defaultCtcPlace",txtfullBrgyName.getText());
+            dao.updateConfig("defaultCtcPlace", txtfullBrgyName.getText());
             JOptionPane.showMessageDialog(this, "Settings Saved!");
         });
 
-        panel.add(logoPanel);
-        panel.add(Box.createVerticalStrut(10));
-        panel.add(bigLogoPanel);
-        panel.add(Box.createVerticalStrut(20));
         panel.add(fieldsPanel);
+        panel.add(Box.createVerticalStrut(10));
         panel.add(fieldsPanel1);
         panel.add(Box.createVerticalStrut(20));
         panel.add(btnSave);
 
-
         return panel;
+    }
+
+    // --- Helper to Create a Logo Box ---
+    private JPanel createLogoUploader(String title, String configKey, JLabel previewLabel) {
+        JPanel logoPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 10));
+        logoPanel.setBackground(CARD_COLOR);
+        logoPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder(BorderFactory.createLineBorder(BORDER_COLOR), title),
+                new EmptyBorder(10, 10, 10, 10)
+        ));
+
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.setBackground(CARD_COLOR);
+
+        // Center the label
+        previewLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        content.add(previewLabel);
+        content.add(Box.createVerticalStrut(10));
+
+        JButton btnUpload = createModernButton("Change", PRIMARY_COLOR);
+        btnUpload.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btnUpload.addActionListener(e -> handleLogoUpload(previewLabel, configKey));
+
+        content.add(btnUpload);
+        logoPanel.add(content);
+
+        return logoPanel;
+    }
+
+    private JLabel createLogoLabel() {
+        JLabel label = new JLabel();
+        label.setPreferredSize(new Dimension(120, 120));
+        label.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1, true));
+        label.setHorizontalAlignment(SwingConstants.CENTER);
+        label.setBackground(new Color(243, 244, 246));
+        label.setOpaque(true);
+        return label;
     }
 
     private void handleLogoUpload(JLabel label, String configKey) {
@@ -141,64 +168,94 @@ public class AdminSystemConfigTab extends JPanel {
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             File file = chooser.getSelectedFile();
 
-            // 1. Create a unique filename based on the key so they don't overwrite each other
-            // e.g., "system_logoPath" vs "system_bigLogoPath"
+            // 1. Create unique filename
             String fileIdentifier = "system_" + configKey;
+
+            // 2. Save using ImageUtils (Now points to NETWORK if updated)
             String newPath = ImageUtils.saveImage(file, fileIdentifier);
 
-            // 2. Update DB with the KEY (e.g., "logoPath")
-            dao.updateConfig(configKey, newPath);
+            if (newPath != null) {
+                // 3. Update Database with the filename
+                dao.updateConfig(configKey, newPath);
 
-            // 3. Update UI
-            ImageUtils.displayImage(label, newPath, 120, 120);
-            JOptionPane.showMessageDialog(this, "Image Updated!");
+                // 4. Update UI
+                ImageUtils.displayImage(label, newPath, 120, 120);
+                JOptionPane.showMessageDialog(this, "Image Updated Successfully!");
+            }
         }
     }
 
+    private void loadSettings() {
+        new SwingWorker<Void, Void>() {
+            String brgyName, locName;
+            String logoPath, bigLogoPath, daetLogoPath; // Added daetLogoPath
+
+            @Override
+            protected Void doInBackground() throws Exception {
+                brgyName = dao.getConfig("barangay_name");
+                locName = dao.getConfig("defaultCtcPlace");
+
+                logoPath = dao.getConfig("logoPath");
+                bigLogoPath = dao.getConfig("bigLogoPath");
+
+                // NEW: Load Daet Logo
+                daetLogoPath = dao.getConfig("daetLogoPath");
+
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                if (txtBrgyName != null) txtBrgyName.setText(brgyName);
+                if (txtfullBrgyName != null) txtfullBrgyName.setText(locName);
+
+                // Display Images
+                if (lblLogoPreview != null) ImageUtils.displayImage(lblLogoPreview, logoPath, 120, 120);
+                if (lblBigLogoPreview != null) ImageUtils.displayImage(lblBigLogoPreview, bigLogoPath, 120, 120);
+
+                // NEW: Display Daet Logo
+                if (lblDaetLogoPreview != null) ImageUtils.displayImage(lblDaetLogoPreview, daetLogoPath, 120, 120);
+            }
+        }.execute();
+    }
+
     // =======================================================
-    // TAB 2: OPTIONS MANAGER
+    // TAB 2: OPTIONS MANAGER (Unchanged)
     // =======================================================
     private JPanel createOptionsPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
-        panel.setBackground(Color.WHITE);
+        panel.setBackground(BACKGROUND_COLOR);
         panel.setBorder(new EmptyBorder(20, 20, 20, 20));
 
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        toolbar.setBackground(Color.WHITE);
+        toolbar.setBackground(BACKGROUND_COLOR);
 
-        cbCategory = new JComboBox<>(new String[]{"purok", "civilStatus","natureOfBusiness"});
+        cbCategory = new JComboBox<>(new String[]{"purok", "civilStatus","natureOfBusiness","sex"});
+        cbCategory.setBackground(CARD_COLOR);
+        cbCategory.setFont(new Font("Arial", Font.PLAIN, 14));
         cbCategory.addActionListener(e -> loadOptions());
 
-        JButton btnAdd = new JButton("Add Option");
+        JButton btnAdd = createModernButton("Add Option", SUCCESS_COLOR);
         btnAdd.addActionListener(e -> handleAddOption());
 
-
-        JButton btnDelete = new JButton("Delete Selected");
-        btnDelete.setBackground(new Color(231, 76, 60));
-        btnDelete.setForeground(Color.WHITE);
+        JButton btnDelete = createModernButton("Delete Selected", DANGER_COLOR);
         btnDelete.addActionListener(e -> handleDeleteOption());
 
-        toolbar.add(new JLabel("Category: "));
+        toolbar.add(createStyledLabel("Category: "));
         toolbar.add(cbCategory);
         toolbar.add(Box.createHorizontalStrut(20));
-
         toolbar.add(btnAdd);
         toolbar.add(btnDelete);
 
         optionsModel = new DefaultTableModel(new String[]{"Value"}, 0);
         optionsTable = new JTable(optionsModel);
-        optionsTable.setRowHeight(30);
-        optionsTable.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2) {
-                    int row = optionsTable.getSelectedRow();
-                    if (row != -1) {
-
-                    }
-                }
-            }
-        });
+        optionsTable.setRowHeight(35);
+        optionsTable.setBackground(CARD_COLOR);
+        optionsTable.setFont(new Font("Arial", Font.PLAIN, 14));
+        optionsTable.setGridColor(BORDER_COLOR);
+        optionsTable.getTableHeader().setBackground(PRIMARY_COLOR);
+        optionsTable.getTableHeader().setForeground(Color.BLACK);
+        optionsTable.getTableHeader().setFont(new Font("Arial", Font.BOLD, 14));
 
         loadOptions();
 
@@ -209,60 +266,27 @@ public class AdminSystemConfigTab extends JPanel {
 
     private void loadOptions() {
         String category = (String) cbCategory.getSelectedItem();
-
         new SwingWorker<List<String>, Void>() {
             @Override
             protected List<String> doInBackground() throws Exception {
                 return dao.getOptions(category);
             }
-
             @Override
             protected void done() {
                 try {
                     List<String> options = get();
                     if (optionsModel != null) {
                         optionsModel.setRowCount(0);
-                        for (String opt : options) {
-                            optionsModel.addRow(new Object[]{opt});
-                        }
+                        for (String opt : options) optionsModel.addRow(new Object[]{opt});
                     }
                 } catch (Exception e) { e.printStackTrace(); }
             }
         }.execute();
     }
-    private void loadSettings() {
-        new SwingWorker<Void, Void>() {
-            String brgyName, logoPath;
 
-            @Override
-            protected Void doInBackground() throws Exception {
-                // HEAVY TASK: Database + Image I/O
-                brgyName = dao.getConfig("barangay_name");
-                logoPath = dao.getConfig("logoPath");
-                return null;
-            }
-
-            @Override
-            protected void done() {
-                // UPDATE UI
-                if (txtBrgyName != null) txtBrgyName.setText(brgyName);
-
-                // Loading image might still be slightly heavy, but safer here
-                if (lblLogoPreview != null) {
-                    ImageUtils.displayImage(lblLogoPreview, logoPath, 120, 120);
-                }
-            }
-        }.execute();
-    }
     private void handleAddOption() {
-
         String cat = (String) cbCategory.getSelectedItem();
-        String dis = "";
-        if(cat.equals("purok")){
-            dis="Purok ";
-        }
-        String val = JOptionPane.showInputDialog(this, "add a "+cat,dis);
-
+        String val = JOptionPane.showInputDialog(this, "Add new " + cat + ":");
         if (val != null && !val.trim().isEmpty()) {
             dao.addOption(cat, val.trim());
             loadOptions();
@@ -273,8 +297,7 @@ public class AdminSystemConfigTab extends JPanel {
         int row = optionsTable.getSelectedRow();
         if (row != -1) {
             String val = (String) optionsModel.getValueAt(row, 0);
-            int confirm = JOptionPane.showConfirmDialog(this, "Delete '" + val + "'?", "Confirm", JOptionPane.YES_NO_OPTION);
-            if(confirm == JOptionPane.YES_OPTION){
+            if(JOptionPane.showConfirmDialog(this, "Delete '" + val + "'?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION){
                 dao.deleteOption(val);
                 loadOptions();
             }
@@ -283,32 +306,46 @@ public class AdminSystemConfigTab extends JPanel {
         }
     }
 
+    // --- Visual Helpers ---
     private JTextField createStyledField(String text) {
         JTextField f = new JTextField(text);
         f.setFont(new Font("Arial", Font.PLAIN, 14));
+        f.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_COLOR), new EmptyBorder(8, 10, 8, 10)));
+        f.setBackground(CARD_COLOR);
         return f;
+    }
+
+    private JLabel createStyledLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(new Font("Arial", Font.BOLD, 14));
+        label.setForeground(SECONDARY_COLOR);
+        return label;
+    }
+
+    private JButton createModernButton(String text, Color color) {
+        JButton button = new JButton(text);
+        button.setBackground(color);
+        button.setForeground(Color.WHITE); // Better contrast
+        button.setFont(new Font("Arial", Font.BOLD, 12));
+        button.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
+        button.setFocusPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { button.setBackground(color.darker()); }
+            public void mouseExited(MouseEvent e) { button.setBackground(color); }
+        });
+        return button;
     }
 
     private JPanel createHeader() {
         JPanel h = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        h.setBackground(new Color(40, 40, 40));
+        h.setBackground(HEADER_BG);
         JLabel l = new JLabel("System Configuration");
         l.setFont(new Font("Arial", Font.BOLD, 24));
         l.setForeground(Color.WHITE);
         l.setBorder(new EmptyBorder(10, 20, 10, 20));
         h.add(l);
         return h;
-    }
-
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            JFrame f = new JFrame("Admin Settings");
-            f.setSize(800, 800);
-            f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            f.add(new AdminSystemConfigTab());
-            f.setLocationRelativeTo(null);
-            f.setVisible(true);
-        });
     }
 }

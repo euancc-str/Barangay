@@ -1,9 +1,13 @@
 package org.example.Interface;
 
+
+import org.example.Admin.AdminHouseholdTab;
 import org.example.Admin.AdminSettings.SystemConfigDAO;
+import org.example.Captain.PersonalInformation;
 import org.example.UserDataManager;
 import org.example.Users.BarangayStaff;
 import org.example.Users.Resident;
+
 
 import java.awt.*;
 import java.awt.event.*;
@@ -33,79 +37,120 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
+
 public class secretary extends JFrame {
+
 
     private JPanel contentContainer;
     private CardLayout cardLayout;
     private JPanel sidebar;
 
-     // ===== ADD THESE FOR PROFILE PICTURE =====
+
+    // ===== ADD THESE FOR PROFILE PICTURE =====
     private JLabel profilePictureLabel; // For personal panel form
     private JLabel headerProfilePicture; // For header in all panels
     private String profilePictureBase64 = "";
+    private AdminHouseholdTab tab;
 
-     // ===== AUTO-SAVE FIELDS =====
+    // ===== AUTO-SAVE FIELDS =====
     private Properties profileProperties = new Properties();
     private static final String PROPERTIES_FILE = "profileData.properties";
-    
+
+
     // Form field references for auto-save
     private JTextField txtFirstName, txtMiddleName, txtLastName, txtSuffix, txtCitizenship;
     private JTextField txtPosition, txtAddress, txtPhone, txtEmail, txtUniqueId, txtIdType, txtAge;
     private JTextField dayField, yearField;
     private JComboBox<String> cmbSex, cmbStatus, monthBox;
 
+
     private DashboardPanel dashboardPanel;
     private TotalRequestPanel totalRequestPanel;
     private SecretaryPerformSearch secretaryPerformSearch;
     private JLabel personalInfoGreetingLabel; // Add this field
 
+
     private SecretaryPrintDocument secretaryPrintDocument;
     public secretary() {
 
-         // Load properties on startup
+
+        // Load properties on startup
         loadProperties();
         loadProfilePicture();
+
 
         setTitle("Serbisyong Barangay - Secretary Dashboard");
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         setSize(1400, 900);
         setLocationRelativeTo(null);
 
+
         // Main container
         JPanel mainPanel = new JPanel(new BorderLayout(0, 0));
         mainPanel.setBackground(Color.BLACK);
 
+
         // Sidebar
         sidebar = createSidebar();
         mainPanel.add(sidebar, BorderLayout.WEST);
+
 
         // Content area with CardLayout
         JPanel contentArea = new JPanel(new BorderLayout(0, 0));
         contentArea.setBackground(new Color(229, 231, 235));
         contentArea.setBorder(new EmptyBorder(15, 15, 15, 15));
 
+
         cardLayout = new CardLayout();
         contentContainer = new JPanel(cardLayout);
         contentContainer.setBackground(new Color(229, 231, 235));
+
 
         // Add different panels
         dashboardPanel = new DashboardPanel();
         totalRequestPanel = new TotalRequestPanel();
         secretaryPerformSearch = new SecretaryPerformSearch();
         secretaryPrintDocument = new SecretaryPrintDocument();
+        tab = new AdminHouseholdTab();
         contentContainer.add(createPersonalPanel(), "personal_info");
-        contentContainer.add(dashboardPanel, "dashboard");
+
+
+        JPanel dashboardWrapper = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                int w = getWidth();
+                int h = getHeight();
+                Color color1 = new Color(0, 123, 167); // Cerulean
+                Color color2 = new Color(173, 216, 230); // Light Blue
+                GradientPaint gp = new GradientPaint(0, 0, color1, 0, h, color2);
+                g2d.setPaint(gp);
+                g2d.fillRect(0, 0, w, h);
+            }
+        };
+        dashboardWrapper.setOpaque(false);
+        dashboardWrapper.add(dashboardPanel, BorderLayout.CENTER);
+        contentContainer.add(dashboardWrapper, "dashboard");
+
+
         contentContainer.add(totalRequestPanel, "total");
         contentContainer.add(secretaryPerformSearch, "secretary");
         contentContainer.add(secretaryPrintDocument,"document");
+        contentContainer.add(tab,"tab");
+
 
 
         //contentContainer.add(createPlaceholderPanel("Barangay Official Profile"), "profile");
 
+
         contentArea.add(contentContainer, BorderLayout.CENTER);
         mainPanel.add(contentArea, BorderLayout.CENTER);
 
+
         add(mainPanel);
+
 
         // Show personal info by default
         cardLayout.show(contentContainer, "dashboard");
@@ -113,13 +158,14 @@ public class secretary extends JFrame {
             loadUserDataIntoForm();
         });
         addWindowListener(new WindowAdapter() {
-        @Override
-        public void windowClosing(WindowEvent e) {
-            confirmExit();
-        }
+            @Override
+            public void windowClosing(WindowEvent e) {
+                confirmExit();
+            }
         });
 
-         // Save properties when window closes
+
+        // Save properties when window closes
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -131,13 +177,16 @@ public class secretary extends JFrame {
         PrinterJob job = PrinterJob.getPrinterJob();
         job.setJobName("Barangay Document Print");
 
+
         job.setPrintable(new Printable() {
             @Override
             public int print(Graphics pg, PageFormat pf, int pageNum) {
                 if (pageNum > 0) return Printable.NO_SUCH_PAGE;
 
+
                 Graphics2D g2 = (Graphics2D) pg;
                 g2.translate(pf.getImageableX(), pf.getImageableY());
+
 
                 // Scale the panel to fit the page
                 double scaleX = pf.getImageableWidth() / panelToPrint.getWidth();
@@ -145,10 +194,12 @@ public class secretary extends JFrame {
                 double scale = Math.min(scaleX, scaleY); // Maintain aspect ratio
                 g2.scale(scale, scale);
 
+
                 panelToPrint.printAll(g2); // Print the component
                 return Printable.PAGE_EXISTS;
             }
         });
+
 
         boolean doPrint = job.printDialog();
         if (doPrint) {
@@ -167,15 +218,18 @@ public class secretary extends JFrame {
         sidebar.setPreferredSize(new Dimension(260, 0));
         sidebar.setBorder(new EmptyBorder(0, 0, 0, 0));
 
+
         // Logo and Title
         JPanel logoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 25));
         logoPanel.setBackground(Color.BLACK);
         logoPanel.setMaximumSize(new Dimension(260, 90));
         dao = new SystemConfigDAO();
         String logoPath = dao.getConfig("logoPath");
-            JPanel logoCircle = new JPanel() {
+        JPanel logoCircle = new JPanel() {
+
 
             private Image logoImage = new ImageIcon("resident_photos/"+logoPath).getImage(); // 🔹 path to your logo image
+
 
             @Override
             protected void paintComponent(Graphics g) {
@@ -183,13 +237,17 @@ public class secretary extends JFrame {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+
                 int diameter = Math.min(getWidth(), getHeight());
+
 
                 // 🟢 Draw circular clipping area
                 g2.setClip(new Ellipse2D.Float(0, 0, diameter, diameter));
 
+
                 // 🖼️ Draw the logo image scaled to the panel size
                 g2.drawImage(logoImage, 0, 0, diameter, diameter, this);
+
 
                 // ⚪ Optional: Add a white circular border
                 g2.setClip(null);
@@ -197,8 +255,10 @@ public class secretary extends JFrame {
                 g2.setStroke(new BasicStroke(2f));
                 g2.drawOval(0, 0, diameter - 1, diameter - 1);
 
+
                 g2.dispose();
             }
+
 
             @Override
             public Dimension getPreferredSize() {
@@ -208,60 +268,76 @@ public class secretary extends JFrame {
         logoCircle.setOpaque(false);
 
 
+
+
         JLabel titleLabel = new JLabel("Serbisyong Barangay");
         titleLabel.setForeground(Color.WHITE);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 15));
 
+
         logoPanel.add(logoCircle);
         logoPanel.add(titleLabel);
 
+
         sidebar.add(logoPanel);
         sidebar.add(Box.createVerticalStrut(10));
+
 
         // Menu Items
         sidebar.add(createMenuItem("personal_info", "Personal Information", false));
         sidebar.add(createMenuItem("dashboard", "Dashboard", true));
         sidebar.add(createMenuItem("total", "Total Request", false));
         sidebar.add(createMenuItem("profile", "Barangay Official Profile", false));
+        sidebar.add(createMenuItem("tab","Household Management",false));
         sidebar.add(createMenuItem("secretary","Search/Document Request",false));
         sidebar.add(createMenuItem("document","Print",false));
 
+
         sidebar.add(Box.createVerticalGlue());
 
-            // Logout button
+
+        // Logout button
         JPanel logoutPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 25));
         logoutPanel.setBackground(Color.BLACK);
         logoutPanel.setMaximumSize(new Dimension(260, 70));
+
 
         JPanel logoutButton = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8));
         logoutButton.setBackground(Color.BLACK);
         logoutButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
+
         JLabel logoutIcon = new JLabel("⊗");
         logoutIcon.setForeground(Color.WHITE);
         logoutIcon.setFont(new Font("Arial", Font.BOLD, 18));
+
 
         JLabel logoutText = new JLabel("LOG OUT");
         logoutText.setForeground(Color.WHITE);
         logoutText.setFont(new Font("Arial", Font.BOLD, 13));
 
+
         logoutButton.add(logoutIcon);
         logoutButton.add(logoutText);
+
 
         // Hover effect + confirmation dialog
         logoutButton.addMouseListener(new MouseAdapter() {
             Color originalColor = Color.BLACK;
             Color hoverColor = new Color(200, 0, 0); // red on hover
 
+
             @Override
             public void mouseEntered(MouseEvent e) {
                 logoutButton.setBackground(hoverColor);
             }
 
+
             @Override
             public void mouseExited(MouseEvent e) {
                 logoutButton.setBackground(originalColor);
             }
+
 
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -274,15 +350,19 @@ public class secretary extends JFrame {
                         JOptionPane.WARNING_MESSAGE
                 );
 
+
                 if (choice == JOptionPane.YES_OPTION) {
                     // Save data before logout
                     saveProperties();
 
+
                     // Clear current user session
                     UserDataManager.getInstance().logout();
 
+
                     // Close secretary window
                     dispose();
+
 
                     // Open login window
                     openMainWindow(secretary.this);
@@ -290,8 +370,12 @@ public class secretary extends JFrame {
             }
         });
 
+
         logoutPanel.add(logoutButton);
         sidebar.add(logoutPanel);
+
+
+
 
 
 
@@ -314,16 +398,19 @@ public class secretary extends JFrame {
         }
     }
 
+
     private JPanel createMenuItem(String type, String text, boolean selected) {
         JPanel menuItem = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 18));
         menuItem.setMaximumSize(new Dimension(260, 65));
         menuItem.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
 
         if (selected) {
             menuItem.setBackground(new Color(55, 55, 55));
         } else {
             menuItem.setBackground(Color.BLACK);
         }
+
 
         // Icon panel
         JPanel iconPanel = new JPanel() {
@@ -333,6 +420,7 @@ public class secretary extends JFrame {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(Color.WHITE);
+
 
                 switch(type) {
                     case "personal_info":
@@ -366,12 +454,15 @@ public class secretary extends JFrame {
         };
         iconPanel.setOpaque(false);
 
+
         JLabel textLabel = new JLabel(text);
         textLabel.setForeground(Color.WHITE);
         textLabel.setFont(new Font("Arial", Font.PLAIN, 14));
 
+
         menuItem.add(iconPanel);
         menuItem.add(textLabel);
+
 
         // Click handler to switch tabs
         menuItem.addMouseListener(new MouseAdapter() {
@@ -380,11 +471,13 @@ public class secretary extends JFrame {
                 updateSelectedMenuItem(menuItem);
             }
 
+
             public void mouseEntered(MouseEvent e) {
                 if (menuItem.getBackground().equals(Color.BLACK)) {
                     menuItem.setBackground(new Color(35, 35, 35));
                 }
             }
+
 
             public void mouseExited(MouseEvent e) {
                 if (!menuItem.getBackground().equals(new Color(55, 55, 55))) {
@@ -393,8 +486,10 @@ public class secretary extends JFrame {
             }
         });
 
+
         return menuItem;
     }
+
 
     private void updateSelectedMenuItem(JPanel selectedItem) {
         Component[] components = sidebar.getComponents();
@@ -402,8 +497,8 @@ public class secretary extends JFrame {
             if (comp instanceof JPanel) {
                 JPanel panel = (JPanel) comp;
                 if (panel.getCursor().getType() == Cursor.HAND_CURSOR &&
-                    panel.getMaximumSize() != null &&
-                    panel.getMaximumSize().height == 65) {
+                        panel.getMaximumSize() != null &&
+                        panel.getMaximumSize().height == 65) {
                     panel.setBackground(Color.BLACK);
                 }
             }
@@ -411,27 +506,34 @@ public class secretary extends JFrame {
         selectedItem.setBackground(new Color(55, 55, 55));
     }
 
-    
+
+
+
+
 
     private JPanel createHeaderPanel() {
         JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBackground(new Color(40, 40, 40));
+        headerPanel.setBackground(new Color(0, 123, 167));
         headerPanel.setBorder(BorderFactory.createCompoundBorder(
-            new RoundedBorder(30, true, false),
-            new EmptyBorder(25, 40, 25, 40)
+                new RoundedBorder(30, true, false),
+                new EmptyBorder(25, 40, 25, 40)
         ));
+
 
         JLabel lblHeader = new JLabel("Personal Information");
         lblHeader.setFont(new Font("Arial", Font.BOLD, 26));
         lblHeader.setForeground(Color.WHITE);
 
+
         JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
-        userPanel.setBackground(new Color(40, 40, 40));
+        userPanel.setBackground(new Color(0, 123, 167));
+
 
         // Dynamic greeting based on user's last name and gender
         personalInfoGreetingLabel = new JLabel(getGreeting()); // Use field, not local variable
         personalInfoGreetingLabel.setFont(new Font("Arial", Font.PLAIN, 15));
         personalInfoGreetingLabel.setForeground(Color.WHITE);
+
 
         // Create profile picture label for header
         headerProfilePicture = new JLabel();
@@ -440,7 +542,8 @@ public class secretary extends JFrame {
         headerProfilePicture.setBackground(Color.WHITE);
         headerProfilePicture.setBorder(new LineBorder(Color.GRAY, 1, true));
         headerProfilePicture.setHorizontalAlignment(SwingConstants.CENTER);
-        
+
+
         // Load existing profile picture if available
         if (!profilePictureBase64.isEmpty()) {
             try {
@@ -460,14 +563,18 @@ public class secretary extends JFrame {
             headerProfilePicture.setFont(new Font("Arial", Font.PLAIN, 20));
         }
 
+
         userPanel.add(personalInfoGreetingLabel); // Use field here
         userPanel.add(headerProfilePicture);
+
 
         headerPanel.add(lblHeader, BorderLayout.WEST);
         headerPanel.add(userPanel, BorderLayout.EAST);
 
+
         return headerPanel;
     }
+
 
     // Custom rounded border class
     static class RoundedBorder extends AbstractBorder {
@@ -475,17 +582,20 @@ public class secretary extends JFrame {
         private boolean top;
         private boolean bottom;
 
+
         RoundedBorder(int radius, boolean top, boolean bottom) {
             this.radius = radius;
             this.top = top;
             this.bottom = bottom;
         }
 
+
         @Override
         public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(c.getBackground());
+
 
             if (top && bottom) {
                 g2.fillRoundRect(x, y, width - 1, height - 1, radius, radius);
@@ -495,8 +605,10 @@ public class secretary extends JFrame {
                 g2.fillRoundRect(x, y - radius, width - 1, height + radius, radius, radius);
             }
 
+
             g2.dispose();
         }
+
 
         @Override
         public Insets getBorderInsets(Component c) {
@@ -504,9 +616,11 @@ public class secretary extends JFrame {
         }
     }
 
-        // ====================================================================
+
+    // ====================================================================
     // AUTO-SAVE FUNCTIONALITY
     // ====================================================================
+
 
     private void loadProperties() {
         try (FileInputStream in = new FileInputStream(PROPERTIES_FILE)) {
@@ -517,19 +631,22 @@ public class secretary extends JFrame {
         }
     }
 
+
     private void saveProperties() {
         try (FileOutputStream out = new FileOutputStream(PROPERTIES_FILE)) {
             profileProperties.store(out, "User Profile Data Saved on " + new Date());
             System.out.println("Profile data saved successfully.");
         } catch (IOException ex) {
-            JOptionPane.showMessageDialog(this, "Error saving profile data: " + ex.getMessage(), 
-                "Save Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Error saving profile data: " + ex.getMessage(),
+                    "Save Error", JOptionPane.ERROR_MESSAGE);
         }
     }
+
 
     private String getSavedValue(String key) {
         return profileProperties.getProperty(key, "");
     }
+
 
     private void setupAutoSave() {
         // Add document listeners to all text fields for auto-save
@@ -547,12 +664,14 @@ public class secretary extends JFrame {
         addAutoSaveListener(txtAge, "age");
         addAutoSaveListener(dayField, "birthDay");
         addAutoSaveListener(yearField, "birthYear");
-        
+
+
         // Add action listeners to combo boxes for auto-save
         addComboBoxAutoSaveListener(cmbSex, "sex");
         addComboBoxAutoSaveListener(cmbStatus, "status");
         addComboBoxAutoSaveListener(monthBox, "birthMonth");
     }
+
 
     private void addAutoSaveListener(JTextField field, String propertyKey) {
         if (field != null) {
@@ -560,7 +679,8 @@ public class secretary extends JFrame {
                 public void insertUpdate(DocumentEvent e) { saveField(); }
                 public void removeUpdate(DocumentEvent e) { saveField(); }
                 public void changedUpdate(DocumentEvent e) { saveField(); }
-                
+
+
                 private void saveField() {
                     profileProperties.setProperty(propertyKey, field.getText());
                     saveProperties();
@@ -568,6 +688,7 @@ public class secretary extends JFrame {
             });
         }
     }
+
 
     private <T> void addComboBoxAutoSaveListener(JComboBox<T> comboBox, String propertyKey) {
         if (comboBox != null) {
@@ -579,6 +700,7 @@ public class secretary extends JFrame {
             });
         }
     }
+
 
     private <T> void setComboBoxValue(JComboBox<T> comboBox, String value) {
         if (value != null && !value.isEmpty()) {
@@ -594,28 +716,49 @@ public class secretary extends JFrame {
         }
     }
 
+
     // Personal Information Panel (example layout)
     private JPanel createPersonalPanel() {
         JPanel containerPanel = new JPanel(new BorderLayout(0, 0));
         containerPanel.setBackground(new Color(229, 231, 235));
 
+
         JPanel headerPanel = createHeaderPanel();
         containerPanel.add(headerPanel, BorderLayout.NORTH);
 
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBackground(Color.WHITE);
+
+        // Create form panel with gradient background
+        JPanel formPanel = new JPanel(new GridBagLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                int w = getWidth();
+                int h = getHeight();
+                Color color1 = new Color(0, 123, 167); // Cerulean
+                Color color2 = new Color(173, 216, 230); // Light Blue
+                GradientPaint gp = new GradientPaint(0, 0, color1, 0, h, color2);
+                g2d.setPaint(gp);
+                g2d.fillRect(0, 0, w, h);
+            }
+        };
+        formPanel.setOpaque(false); // Make it transparent so gradient shows
         formPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
+
         Font labelFont = new Font("Arial", Font.BOLD, 16);
         Font fieldFont = new Font("Arial", Font.PLAIN, 15);
+
 
         // First Name
         gbc.gridx = 0; gbc.gridy = 0;
         JLabel lblFirstName = new JLabel("First Name");
         lblFirstName.setFont(labelFont);
+        lblFirstName.setForeground(Color.WHITE);
         formPanel.add(lblFirstName, gbc);
         gbc.gridx = 1;
         txtFirstName = new JTextField(getSavedValue("firstName"), 12);
@@ -623,10 +766,12 @@ public class secretary extends JFrame {
         txtFirstName.setPreferredSize(new Dimension(160, 28));
         formPanel.add(txtFirstName, gbc);
 
+
         // Middle Name
         gbc.gridx = 2;
         JLabel lblMiddleName = new JLabel("Middle Name");
         lblMiddleName.setFont(labelFont);
+        lblMiddleName.setForeground(Color.WHITE);
         formPanel.add(lblMiddleName, gbc);
         gbc.gridx = 3;
         txtMiddleName = new JTextField(getSavedValue("middleName"), 12);
@@ -634,10 +779,12 @@ public class secretary extends JFrame {
         txtMiddleName.setPreferredSize(new Dimension(160, 28));
         formPanel.add(txtMiddleName, gbc);
 
+
         // Last Name
         gbc.gridx = 0; gbc.gridy = 1;
         JLabel lblLastName = new JLabel("Last Name");
         lblLastName.setFont(labelFont);
+        lblLastName.setForeground(Color.WHITE);
         formPanel.add(lblLastName, gbc);
         gbc.gridx = 1;
         txtLastName = new JTextField(getSavedValue("lastName"), 12);
@@ -645,10 +792,12 @@ public class secretary extends JFrame {
         txtLastName.setPreferredSize(new Dimension(160, 28));
         formPanel.add(txtLastName, gbc);
 
+
         // Suffix
         gbc.gridx = 2;
         JLabel lblSuffix = new JLabel("Suffix");
         lblSuffix.setFont(labelFont);
+        lblSuffix.setForeground(Color.WHITE);
         formPanel.add(lblSuffix, gbc);
         gbc.gridx = 3;
         txtSuffix = new JTextField(getSavedValue("suffix"), 8);
@@ -656,37 +805,46 @@ public class secretary extends JFrame {
         txtSuffix.setPreferredSize(new Dimension(80, 28));
         formPanel.add(txtSuffix, gbc);
 
+
         // Sex
         gbc.gridx = 0; gbc.gridy = 2;
         JLabel lblSex = new JLabel("Sex");
         lblSex.setFont(labelFont);
+        lblSex.setForeground(Color.WHITE);
         formPanel.add(lblSex, gbc);
         gbc.gridx = 1;
-        cmbSex = new JComboBox<>(new String[]{"Female", "Male"});
+        String [ ] arr = new SystemConfigDAO().getOptionsNature("civilStatus");
+        String [] arr1 = new SystemConfigDAO().getOptionsNature("sex");
+        cmbSex = new JComboBox<>(arr1);
         setComboBoxValue(cmbSex, getSavedValue("sex"));
-        
+
+
         cmbSex.setFont(fieldFont);
         cmbSex.setPreferredSize(new Dimension(100, 28));
         cmbSex.setEditable(false); // interactable dropdown
         formPanel.add(cmbSex, gbc);
 
+
         // Civil Status
         gbc.gridx = 2;
         JLabel lblStatus = new JLabel("Civil Status");
         lblStatus.setFont(labelFont);
+        lblStatus.setForeground(Color.WHITE);
         formPanel.add(lblStatus, gbc);
         gbc.gridx = 3;
-        cmbStatus = new JComboBox<>(new String[]{"Single", "Married"});
+        cmbStatus = new JComboBox<>(arr);
         setComboBoxValue(cmbStatus, getSavedValue("status"));
         cmbStatus.setFont(fieldFont);
         cmbStatus.setPreferredSize(new Dimension(100, 28));
         cmbStatus.setEditable(false); // interactable dropdown
         formPanel.add(cmbStatus, gbc);
 
+
         // Citizenship
         gbc.gridx = 0; gbc.gridy = 3;
         JLabel lblCitizenship = new JLabel("Citizenship");
         lblCitizenship.setFont(labelFont);
+        lblCitizenship.setForeground(Color.WHITE);
         formPanel.add(lblCitizenship, gbc);
         gbc.gridx = 1;
         txtCitizenship = new JTextField(getSavedValue("citizenship"), 10);
@@ -694,21 +852,25 @@ public class secretary extends JFrame {
         txtCitizenship.setPreferredSize(new Dimension(100, 28));
         formPanel.add(txtCitizenship, gbc);
 
+
         // Birth Date
         gbc.gridx = 2;
         JLabel lblBirthDate = new JLabel("Birth Date");
         lblBirthDate.setFont(labelFont);
+        lblBirthDate.setForeground(Color.WHITE);
         formPanel.add(lblBirthDate, gbc);
         gbc.gridx = 3;
         JPanel birthPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-         monthBox = new JComboBox<>(new String[]{
-            "January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December"
+        birthPanel.setOpaque(false); // Make transparent to show gradient
+        monthBox = new JComboBox<>(new String[]{
+                "January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
         });
         monthBox.setFont(fieldFont);
         monthBox.setEditable(false); // interactable dropdown
         setComboBoxValue(monthBox, getSavedValue("birthMonth"));
-        
+
+
         dayField = new JTextField(getSavedValue("birthDay"), 2);
         dayField = new JTextField(2);
         dayField.setFont(fieldFont);
@@ -725,10 +887,12 @@ public class secretary extends JFrame {
         birthPanel.setBackground(Color.WHITE);
         formPanel.add(birthPanel, gbc);
 
+
         // Age
         gbc.gridx = 0; gbc.gridy = 4;
         JLabel lblAge = new JLabel("Age");
         lblAge.setFont(labelFont);
+        lblAge.setForeground(Color.WHITE);
         formPanel.add(lblAge, gbc);
         gbc.gridx = 1;
         txtAge = new JTextField(getSavedValue("age"), 3);
@@ -736,10 +900,12 @@ public class secretary extends JFrame {
         txtAge.setPreferredSize(new Dimension(60, 28));
         formPanel.add(txtAge, gbc);
 
+
         // Position
         gbc.gridx = 2;
         JLabel lblPosition = new JLabel("Position");
         lblPosition.setFont(labelFont);
+        lblPosition.setForeground(Color.WHITE);
         formPanel.add(lblPosition, gbc);
         gbc.gridx = 3;
         txtPosition = new JTextField(getSavedValue("position"), 12);
@@ -747,10 +913,12 @@ public class secretary extends JFrame {
         txtPosition.setPreferredSize(new Dimension(160, 28));
         formPanel.add(txtPosition, gbc);
 
-                // Profile Picture
+
+        // Profile Picture
         gbc.gridx = 0; gbc.gridy = 5;
         JLabel lblProfilePic = new JLabel("Profile Picture");
         lblProfilePic.setFont(new Font("Arial", Font.BOLD, 16));
+        lblProfilePic.setForeground(Color.WHITE);
         formPanel.add(lblProfilePic, gbc);
         gbc.gridx = 1;
         profilePictureLabel = new JLabel("Add a profile picture", SwingConstants.CENTER);
@@ -759,7 +927,8 @@ public class secretary extends JFrame {
         profilePictureLabel.setBorder(new LineBorder(Color.GRAY, 1, true));
         profilePictureLabel.setPreferredSize(new Dimension(60, 60));
         profilePictureLabel.setFont(fieldFont);
-        
+
+
         // Load existing profile picture if available
         if (!profilePictureBase64.isEmpty()) {
             try {
@@ -773,8 +942,11 @@ public class secretary extends JFrame {
                 // Keep the default text if error loading
             }
         }
-        
-        
+
+
+
+
+
 
         gbc.gridx = 1;
         JButton btnAddPhoto = new JButton("Add a profile picture");
@@ -793,14 +965,19 @@ public class secretary extends JFrame {
         });
         formPanel.add(btnAddPhoto, gbc);
 
+        txtPosition.setEditable(false);
         // Contact Info Section
         gbc.gridx = 0; gbc.gridy = 6; gbc.gridwidth = 4;
-        formPanel.add(new JSeparator(), gbc);
+        JSeparator separator = new JSeparator();
+        separator.setForeground(Color.WHITE);
+        formPanel.add(separator, gbc);
+
 
         // Address
         gbc.gridy = 7; gbc.gridwidth = 1;
         JLabel lblAddress = new JLabel("Address");
         lblAddress.setFont(labelFont);
+        lblAddress.setForeground(Color.WHITE);
         formPanel.add(lblAddress, gbc);
         gbc.gridx = 1;
         txtAddress = new JTextField(getSavedValue("address"), 18);
@@ -808,10 +985,12 @@ public class secretary extends JFrame {
         txtAddress.setPreferredSize(new Dimension(220, 28));
         formPanel.add(txtAddress, gbc);
 
+
         // Phone Number
         gbc.gridx = 2;
         JLabel lblPhone = new JLabel("Phone Number");
         lblPhone.setFont(labelFont);
+        lblPhone.setForeground(Color.WHITE);
         formPanel.add(lblPhone, gbc);
         gbc.gridx = 3;
         txtPhone = new JTextField(getSavedValue("phone"), 10);
@@ -819,10 +998,12 @@ public class secretary extends JFrame {
         txtPhone.setPreferredSize(new Dimension(120, 28));
         formPanel.add(txtPhone, gbc);
 
+
         // Email Address
         gbc.gridx = 0; gbc.gridy = 8;
         JLabel lblEmail = new JLabel("Email Address");
         lblEmail.setFont(labelFont);
+        lblEmail.setForeground(Color.WHITE);
         formPanel.add(lblEmail, gbc);
         gbc.gridx = 1;
         txtEmail = new JTextField(getSavedValue("email"), 14);
@@ -830,10 +1011,12 @@ public class secretary extends JFrame {
         txtEmail.setPreferredSize(new Dimension(160, 28));
         formPanel.add(txtEmail, gbc);
 
+
         // Unique ID NO.
         gbc.gridx = 2;
         JLabel lblUniqueId = new JLabel("Unique ID NO.");
         lblUniqueId.setFont(labelFont);
+        lblUniqueId.setForeground(Color.WHITE);
         formPanel.add(lblUniqueId, gbc);
         gbc.gridx = 3;
         txtUniqueId = new JTextField(getSavedValue("uniqueId"), 12);
@@ -841,10 +1024,12 @@ public class secretary extends JFrame {
         txtUniqueId.setPreferredSize(new Dimension(160, 28));
         formPanel.add(txtUniqueId, gbc);
 
+
         // ID TYPE
         gbc.gridx = 0; gbc.gridy = 9;
         JLabel lblIdType = new JLabel("ID TYPE");
         lblIdType.setFont(labelFont);
+        lblIdType.setForeground(Color.WHITE);
         formPanel.add(lblIdType, gbc);
         gbc.gridx = 1;
         txtIdType = new JTextField(getSavedValue("idType"), 10);
@@ -852,10 +1037,12 @@ public class secretary extends JFrame {
         txtIdType.setPreferredSize(new Dimension(120, 28));
         formPanel.add(txtIdType, gbc);
 
+
         // Photo ID
         gbc.gridx = 2;
         JLabel lblPhotoId = new JLabel("Photo ID");
         lblPhotoId.setFont(labelFont);
+        lblPhotoId.setForeground(Color.WHITE);
         formPanel.add(lblPhotoId, gbc);
         gbc.gridx = 3;
         JLabel photoIdPic = new JLabel("Upload ID photo", SwingConstants.CENTER);
@@ -865,6 +1052,7 @@ public class secretary extends JFrame {
         photoIdPic.setPreferredSize(new Dimension(60, 60)); // Square
         photoIdPic.setFont(fieldFont);
         formPanel.add(photoIdPic, gbc);
+
 
         gbc.gridx = 2;
         gbc.gridy = 10;
@@ -894,14 +1082,22 @@ public class secretary extends JFrame {
         });
         formPanel.add(btnAddPhotoId, gbc);
 
+
         // Done Button
+        txtAge.setEditable(false);
+        dayField.setEditable(false);
+
+        monthBox.setEnabled(false);
+        cmbSex.setEnabled(false);
+        yearField.setEditable(false);
         gbc.gridx = 3; gbc.gridy = 11; gbc.anchor = GridBagConstraints.EAST;
         JButton btnDone = new JButton("Done");
         btnDone.setFont(new Font("Arial", Font.BOLD, 18));
-        btnDone.setForeground(Color.WHITE);
+        btnDone.setForeground(Color.BLACK);
         btnDone.setBackground(new Color(0, 102, 255));
         btnDone.setFocusPainted(false);
         btnDone.setPreferredSize(new Dimension(120, 36));
+        ((javax.swing.text.AbstractDocument) txtPhone.getDocument()).setDocumentFilter(new secretary.PhoneDocumentFilter());
         btnDone.addActionListener(e -> {
             // Save all properties before showing confirmation
             profileProperties.setProperty("firstName", txtFirstName.getText());
@@ -922,31 +1118,34 @@ public class secretary extends JFrame {
             profileProperties.setProperty("uniqueId", txtUniqueId.getText());
             profileProperties.setProperty("idType", txtIdType.getText());
 
+
             BarangayStaff currentStaff = UserDataManager.getInstance().getCurrentStaff();
             if (currentStaff != null) {
                 // Update the staff object with form data
-                currentStaff = currentStaff.toBuilder()
-                        .firstName(txtFirstName.getText())
-                        .lastName(txtLastName.getText())
-                        .position(txtPosition.getText())
-                        .email(txtEmail.getText())
-                        .contactNo(txtPhone.getText())
-                        .updatedAt(LocalDateTime.now())
+                BarangayStaff updatedStaff = currentStaff.toBuilder()
+                        .firstName(txtFirstName.getText().trim())
+                        .middleName(txtMiddleName.getText().trim())
+                        .lastName(txtLastName.getText().trim())
+                        .suffix(txtSuffix.getText().trim())
+                        .address(txtAddress.getText().trim())
+                        .contactNo(txtPhone.getText().trim())
+                        .civilStatus(cmbStatus.getSelectedItem().toString())
+                        .email(txtEmail.getText().trim())
+                        .updatedAt(java.time.LocalDateTime.now()) // Mark the time
                         .build();
+                UserDataManager.getInstance().updateStaff(updatedStaff);
 
-                currentStaff.setAddress(txtAddress.getText());
-                currentStaff.setMiddleName(txtMiddleName.getText());
-
-                UserDataManager.getInstance().setCurrentStaff(currentStaff);
-
+                UserDataManager.getInstance().setCurrentStaff(updatedStaff);
                 System.out.println("Staff data updated successfully!");
             }
 
             saveProperties();
 
+
             // Update greeting in all panels
             updateGreetingInAllPanels();
-            
+
+
             StringBuilder info = new StringBuilder();
             info.append("First Name: ").append(txtFirstName.getText()).append("\n");
             info.append("Middle Name: ").append(txtMiddleName.getText()).append("\n");
@@ -956,7 +1155,7 @@ public class secretary extends JFrame {
             info.append("Civil Status: ").append(cmbStatus.getSelectedItem()).append("\n");
             info.append("Citizenship: ").append(txtCitizenship.getText()).append("\n");
             info.append("Birth Date: ").append(monthBox.getSelectedItem()).append(" ")
-                .append(dayField.getText()).append(" ").append(yearField.getText()).append("\n");
+                    .append(dayField.getText()).append(" ").append(yearField.getText()).append("\n");
             info.append("Age: ").append(txtAge.getText()).append("\n");
             info.append("Position: ").append(txtPosition.getText()).append("\n");
             info.append("Address: ").append(txtAddress.getText()).append("\n");
@@ -964,59 +1163,66 @@ public class secretary extends JFrame {
             info.append("Email Address: ").append(txtEmail.getText()).append("\n");
             info.append("Unique ID NO.: ").append(txtUniqueId.getText()).append("\n");
             info.append("ID TYPE: ").append(txtIdType.getText()).append("\n");
-            
+
+
             JOptionPane.showMessageDialog(secretary.this, info.toString(), "Submitted Information", JOptionPane.INFORMATION_MESSAGE);
-            String firstName = txtFirstName.getText().trim();
-            String middleName = txtMiddleName.getText().trim();
-            String lastName = txtLastName.getText().trim();
-            String suffix = txtSuffix.getText().trim();
-            String sex = (String) cmbSex.getSelectedItem();
-            String citizenship = txtCitizenship.getText().trim();
-            String age = txtAge.getText().trim();
-            String address = txtAddress.getText().trim();
-            String phone = txtPhone.getText().trim();
-            String email = txtEmail.getText().trim();
-            BarangayStaff updatedStaff = currentStaff.toBuilder()
-                    .firstName(firstName)
-                    .middleName(middleName)
-                    .lastName(lastName)
-                    .suffix(suffix)
-                    .gender(sex)
-                    .age(Integer.parseInt(age))
-                    .address(address)
-                    .contactNo(phone)
-                    .email(email)
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-            UserDataManager.getInstance().updateStaff(updatedStaff);
-            UserDataManager.getInstance().setCurrentStaff(updatedStaff);
-            System.out.println("✅ Updated staff: " + firstName + " " + lastName);
-        });
+            });
+
 
         setupAutoSave();
         formPanel.add(btnDone, gbc);
 
+
         // Make the form scrollable
         JScrollPane scrollPane = new JScrollPane(formPanel,
-            JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-            JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         scrollPane.setBorder(null);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+
 
         containerPanel.add(scrollPane, BorderLayout.CENTER);
         return containerPanel;
     }
+    static class PhoneDocumentFilter extends javax.swing.text.DocumentFilter {
+        @Override
+        public void insertString(FilterBypass fb, int offset, String string, javax.swing.text.AttributeSet attr) throws javax.swing.text.BadLocationException {
+            if (string == null) return;
+            String currentText = fb.getDocument().getText(0, fb.getDocument().getLength());
+            String newText = currentText.substring(0, offset) + string + currentText.substring(offset);
+            if (isValidPhone(newText)) super.insertString(fb, offset, string, attr);
+        }
 
-      private void confirmExit() {
+        @Override
+        public void replace(FilterBypass fb, int offset, int length, String text, javax.swing.text.AttributeSet attrs) throws javax.swing.text.BadLocationException {
+            if (text == null) return;
+            String currentText = fb.getDocument().getText(0, fb.getDocument().getLength());
+            String newText = currentText.substring(0, offset) + text + currentText.substring(offset + length);
+            if (isValidPhone(newText)) super.replace(fb, offset, length, text, attrs);
+        }
+
+        private boolean isValidPhone(String text) {
+            if (text.isEmpty()) return true;
+            if (!text.matches("\\d*")) return false;
+            if (text.length() > 11) return false;
+            if (text.length() >= 2 && !text.startsWith("09")) return false;
+            return true;
+        }
+    }
+
+    private void confirmExit() {
         // Show confirmation dialog
         int option = JOptionPane.showConfirmDialog(
-            this,
-            "Are you sure you want to exit?",
-            "Confirm Exit",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.QUESTION_MESSAGE
+                this,
+                "Are you sure you want to exit?",
+                "Confirm Exit",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE
         );
-        
+
+
         if (option == JOptionPane.YES_OPTION) {
             // Save data and exit
             saveProperties();
@@ -1026,10 +1232,12 @@ public class secretary extends JFrame {
         // If NO, do nothing - window stays open
     }
 
-        // ====================================================================
+
+    // ====================================================================
     // PROFILE PICTURE METHODS
     // ====================================================================
-    
+
+
     private void saveProfilePicture(File imageFile) {
         try {
             BufferedImage image = ImageIO.read(imageFile);
@@ -1044,14 +1252,16 @@ public class secretary extends JFrame {
             JOptionPane.showMessageDialog(this, "Error saving profile picture: " + e.getMessage());
         }
     }
-    
+
+
     private void loadProfilePicture() {
         profilePictureBase64 = profileProperties.getProperty("profilePicture", "");
         if (!profilePictureBase64.isEmpty()) {
             updateProfilePictureInAllPanels();
         }
     }
-    
+
+
     private void updateProfilePictureInAllPanels() {
         if (!profilePictureBase64.isEmpty()) {
             try {
@@ -1059,7 +1269,8 @@ public class secretary extends JFrame {
                 ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
                 BufferedImage image = ImageIO.read(bais);
                 ImageIcon icon = new ImageIcon(image.getScaledInstance(45, 45, Image.SCALE_SMOOTH));
-                
+
+
                 // Update header profile picture
                 if (headerProfilePicture != null) {
                     headerProfilePicture.setIcon(icon);
@@ -1071,26 +1282,32 @@ public class secretary extends JFrame {
         }
     }
 
-        // ====================================================================
+
+    // ====================================================================
     // NAME AND GENDER METHODS FOR GREETING
     // ====================================================================
-    
+
+
     private String getGreeting() {
         String lastName = profileProperties.getProperty("lastName", "");
         String sex = profileProperties.getProperty("sex", "");
-        
+
+
         if (lastName.isEmpty()) {
             return "Hi Secretary";
         }
-        
+
+
         String title = "Mr.";
         if ("Female".equals(sex)) {
             title = "Mrs.";
         }
-        
+
+
         return "Hi " + title + " " + lastName;
     }
-    
+
+
     private void updateGreetingInAllPanels() {
         // Update personal info header greeting
         if (personalInfoGreetingLabel != null) {
@@ -1117,12 +1334,16 @@ public class secretary extends JFrame {
         }
         // Update dashboard and total request panels
 
+
         if (totalRequestPanel != null) totalRequestPanel.refreshHeader();
     }
 
+
     private void loadUserDataIntoForm() {
 
+
         BarangayStaff currentStaff = UserDataManager.getInstance().getCurrentStaff();
+
 
         if (currentStaff != null) {
             // Populate fields from staff data
@@ -1139,23 +1360,32 @@ public class secretary extends JFrame {
             }
             txtAge.setText(age);
 
+            txtSuffix.setText(currentStaff.getSuffix());
+            cmbSex.setSelectedItem(currentStaff.getSex());
+            cmbStatus.setSelectedItem(currentStaff.getCivilStatus());
+            txtCitizenship.setText(currentStaff.getCitizenship());
+
             String uniqueId = ""+currentStaff.getIdNumber();
             txtUniqueId.setText(uniqueId);
             LocalDate dob = currentStaff.getDob();
             if (dob != null) {
                 System.out.println("Loading DOB: " + dob); // Debug
 
+
                 // Set day
                 dayField.setText(String.valueOf(dob.getDayOfMonth()));
 
+
                 // Set year
                 yearField.setText(String.valueOf(dob.getYear()));
+
 
                 // Set month (ComboBox index is 0-based, Month value is 1-based)
                 int monthIndex = dob.getMonthValue() - 1; // Use getMonthValue() instead of getMonth()
                 if (monthIndex >= 0 && monthIndex < 12) {
                     monthBox.setSelectedIndex(monthIndex);
                 }
+
 
                 System.out.println("Set day: " + dob.getDayOfMonth() + ", month index: " + monthIndex + ", year: " + dob.getYear());
             } else {
@@ -1168,20 +1398,23 @@ public class secretary extends JFrame {
                 txtMiddleName.setText(currentStaff.getMiddleName());
             }
 
+
             System.out.println("Loaded staff data: " + currentStaff.getFirstName() + " " + currentStaff.getLastName());
             return;
         }
         Resident currentResident = UserDataManager.getInstance().getCurrentResident();
+
 
         if (currentResident != null) {
             // Populate fields from resident data
             txtFirstName.setText(currentResident.getFirstName() != null ? currentResident.getFirstName() : "");
             txtLastName.setText(currentResident.getLastName() != null ? currentResident.getLastName() : "");
             txtEmail.setText(currentResident.getEmail() != null ? currentResident.getEmail() : "");
-            txtPhone.setText(currentResident.getPhoneNumber() != null ? currentResident.getPhoneNumber() : "");
+            txtPhone.setText(currentResident.getContactNo() != null ? currentResident.getContactNo() : "");
             txtAddress.setText(currentResident.getAddress() != null ? currentResident.getAddress() : "");
             txtAge.setText(String.valueOf(currentResident.getAge()));
             txtUniqueId.setText(currentResident.getNationalId() != null ? currentResident.getNationalId() : "");
+
 
             if (currentResident.getGender() != null) {
                 setComboBoxValue(cmbSex, currentResident.getGender());
@@ -1193,12 +1426,13 @@ public class secretary extends JFrame {
                 txtMiddleName.setText(currentResident.getMiddleName());
             }
 
+
             System.out.println("Loaded resident data: " + currentResident.getFirstName() + " " + currentResident.getLastName());
         } else {
             System.out.println("No user logged in, loading from properties file");
         }
     }
-        public static void main(String[] args) {
+    public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
@@ -1210,3 +1444,4 @@ public class secretary extends JFrame {
         });
     }
 }
+

@@ -1,3 +1,4 @@
+// AdminResidentTab.java - Updated color scheme
 package org.example.Admin;
 
 import org.example.Admin.AdminSettings.SystemConfigDAO;
@@ -30,13 +31,13 @@ public class AdminResidentTab extends JPanel {
     private JLabel lblRecordCount;
     private JTextField searchField;
 
-    // --- VISUAL STYLE VARIABLES ---
-    private final Color BG_COLOR = new Color(229, 231, 235);
-    private final Color HEADER_BG = new Color(40, 40, 40);
-    private final Color TABLE_HEADER_BG = new Color(34, 197, 94);
-    private final Color BTN_ADD_COLOR = new Color(76, 175, 80);
-    private final Color BTN_UPDATE_COLOR = new Color(100, 149, 237);
-    private final Color BTN_DEACTIVATE_COLOR = new Color(255, 77, 77);
+    // --- UPDATED VISUAL STYLE VARIABLES ---
+    private final Color BG_COLOR = new Color(245, 247, 250);
+    private final Color HEADER_BG = new Color(44, 62, 80);
+    private final Color TABLE_HEADER_BG = new Color(52, 152, 219);
+    private final Color BTN_ADD_COLOR = new Color(39, 174, 96);
+    private final Color BTN_UPDATE_COLOR = new Color(41, 128, 185);
+    private final Color BTN_DEACTIVATE_COLOR = new Color(231, 76, 60);
 
     public AdminResidentTab() {
         setLayout(new BorderLayout(0, 0));
@@ -46,32 +47,52 @@ public class AdminResidentTab extends JPanel {
         add(new JScrollPane(createContentPanel()), BorderLayout.CENTER);
 
         loadResidentData();
+        // Ensure resident table text and header use black for clarity
+        if (residentTable != null) {
+            residentTable.setForeground(Color.BLACK);
+            JTableHeader rh = residentTable.getTableHeader();
+            if (rh != null) rh.setForeground(Color.BLACK);
+        }
     }
 
     public void loadResidentData() {
-
-        if (tableModel != null) {
-            tableModel.setRowCount(0);
-        }
-        ResidentDAO rd = new ResidentDAO();
-        List<Resident> residentsList = rd.getAllResidents();
-        for(Resident resident : residentsList){
-            String name = resident.getFirstName() + " "+ resident.getLastName();
-            if(resident != null) {
-                tableModel.addRow(new Object[]{""+resident.getResidentId(),
-                        name,
-                        resident.getGender(),
-                        ""+resident.getAge(),
-                        resident.getAddress(),
-                        resident.getStatus()});
+        new SwingWorker<List<Resident>, Void>() {
+            @Override
+            protected List<Resident> doInBackground() throws Exception {
+                // Background: Heavy DB Fetch
+                return new ResidentDAO().getAllResidents();
             }
-        }
-        if(residentTable!=null){
-            residentTable.repaint();
-        }
-        updateRecordCount();
-    }
 
+            @Override
+            protected void done() {
+                try {
+                    List<Resident> residents = get();
+
+                    // UI Update: Instant & Safe
+                    if (tableModel != null) {
+                        tableModel.setRowCount(0); // Clear
+
+                        for (Resident r : residents) {
+                            tableModel.addRow(new Object[]{
+                                   ""+ r.getResidentId(),
+                                    r.getLastName() + ", " + r.getFirstName(),
+                                    r.getGender(),
+                                    ""+ r.getAge(),
+                                    r.getAddress()
+                            });
+                        }
+
+                        // Update Count Label
+                        if (lblRecordCount != null) {
+                            lblRecordCount.setText("Total Residents: " + residents.size());
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
+    }
     private void updateRecordCount() {
         if (lblRecordCount != null && residentTable != null) {
             int count = residentTable.getRowCount();
@@ -128,19 +149,22 @@ public class AdminResidentTab extends JPanel {
         String gender = (String) tableModel.getValueAt(modelRow, 2);
         String age = (String) tableModel.getValueAt(modelRow, 3);
         String address = (String) tableModel.getValueAt(modelRow, 4);
-        String accStatus = (String) tableModel.getValueAt(modelRow, 5);
         ResidentDAO residentDAO = new ResidentDAO();
         String user = residentDAO.findResidentByFullName(Integer.parseInt(id));
 
 
-        showUpdateResidentDialog(id, name, gender, age, address, accStatus, user, modelRow);
+        showUpdateResidentDialog(id, name, gender, age, address,  user, modelRow);
     }
 
-    private void showUpdateResidentDialog(String id, String name, String gender, String age, String address, String accStatus, String email, int modelRow) {
+    private void showUpdateResidentDialog(String id, String name, String gender, String age, String address,  String email, int modelRow) {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Update Resident", true);
         dialog.setSize(550, 750);
         dialog.setLocationRelativeTo(this);
         dialog.setLayout(new BorderLayout());
+
+
+        Resident residentData = new ResidentDAO().findResidentById(Integer.parseInt(id));
+
 
         JPanel mainPanel = new JPanel(new BorderLayout(0, 20));
         mainPanel.setBackground(Color.WHITE);
@@ -165,10 +189,11 @@ public class AdminResidentTab extends JPanel {
         JTextField txtName = createStyledTextField(name);
         addStyledRow(detailsPanel, "Full Name:", txtName);
         txtName.setEditable(false);
-        String[] genders = {"Male", "Female"};
+        String[] genders = new SystemConfigDAO().getOptionsNature("sex");
         JComboBox<String> cbGender = new JComboBox<>(genders);
         cbGender.setSelectedItem(gender);
         cbGender.setBackground(Color.WHITE);
+        cbGender.setEnabled(false);
         addStyledRow(detailsPanel, "Gender:", cbGender);
 
         JTextField txtAge = createStyledTextField(age);
@@ -176,19 +201,30 @@ public class AdminResidentTab extends JPanel {
 
         JTextField txtAddress = createStyledTextField(address);
         addStyledRow(detailsPanel, "Address:", txtAddress);
+        txtAge.setEditable(false);
+        String [] dao = new SystemConfigDAO().getOptionsNature("purok");
 
-        String[] accOpts = {"Active", "Inactive", "Suspended"};
-        JComboBox<String> cbAccStatus = new JComboBox<>(accOpts);
-        cbAccStatus.setSelectedItem(accStatus);
-        cbAccStatus.setBackground(Color.WHITE);
-        addStyledRow(detailsPanel, "Account Status:", cbAccStatus);
+        JComboBox<String> purok = new JComboBox<>(dao);
+        addStyledRow(detailsPanel, "Purok:", purok);
+        purok.setSelectedItem(residentData.getPurok());
+        JTextField street = createStyledTextField("");
+        addStyledRow(detailsPanel, "Street:", street);
+        street.setText(residentData.getStreet());
+        // --- 2. DATE OF BIRTH & AUTO AGE LOGIC ---
 
+        // Age Field (Read Only)
+        JTextField txtContact = createStyledTextField("");
+        ((javax.swing.text.AbstractDocument) txtContact.getDocument()).setDocumentFilter(new PhoneDocumentFilter());
         // --- SEPARATOR ---
+        addStyledRow(detailsPanel,"Contact: ", txtContact);
+        txtContact.setText(residentData.getContactNo());
+
+        String[] civilStatus = new SystemConfigDAO().getOptionsNature("civilStatus");
+        JComboBox<String> cbcivilStatus = new JComboBox<>(civilStatus);
+        cbcivilStatus.setBackground(Color.WHITE);
+        addStyledRow(detailsPanel,"Civil status:",cbcivilStatus);
+        cbcivilStatus.setSelectedItem(residentData.getCivilStatus());
         detailsPanel.add(Box.createVerticalStrut(15));
-        JLabel lblSec = new JLabel("Security Credentials");
-        lblSec.setFont(new Font("Arial", Font.BOLD, 14));
-        lblSec.setForeground(HEADER_BG);
-        detailsPanel.add(lblSec);
         detailsPanel.add(Box.createVerticalStrut(10));
 
 
@@ -200,7 +236,7 @@ public class AdminResidentTab extends JPanel {
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
         btnPanel.setBackground(Color.WHITE);
 
-        JButton btnCancel = createRoundedButton("Cancel", Color.GRAY);
+        JButton btnCancel = createRoundedButton("Cancel", new Color(149, 165, 166));
         btnCancel.setPreferredSize(new Dimension(150, 45));
         btnCancel.addActionListener(e -> dialog.dispose());
 
@@ -208,10 +244,19 @@ public class AdminResidentTab extends JPanel {
         btnSave.setPreferredSize(new Dimension(200, 45));
 
         btnSave.addActionListener(e -> {
+
             if (txtName.getText().trim().isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "Name cannot be empty.", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
+
+
+            if(address.length() < 10){
+                JOptionPane.showMessageDialog(dialog, "Address Length should not be less than 10", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+
 
             int confirm = JOptionPane.showConfirmDialog(dialog, "Save changes?", "Confirm", JOptionPane.YES_NO_OPTION);
             if(confirm == JOptionPane.YES_OPTION) {
@@ -220,22 +265,20 @@ public class AdminResidentTab extends JPanel {
                 tableModel.setValueAt(cbGender.getSelectedItem(), modelRow, 2);
                 tableModel.setValueAt(txtAge.getText(), modelRow, 3);
                 tableModel.setValueAt(txtAddress.getText(), modelRow, 4);
-                tableModel.setValueAt(cbAccStatus.getSelectedItem(), modelRow, 5);
-
                 JOptionPane.showMessageDialog(dialog, "Resident updated successfully!");
                 Resident resident = Resident.builder()
-                        .name(txtName.getText())
                         .address(txtAddress.getText())
-                        .status(cbAccStatus.getSelectedItem().toString())
-
                         .residentId(Integer.parseInt(id))
-
+                        .street(street.getText())
+                        .purok(purok.getSelectedItem().toString())
+                        .contactNo(txtContact.getText())
+                        .civilStatus(cbcivilStatus.getSelectedItem().toString())
                         .build();
 
-                StaffDAO staffDAO = new StaffDAO();
+               new StaffDAO().updateResident(resident,
+                       Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
 
-                staffDAO.updateResident(resident, Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
-                dialog.dispose();
+                   dialog.dispose();
             }
         });
 
@@ -265,7 +308,7 @@ public class AdminResidentTab extends JPanel {
         JTextField lastName = createStyledTextField("");
         JTextField middleName = createStyledTextField("");
 
-        String[] genders = {"Male", "Female"};
+        String[] genders = new SystemConfigDAO().getOptionsNature("sex");
         JComboBox<String> cbGender = new JComboBox<>(genders);
         cbGender.setBackground(Color.WHITE);
 
@@ -348,13 +391,13 @@ public class AdminResidentTab extends JPanel {
 
         // Trigger once to set initial age based on defaults
         dateListener.actionPerformed(null);
-        String[] civilStatus = {"Single", "Married"};
+        String[] civilStatus = new SystemConfigDAO().getOptionsNature("civilStatus");
         JComboBox<String> cbcivilStatus = new JComboBox<>(civilStatus);
         cbcivilStatus.setBackground(Color.WHITE);
 
         // --- 3. ADD TO PANEL ---
         addStyledRow(formPanel, "First Name:", txtName);
-        addStyledRow(formPanel, "Middle Name:", middleName);
+        addStyledRow(formPanel, "Middle Initial:", middleName);
         addStyledRow(formPanel, "Last Name:", lastName);
         addStyledRow(formPanel, "Gender:", cbGender);
         addStyledRow(formPanel,"Contact Number:", txtContact);
@@ -372,7 +415,36 @@ public class AdminResidentTab extends JPanel {
         JButton btnSave = createRoundedButton("Register", BTN_ADD_COLOR);
         btnSave.addActionListener(e -> {
             String contact = txtContact.getText().trim();
+            String address = txtAddress.getText().trim();
+            String street1 = street.getText().trim();
+            String fName = txtName.getText().trim();
+            String lName = lastName.getText().trim();
+            String mName = middleName.getText().trim();
+            ResidentDAO rDao = new ResidentDAO();
+            if (rDao.isResidentExists(fName, lName,mName)) {
+                JOptionPane.showMessageDialog(dialog,
+                        "Resident '" + fName + " " + lName + "' is already registered!",
+                        "Duplicate Entry",
+                        JOptionPane.WARNING_MESSAGE);
+                return; // Stop here, do not save!
+            }
+            if (!mName.isEmpty()) {
+                // Regex: Matches exactly ONE letter (a-z or A-Z), optionally followed by a dot
+                if (!mName.matches("^[a-zA-Z]\\.?$")) {
+                    JOptionPane.showMessageDialog(dialog,
+                            "Middle Initial must be a single letter (e.g., 'A' or 'A.').",
+                            "Invalid Format",
+                            JOptionPane.WARNING_MESSAGE);
+                    return; // Stop here
+                }
 
+                // Format: Remove any existing dot, uppercase the letter, then append a dot
+                mName = mName.replace(".", "").toUpperCase() + ".";
+            }
+            if(address.length() < 5){
+                JOptionPane.showMessageDialog(dialog, "Address Length should not be less than 10", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
             // 1. Check if Empty
             if (contact.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "Contact Number is required.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -430,9 +502,14 @@ public class AdminResidentTab extends JPanel {
                         .age(Integer.parseInt(ageText))
                         .dob(birthDate)
                         .address(txtAddress.getText())
-                        .phoneNumber(txtContact.getText())
+
+                        .contactNo(txtContact.getText())
+                        .civilStatus(cbcivilStatus.getSelectedItem().toString())
                         .position("Resident")
                         .status("Active")
+                        .middleName(mName)
+                        .purok(purok.getSelectedItem().toString())
+                        .street(street.getText())
                         .createdAt(java.time.LocalDateTime.now())
                         .updatedAt(java.time.LocalDateTime.now())
                         .build();
@@ -516,13 +593,9 @@ public class AdminResidentTab extends JPanel {
         btnUpdate.setPreferredSize(new Dimension(150, 45));
         btnUpdate.addActionListener(e -> handleUpdate());
 
-        JButton btnDeactivate = createRoundedButton("Deactivate", BTN_DEACTIVATE_COLOR);
-        btnDeactivate.setPreferredSize(new Dimension(150, 45));
-        btnDeactivate.addActionListener(e -> handleDeactivate());
 
         buttonPanel.add(btnAdd);
         buttonPanel.add(btnUpdate);
-        buttonPanel.add(btnDeactivate);
 
         contentPanel.add(buttonPanel);
         contentPanel.add(Box.createVerticalStrut(20));
@@ -538,7 +611,7 @@ public class AdminResidentTab extends JPanel {
         searchField = new JTextField(20);
         searchField.setFont(new Font("Arial", Font.PLAIN, 14));
         searchField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Color.GRAY, 1, true), new EmptyBorder(5, 5, 5, 5)));
+                BorderFactory.createLineBorder(new Color(189, 195, 199), 1, true), new EmptyBorder(5, 5, 5, 5)));
 
         searchField.addKeyListener(new KeyAdapter() {
             public void keyReleased(KeyEvent e) {
@@ -555,7 +628,7 @@ public class AdminResidentTab extends JPanel {
         contentPanel.add(Box.createVerticalStrut(10));
 
         // --- TABLE SETUP ---
-        String[] columnNames = {"ID", "Full Name", "Gender", "Age", "Address", "Status"};
+        String[] columnNames = {"ID", "Full Name", "Gender", "Age", "Address"};
         tableModel = new DefaultTableModel(columnNames, 0) {
             public boolean isCellEditable(int row, int column) { return false; }
         };
@@ -564,7 +637,7 @@ public class AdminResidentTab extends JPanel {
         residentTable.setFont(new Font("Arial", Font.PLAIN, 14));
         residentTable.setRowHeight(50);
         residentTable.setGridColor(new Color(200, 200, 200));
-        residentTable.setSelectionBackground(new Color(200, 240, 240));
+        residentTable.setSelectionBackground(new Color(220, 237, 250));
         residentTable.setShowVerticalLines(true);
         residentTable.setShowHorizontalLines(true);
 
@@ -623,7 +696,7 @@ public class AdminResidentTab extends JPanel {
         }
 
         JScrollPane tableScrollPane = new JScrollPane(residentTable);
-        tableScrollPane.setBorder(BorderFactory.createLineBorder(TABLE_HEADER_BG, 2));
+        tableScrollPane.setBorder(BorderFactory.createLineBorder(new Color(189, 195, 199), 1));
         tableScrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, 500));
 
         contentPanel.add(tableScrollPane);
@@ -635,7 +708,7 @@ public class AdminResidentTab extends JPanel {
 
         lblRecordCount = new JLabel("Total Records: 0");
         lblRecordCount.setFont(new Font("Arial", Font.BOLD, 13));
-        lblRecordCount.setForeground(new Color(80, 80, 80));
+        lblRecordCount.setForeground(new Color(100, 100, 100));
 
         footerPanel.add(lblRecordCount);
         contentPanel.add(footerPanel);

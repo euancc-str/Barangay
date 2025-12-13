@@ -34,15 +34,17 @@ public class BusinessClearancePrinter implements Printable {
         this.ownerName = ownerName;
         this.address = address;
         this.businessDetails = businessDetails;
-        this.ctcNo = ctcNo;
-        this.ctcDate = ctcDate;
-        this.ctcPlace = ctcPlace;
+        this.ctcNo =  (ctcNo != null && !ctcNo.equals("CC")) ? ctcNo : "";
+        this.ctcDate = (ctcDate != null && !ctcDate.equalsIgnoreCase("null")) ? ctcDate : "";
+        this.ctcPlace =ctcPlace;
         this.requestId = requestId;
         BarangayStaff captain = new StaffDAO().findStaffByPosition("Brgy.Captain");
         String cap =  captain.getFirstName() + " " + captain.getMiddleName() + " "+ captain.getLastName();
-        this.captainName = (cap != null && !cap.isEmpty()) ? cap : "HON. CARDO DALISAY";
+        this.captainName = (cap != null && !cap.isEmpty()) ? cap : "HON. Robert E. Palencia";
     }
-
+    private static SystemConfigDAO dao = new SystemConfigDAO();
+    String logoPath = dao.getConfig("logoPath");
+    private final String LOGO_PATH = dao.getLogoPath();
     @Override
     public int print(Graphics g, PageFormat pf, int pageIndex) throws PrinterException {
         if (pageIndex > 0) return NO_SUCH_PAGE;
@@ -53,18 +55,29 @@ public class BusinessClearancePrinter implements Printable {
         int width = (int) pf.getImageableWidth();
         int height = (int) pf.getImageableHeight();
         int y = 50;
-
+        int pageWidth = (int) pf.getImageableWidth();
         // ==========================================================
         // 1. HEADER (Same as Barangay Clearance)
         // ==========================================================
+        Image logo = null;
         try {
-            String logoPath = new SystemConfigDAO().getConfig("logoPath");
-            if (logoPath != null && !logoPath.isEmpty()) {
-                ImageIcon logo = new ImageIcon("resident_photos/"+logoPath);
-                g2d.drawImage(logo.getImage(), 50, 20, 70, 70, null);
-            }
+            logo = new ImageIcon(LOGO_PATH).getImage();
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("Logo not found: " + e.getMessage());
+        }
+
+        if (logo != null) {
+            // Resize logo to be uniform
+            int logoSize = 90;
+
+            // Draw LEFT Logo
+            g2d.drawImage(logo, 40, 30, logoSize, logoSize, null);
+
+            // Draw RIGHT Logo
+            // Calculation: Page Width - Right Margin (40) - Logo Width (90)
+            int rightLogoX = pageWidth - 40 - logoSize;
+            logo = new ImageIcon(dao.getDaetLogoPath()).getImage();
+            g2d.drawImage(logo, rightLogoX, 30, logoSize, logoSize, null);
         }
 
         g2d.setColor(Color.BLACK);
@@ -109,27 +122,39 @@ public class BusinessClearancePrinter implements Printable {
         y = drawField(g2d, "ADDRESS:", address, labelX, valueX, y, lineLength);
 
         // Cleaning up the purpose/business string for display
-        String cleanDetails = businessDetails.replace("\n", " ").replace("Applicant:", "").trim();
-        if(cleanDetails.length() > 40) cleanDetails = cleanDetails.substring(0, 40) + "..."; // Truncate if too long
+        String ownership = "";
+        String nature = "";
+        String location = "";
 
-        String [] datas = new SystemConfigDAO().getOptionsNature("natureOfBusiness");
-        int num = 0;
-        String cover = "";
-        for(String data : datas){
-            if(businessDetails.startsWith(data)){
-                cover = data;
-                num = cover.length();
+// 1. SPLIT OWNERSHIP (Look for " - ")
+        if (businessDetails.contains(" - ")) {
+            String[] parts1 = businessDetails.split(" - ", 2); // Split into max 2 parts
+            ownership = parts1[0].trim();
+
+            // The rest of the string: "Sari-Sari Store located at Purok 1..."
+            String remaining = parts1[1];
+
+            // 2. SPLIT NATURE & LOCATION (Look for " located at ")
+            if (remaining.contains(" located at ")) {
+                String[] parts2 = remaining.split(" located at ", 2);
+                nature = parts2[0].trim();
+                location = parts2[1].replace(".", "").trim(); // Remove trailing dot
+            } else {
+                // Fallback if "located at" is missing
+                nature = remaining;
             }
+        } else {
+            // Fallback if the format is completely different
+            nature = businessDetails;
         }
-        String data2 = businessDetails.substring(num,businessDetails.length());
-        y = drawField(g2d, "BUSINESS NATURE / NAME:", data2.toUpperCase(), labelX, valueX, y, lineLength);
 
+        y = drawField(g2d, "BUSINESS NATURE / NAME:", nature.toUpperCase(), labelX, valueX, y, lineLength);
         y += 10;
-        y = drawField(g2d, "OWNERSHIP TYPE", cover.toUpperCase(), labelX, valueX, y, lineLength);
+        y = drawField(g2d, "OWNERSHIP TYPE:", ownership.toUpperCase(), labelX, valueX, y, lineLength);
+        y += 10;
 
-        // ==========================================================
-        // 4. BODY TEXT (Legal Statement)
-        // ==========================================================
+        y = drawField(g2d, "LOCATION:", location.toUpperCase(), labelX, valueX, y, lineLength);
+        y += 10;
         g2d.setFont(FONT_BODY);
         String body = "      This clearance is issued upon the request of the subject for the application " +
                 "or renewal of Mayor's Permit / Business License.\n\n" +
