@@ -3,6 +3,7 @@ package org.example.Interface;
 
 import org.example.Admin.AdminSettings.SystemConfigDAO;
 
+import org.example.BlotterCaseDAO;
 import org.example.ResidentDAO;
 import org.example.SerbisyongBarangay.requestaDocumentFrame;
 
@@ -56,9 +57,67 @@ public class SecretaryPerformSearch extends JPanel {
         add(new JScrollPane(createContentPanel()), BorderLayout.CENTER);
 
 
-        loadResidentData();
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                loadResidentData(); // Runs after the white screen is gone
+            }
+        }.execute();
+        startLightPolling();
     }
 
+    private javax.swing.Timer lightTimer;
+    private static volatile long lastGlobalUpdate = System.currentTimeMillis();
+    private void startLightPolling() {
+        lightTimer = new javax.swing.Timer(3000, e -> { // Every 3 seconds
+            if (residentTable != null && residentTable.getSelectedRow() == -1) {
+                // Just check a simple "last updated" flag
+                checkLightUpdate();
+            }
+        });
+        lightTimer.start();
+    }
+
+    private void checkLightUpdate() {
+        // Quick query - just get the latest timestamp
+        new SwingWorker<Long, Void>() {
+            @Override
+            protected Long doInBackground() throws Exception {
+                String sql = "SELECT UNIX_TIMESTAMP(MAX(GREATEST(" +
+                        "COALESCE(updatedAt, '1970-01-01'), " +
+                        "COALESCE(createdAt, '1970-01-01')" +
+                        "))) as last_ts FROM resident";
+
+                try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+                     java.sql.Statement stmt = conn.createStatement()) {
+
+                    java.sql.ResultSet rs = stmt.executeQuery(sql);
+                    if (rs.next()) {
+                        return rs.getLong("last_ts") * 1000L; // Convert to milliseconds
+                    }
+                }
+                return 0L;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    long dbTimestamp = get();
+                    if (dbTimestamp > lastGlobalUpdate) {
+                        lastGlobalUpdate = dbTimestamp;
+                        loadResidentData();
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }.execute();
+    }
 
     @Override
     protected void paintComponent(Graphics g) {
@@ -76,17 +135,17 @@ public class SecretaryPerformSearch extends JPanel {
         g2d.fillRect(0, 0, getWidth(), getHeight());
     }
 
-
+    private ResidentDAO rd = new ResidentDAO();
     public void loadResidentData() {
 
-
+        System.out.println("loaded");
         if (tableModel != null) {
             tableModel.setRowCount(0);
         }
-        ResidentDAO rd = new ResidentDAO();
+
         List<Resident> residentsList = rd.getAllResidents();
         for(Resident resident : residentsList){
-            String name = resident.getFirstName() + " "+ resident.getLastName();
+            String name = resident.getFirstName() + " "+resident.getMiddleName()+" "+ resident.getLastName();
             if(resident != null) {
                 tableModel.addRow(new Object[]{""+resident.getResidentId(),
                         name,
@@ -125,8 +184,8 @@ public class SecretaryPerformSearch extends JPanel {
         String gender = (String) tableModel.getValueAt(modelRow, 2);
         String age = (String) tableModel.getValueAt(modelRow, 3);
         String address = (String) tableModel.getValueAt(modelRow, 4);
-        ResidentDAO dao = new ResidentDAO();
-        Resident resident = dao.findResidentById(Integer.parseInt(id));
+
+        Resident resident = rd.findResidentById(Integer.parseInt(id));
 
 
         UserDataManager.getInstance().setCurrentResident(resident);
@@ -137,7 +196,7 @@ public class SecretaryPerformSearch extends JPanel {
 
 
     private void showUpdateResidentDialog(String id, String name, String gender, String age, String address, int modelRow) {
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Update Resident", true);
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Request Resident a doc", true);
         dialog.setSize(550, 750);
         dialog.setLocationRelativeTo(this);
         dialog.setLayout(new BorderLayout());
@@ -222,18 +281,31 @@ public class SecretaryPerformSearch extends JPanel {
 
 
         btnSave.addActionListener(e -> {
+
             int confirm = JOptionPane.showConfirmDialog(dialog, "Open request?", "Confirm", JOptionPane.YES_NO_OPTION);
 
             if (confirm == JOptionPane.YES_OPTION) {
-                // 1. Close the small dialog (The popup)
+                BlotterCaseDAO blotterDao = new BlotterCaseDAO();
+                String crimeRecord = blotterDao.checkMultiplePeople(name);
+                String finalFindings = "";
+                if (crimeRecord == null || crimeRecord.equals("CLEAN") || crimeRecord.isEmpty() || crimeRecord.contains("SETTLED") || crimeRecord.contains("DISMISSED")) {
+                    finalFindings = "NO DEROGATORY RECORD";
+                } else {
+                  int continueResidentsRequest =  JOptionPane.showConfirmDialog(dialog,
+                            "⚠️ WARNING: This resident has a pending case!\n" + crimeRecord,
+                            "Derogatory Record Found",
+                          JOptionPane.OK_CANCEL_OPTION);
+                  if(continueResidentsRequest == JOptionPane.CANCEL_OPTION){
+                      return;
+                  }
+
+                }
                 dialog.dispose();
 
-                // 2. Close the Main Interface (The Dashboard behind it)
-                // We look for the Window that holds 'SecretaryPerformSearch'
                 Window mainInterface = SwingUtilities.getWindowAncestor(SecretaryPerformSearch.this);
 
                 if (mainInterface != null) {
-                    mainInterface.dispose(); // This closes the Secretary Dashboard
+                    mainInterface.dispose();
                 }
                 requestaDocumentFrame frame = new requestaDocumentFrame();
                 frame.setVisible(true);
@@ -371,7 +443,6 @@ public class SecretaryPerformSearch extends JPanel {
 
         JLabel searchLabel = new JLabel("Search: ");
         searchLabel.setFont(new Font("Arial", Font.BOLD, 14));
-        searchLabel.setForeground(Color.BLACK);
 
 
         // Create a panel to hold the search field with icon
@@ -415,6 +486,7 @@ public class SecretaryPerformSearch extends JPanel {
 
         searchFieldPanel.add(searchField, BorderLayout.CENTER);
         searchFieldPanel.add(searchIcon, BorderLayout.EAST);
+
 
 
         searchField.addKeyListener(new KeyAdapter() {
@@ -716,7 +788,7 @@ public class SecretaryPerformSearch extends JPanel {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception e) {}
-            JFrame frame = new JFrame("Admin Resident Dashboard");
+            JFrame frame = new JFrame("Search Resident Dashboard");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setSize(1200, 800);
 

@@ -52,7 +52,7 @@ public class BarangayOfficialProfile extends JPanel {
         JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         userPanel.setBackground(HEADER_BG);
 
-        BarangayStaff staff = new StaffDAO().findStaffByPosition("Brgy.Captain");
+        BarangayStaff staff = new StaffDAO().findStaffByPosition("Captain");
 
         JLabel lblUser = new JLabel("Hi Mr. " + staff.getFirstName());
         lblUser.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -100,7 +100,7 @@ public class BarangayOfficialProfile extends JPanel {
         JPanel topRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
         topRow.setBackground(Color.WHITE);
         topRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 200));
-        BarangayStaff staff = new StaffDAO().findStaffByPosition("Brgy.Captain");
+        BarangayStaff staff = new StaffDAO().findStaffByPosition("Captain");
         String fullName = staff.getFirstName() + " " + staff.getMiddleName() + " "+staff.getLastName();
         topRow.add(createOfficialCard(fullName, "Brgy. Captain", new Color(34, 197, 94), true));
         contentPanel.add(topRow);

@@ -2,7 +2,9 @@
 package org.example.Admin;
 
 import org.example.Admin.AdminSettings.AdminAssetTab;
+import org.example.Admin.AdminSettings.AdminServerConfigTab;
 import org.example.Admin.AdminSettings.AdminSystemConfigTab;
+import org.example.Admin.AdminSettings.SuperAdminBlotterTab;
 
 import java.awt.*;
 import java.awt.event.*;
@@ -20,18 +22,22 @@ public class AdminDashboard extends JFrame {
     private AdminResidentTab adminResidentTab;
     private AdminStaffTab adminStaffTab;
     private AdminSystemConfigTab tab;
-    private AdminAdministrationTab adminAdministrationTab;
-    private AdminAssetTab adminAssetTab;
+
     private AdminHouseholdTab adminHouseholdTab;
+    private AdminAdministrationTab adminAdministrationTab;
+    private AdminAssetTab assetTab;
+    private DashboardSwitcher dashboardSwitcher;
     // UPDATED Visual Colors
     private final Color SIDEBAR_BG = new Color(44, 62, 80); // Modern dark blue-gray
     private final Color MENU_HOVER = new Color(52, 73, 94); // Slightly lighter blue-gray for hover
     private final Color CONTENT_BG = new Color(245, 247, 250); // Clean light gray background
-
+    private SuperAdminBlotterTab superAdminBlotterTab;
     public AdminDashboard() {
-        setTitle("Barangay System - Admin Dashboard");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1400, 900);
+        setTitle("Barangay System - Super Admin Dashboard");
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+
+
+        setUndecorated(true);
         setLocationRelativeTo(null);
 
         // Main Container (Sidebar + Content)
@@ -51,25 +57,34 @@ public class AdminDashboard extends JFrame {
         contentContainer.add(adminRequestTab, "request");
         adminLogsTab = new AdminLogsTab();
         contentContainer.add(adminLogsTab, "logs");
-        adminAdministrationTab = new AdminAdministrationTab();
-        contentContainer.add(adminAdministrationTab, "administration");
+
         adminHouseholdTab = new AdminHouseholdTab();
         contentContainer.add(adminHouseholdTab,"house");
-        adminAssetTab = new AdminAssetTab();
-        contentContainer.add(adminAssetTab, "asset");
-        // 2. Create Sidebar
+         // 2. Create Sidebar
         tab = new AdminSystemConfigTab();
         contentContainer.add(tab,"settings");
+        assetTab = new AdminAssetTab();
+        contentContainer.add(assetTab,"asset");
+        superAdminBlotterTab = new SuperAdminBlotterTab();
+        contentContainer.add(superAdminBlotterTab,"blotter");
+        dashboardSwitcher = new DashboardSwitcher();
+        contentContainer.add(dashboardSwitcher,"switch");
+        adminAdministrationTab = new AdminAdministrationTab();
+        contentContainer.add(adminAdministrationTab,"admin");
+
         sidebar = createSidebar();
 
         // 3. Add to Main Panel
         mainPanel.add(sidebar, BorderLayout.WEST);
         mainPanel.add(contentContainer, BorderLayout.CENTER);
-
+        JTabbedPane settingsTabs = new JTabbedPane();
+        contentContainer.add(new AdminServerConfigTab(), "Server & Database");
         add(mainPanel);
-
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+        setVisible(true);
         // Show default tab
         cardLayout.show(contentContainer, "resident");
+
     }
 
     private JPanel createSidebar() {
@@ -101,7 +116,7 @@ public class AdminDashboard extends JFrame {
         };
         logoIcon.setOpaque(false);
 
-        JLabel titleLabel = new JLabel("<html><b>Barangay</b><br>Admin Portal</html>");
+        JLabel titleLabel = new JLabel("<html><b>Barangay</b><br>Super Admin Portal</html>");
         titleLabel.setForeground(Color.WHITE);
         titleLabel.setFont(new Font("Arial", Font.PLAIN, 16));
 
@@ -116,10 +131,14 @@ public class AdminDashboard extends JFrame {
         sidebarPanel.add(createMenuItem("staff", "Staff Management", false));
         sidebarPanel.add(createMenuItem("request", "Document Requests", false));
         sidebarPanel.add(createMenuItem("logs", "System Audit Logs", false));
-        sidebarPanel.add(createMenuItem("administration", "Administration", false));
-        sidebarPanel.add(createMenuItem("house", "Household Management", false));
-        sidebarPanel.add(createMenuItem("asset", "Assets", false));
+         sidebarPanel.add(createMenuItem("house", "Household Management", false));
+        sidebarPanel.add(createMenuItem("asset","Barangay Assets",false));
+        sidebarPanel.add(createMenuItem("blotter","Barangay Blotter",false));
+        sidebarPanel.add(createMenuItem("admin", "Borrowing records", false));
+
+        sidebarPanel.add(createMenuItem("switch", "View staff interface", false));
         sidebarPanel.add(createMenuItem("settings", "System Settings", false));
+        sidebarPanel.add(createMenuItem("Server & Database","Config",false));
 
         // Spacer to push Logout to bottom
         sidebarPanel.add(Box.createVerticalGlue());
@@ -131,7 +150,7 @@ public class AdminDashboard extends JFrame {
         logoutPanel.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
         JLabel lblLogout = new JLabel("Log Out");
-        lblLogout.setForeground(new Color(231, 76, 60)); // Modern coral red
+        lblLogout.setForeground(new Color(231, 76, 60));
         lblLogout.setFont(new Font("Arial", Font.BOLD, 15));
 
         logoutPanel.add(lblLogout);
@@ -139,8 +158,9 @@ public class AdminDashboard extends JFrame {
             public void mouseClicked(MouseEvent e) {
                 int confirm = JOptionPane.showConfirmDialog(null, "Are you sure you want to logout?", "Logout", JOptionPane.YES_NO_OPTION);
                 if(confirm == JOptionPane.YES_OPTION) {
-                    dispose();
+
                     openMainWindow();
+                    dispose();
                 }
             }
         });
@@ -211,6 +231,9 @@ public class AdminDashboard extends JFrame {
                 comp.setBackground(SIDEBAR_BG);
             }
         }
+    }
+    private void maximizeFrame() {
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
     }
 
     public static void main(String[] args) {

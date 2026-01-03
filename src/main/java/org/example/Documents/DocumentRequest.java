@@ -7,6 +7,7 @@ import org.example.DatabaseConnection;
 import org.example.Users.Person;
 
 import java.sql.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,23 +36,36 @@ public class DocumentRequest extends Person {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     public List<DocumentRequest> displayStatusData() {
-        List<DocumentRequest> status = new ArrayList<>();
+        List<DocumentRequest> statusList = new ArrayList<>();
 
-        String sql = "SELECT document_request.status FROM document_request";
+        // Logic: Check status. If Pending & Old (>30 days), count as Rejected.
+        String sql = "SELECT status, requestDate, " +
+                "CASE " +
+                "   WHEN status = 'Pending' AND requestDate < DATE_SUB(NOW(), INTERVAL 1 DAY) THEN 'Rejected' " +
+                "   ELSE status " +
+                "END AS computedStatus " +
+                "FROM document_request";
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 DocumentRequest r = new DocumentRequest();
-                r.setStatus(rs.getString("status"));
-                status.add(r);
+
+                // Use the computed status from SQL
+                r.setStatus(rs.getString("computedStatus"));
+
+                // FIX: You must provide the column name for getDate
+                r.setRequestDate(rs.getTimestamp("requestDate").toLocalDateTime());
+
+                statusList.add(r);
             }
 
         } catch (SQLException e) {
-            System.out.println("❌ Error fetching residents:");
+            System.out.println("❌ Error fetching status data:");
             e.printStackTrace();
         }
-        return status;
+        return statusList;
     }
 }

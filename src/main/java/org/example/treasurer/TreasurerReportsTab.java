@@ -1,12 +1,19 @@
 package org.example.treasurer;
 
 
-import javax.swing.*;
-import javax.swing.border.*;
-import javax.swing.table.*;
-import java.awt.*;
-import java.awt.event.*;
-import java.awt.print.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Frame;
+import java.awt.GradientPaint;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridLayout;
+import java.awt.Insets;
+import java.awt.RenderingHints;
 import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -14,7 +21,29 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.List;
-import java.util.Calendar;
+
+
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
+import javax.swing.JTabbedPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
+import javax.swing.border.CompoundBorder;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
 
 
 public class TreasurerReportsTab extends JPanel {
@@ -42,7 +71,8 @@ public class TreasurerReportsTab extends JPanel {
 
 
     // Date selectors
-    private JSpinner dateSpinner;
+    private JTextField dateTextField;
+    private JButton btnCalendar;
     private JComboBox<String> monthComboBox;
     private JComboBox<Integer> yearComboBox;
     private JButton btnLoadMonth;
@@ -58,6 +88,14 @@ public class TreasurerReportsTab extends JPanel {
     // Labels for month/year names
     private JLabel lblSelectedMonthName;
     private JLabel lblSelectedYearName;
+
+
+    // Calendar dialog
+    private JDialog calendarDialog;
+    private JLabel calendarMonthYearLabel;
+    private JPanel calendarDaysPanel;
+    private LocalDate selectedCalendarDate;
+    private LocalDate currentCalendarDate;
 
 
     // Gradient colors
@@ -82,6 +120,10 @@ public class TreasurerReportsTab extends JPanel {
         add(createMainContentPanel(), BorderLayout.CENTER);
 
 
+        // Create calendar dialog
+        createCalendarDialog();
+
+
         // Initial Load
         refreshData();
         loadDailySummary();
@@ -91,6 +133,16 @@ public class TreasurerReportsTab extends JPanel {
         LocalDate now = LocalDate.now();
         monthComboBox.setSelectedIndex(now.getMonthValue() - 1);
         yearComboBox.setSelectedItem(now.getYear());
+
+
+        // Set initial date in text field
+        dateTextField.setText(now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+        selectedCalendarDate = now;
+        currentCalendarDate = now;
+
+
+        // Load current day payments
+        loadDayPayments(Date.from(now.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()));
 
 
         // Load current month details initially
@@ -258,6 +310,209 @@ public class TreasurerReportsTab extends JPanel {
     }
 
 
+    private void createCalendarDialog() {
+        calendarDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Select Date", true);
+        calendarDialog.setSize(400, 350);
+        calendarDialog.setLayout(new BorderLayout());
+        calendarDialog.setLocationRelativeTo(this);
+        calendarDialog.setResizable(false);
+
+
+        // Header panel with month/year navigation
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(CERULEAN_BLUE);
+        headerPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+
+        // Previous month button
+        JButton btnPrevMonth = new JButton("◀");
+        btnPrevMonth.setFont(new Font("Arial", Font.BOLD, 16));
+        btnPrevMonth.setBackground(Color.WHITE);
+        btnPrevMonth.setForeground(CERULEAN_BLUE);
+        btnPrevMonth.setBorder(new EmptyBorder(5, 10, 5, 10));
+        btnPrevMonth.addActionListener(e -> {
+            currentCalendarDate = currentCalendarDate.minusMonths(1);
+            updateCalendar();
+        });
+
+
+        // Next month button
+        JButton btnNextMonth = new JButton("▶");
+        btnNextMonth.setFont(new Font("Arial", Font.BOLD, 16));
+        btnNextMonth.setBackground(Color.WHITE);
+        btnNextMonth.setForeground(CERULEAN_BLUE);
+        btnNextMonth.setBorder(new EmptyBorder(5, 10, 5, 10));
+        btnNextMonth.addActionListener(e -> {
+            currentCalendarDate = currentCalendarDate.plusMonths(1);
+            updateCalendar();
+        });
+
+
+        // Month/Year label
+        calendarMonthYearLabel = new JLabel();
+        calendarMonthYearLabel.setFont(new Font("Arial", Font.BOLD, 16));
+        calendarMonthYearLabel.setForeground(Color.WHITE);
+        calendarMonthYearLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+
+        // Today button
+        JButton btnToday = new JButton("Today");
+        btnToday.setFont(new Font("Arial", Font.BOLD, 12));
+        btnToday.setBackground(Color.WHITE);
+        btnToday.setForeground(CERULEAN_BLUE);
+        btnToday.setBorder(new EmptyBorder(5, 15, 5, 15));
+        btnToday.addActionListener(e -> {
+            currentCalendarDate = LocalDate.now();
+            updateCalendar();
+        });
+
+
+        headerPanel.add(btnPrevMonth, BorderLayout.WEST);
+        headerPanel.add(calendarMonthYearLabel, BorderLayout.CENTER);
+        headerPanel.add(btnNextMonth, BorderLayout.EAST);
+        headerPanel.add(btnToday, BorderLayout.SOUTH);
+
+
+        // Day names panel
+        JPanel dayNamesPanel = new JPanel(new GridLayout(1, 7));
+        dayNamesPanel.setBackground(Color.LIGHT_GRAY);
+        String[] dayNames = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+        for (String day : dayNames) {
+            JLabel dayLabel = new JLabel(day, SwingConstants.CENTER);
+            dayLabel.setFont(new Font("Arial", Font.BOLD, 12));
+            dayLabel.setForeground(Color.DARK_GRAY);
+            dayLabel.setBorder(new EmptyBorder(5, 0, 5, 0));
+            dayNamesPanel.add(dayLabel);
+        }
+
+
+        // Days panel
+        calendarDaysPanel = new JPanel(new GridLayout(6, 7, 2, 2));
+        calendarDaysPanel.setBackground(Color.WHITE);
+        calendarDaysPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
+
+
+        // Button panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttonPanel.setBackground(Color.WHITE);
+        buttonPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+
+        JButton btnCancel = new JButton("Cancel");
+        btnCancel.setFont(new Font("Arial", Font.PLAIN, 12));
+        btnCancel.addActionListener(e -> calendarDialog.setVisible(false));
+
+
+        JButton btnSelect = new JButton("Select");
+        btnSelect.setFont(new Font("Arial", Font.BOLD, 12));
+        btnSelect.setBackground(CERULEAN_BLUE);
+        btnSelect.setForeground(Color.WHITE);
+        btnSelect.addActionListener(e -> {
+            if (selectedCalendarDate != null) {
+                dateTextField.setText(selectedCalendarDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+                loadDayPayments(Date.from(selectedCalendarDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()));
+            }
+            calendarDialog.setVisible(false);
+        });
+
+
+        buttonPanel.add(btnCancel);
+        buttonPanel.add(btnSelect);
+
+
+        calendarDialog.add(headerPanel, BorderLayout.NORTH);
+        calendarDialog.add(dayNamesPanel, BorderLayout.CENTER);
+        calendarDialog.add(calendarDaysPanel, BorderLayout.CENTER);
+        calendarDialog.add(buttonPanel, BorderLayout.SOUTH);
+    }
+
+
+    private void updateCalendar() {
+        // Update month/year label
+        calendarMonthYearLabel.setText(currentCalendarDate.format(DateTimeFormatter.ofPattern("MMMM yyyy")));
+
+
+        // Clear days panel
+        calendarDaysPanel.removeAll();
+
+
+        // Get first day of month and total days
+        YearMonth yearMonth = YearMonth.from(currentCalendarDate);
+        LocalDate firstOfMonth = currentCalendarDate.withDayOfMonth(1);
+        int daysInMonth = yearMonth.lengthOfMonth();
+        int dayOfWeek = firstOfMonth.getDayOfWeek().getValue() % 7; // 0 = Sunday, 6 = Saturday
+
+
+        // Add empty cells for days before first day of month
+        for (int i = 0; i < dayOfWeek; i++) {
+            calendarDaysPanel.add(new JLabel());
+        }
+
+
+        // Add day buttons
+        for (int day = 1; day <= daysInMonth; day++) {
+            final LocalDate date = LocalDate.of(currentCalendarDate.getYear(), currentCalendarDate.getMonthValue(), day);
+            JButton dayButton = new JButton(String.valueOf(day));
+            dayButton.setFont(new Font("Arial", Font.PLAIN, 12));
+            dayButton.setMargin(new Insets(2, 2, 2, 2));
+
+
+            // Style for today
+            if (date.equals(LocalDate.now())) {
+                dayButton.setBackground(new Color(255, 220, 100));
+                dayButton.setForeground(Color.BLACK);
+                dayButton.setFont(new Font("Arial", Font.BOLD, 12));
+            } else {
+                dayButton.setBackground(Color.WHITE);
+                dayButton.setForeground(Color.BLACK);
+            }
+
+
+            // Style for selected day
+            if (date.equals(selectedCalendarDate)) {
+                dayButton.setBackground(CERULEAN_BLUE);
+                dayButton.setForeground(Color.WHITE);
+                dayButton.setFont(new Font("Arial", Font.BOLD, 12));
+            }
+
+
+            // Style for weekends
+            int dayOfWeekIndex = date.getDayOfWeek().getValue() % 7;
+            if (dayOfWeekIndex == 0 || dayOfWeekIndex == 6) { // Sunday or Saturday
+                dayButton.setForeground(new Color(200, 0, 0));
+            }
+
+
+            dayButton.addActionListener(e -> {
+                selectedCalendarDate = date;
+                updateCalendar(); // Refresh to show new selection
+            });
+
+
+            calendarDaysPanel.add(dayButton);
+        }
+
+
+        // Fill remaining cells
+        int totalCells = 42; // 6 weeks * 7 days
+        int filledCells = dayOfWeek + daysInMonth;
+        for (int i = filledCells; i < totalCells; i++) {
+            calendarDaysPanel.add(new JLabel());
+        }
+
+
+        calendarDaysPanel.revalidate();
+        calendarDaysPanel.repaint();
+    }
+
+
+    private void showCalendarDialog() {
+        currentCalendarDate = selectedCalendarDate != null ? selectedCalendarDate : LocalDate.now();
+        updateCalendar();
+        calendarDialog.setVisible(true);
+    }
+
+
     private JPanel createStatsPanel() {
         JPanel panel = new JPanel(new GridLayout(1, 4, 15, 0));
         panel.setOpaque(false);
@@ -375,12 +630,27 @@ public class TreasurerReportsTab extends JPanel {
         lblDate.setForeground(Color.DARK_GRAY);
 
 
-        dateSpinner = new JSpinner(new SpinnerDateModel());
-        JSpinner.DateEditor dateEditor = new JSpinner.DateEditor(dateSpinner, "yyyy-MM-dd");
-        dateSpinner.setEditor(dateEditor);
-        dateSpinner.setFont(new Font("Arial", Font.PLAIN, 14));
-        dateSpinner.setPreferredSize(new Dimension(120, 30));
-        dateSpinner.setValue(new Date());
+        // Date text field with calendar button
+        JPanel datePanel = new JPanel(new BorderLayout());
+        datePanel.setPreferredSize(new Dimension(180, 30));
+
+
+        dateTextField = new JTextField();
+        dateTextField.setFont(new Font("Arial", Font.PLAIN, 14));
+        dateTextField.setEditable(false);
+        dateTextField.setBackground(Color.WHITE);
+
+
+        btnCalendar = new JButton("📅");
+        btnCalendar.setFont(new Font("Arial", Font.PLAIN, 16));
+        btnCalendar.setBackground(Color.WHITE);
+        btnCalendar.setBorder(new LineBorder(CERULEAN_BLUE, 1));
+        btnCalendar.setPreferredSize(new Dimension(40, 30));
+        btnCalendar.addActionListener(e -> showCalendarDialog());
+
+
+        datePanel.add(dateTextField, BorderLayout.CENTER);
+        datePanel.add(btnCalendar, BorderLayout.EAST);
 
 
         JButton btnLoadDay = new JButton("Load Day Payments");
@@ -390,8 +660,12 @@ public class TreasurerReportsTab extends JPanel {
         btnLoadDay.setBorder(new EmptyBorder(8, 15, 8, 15));
         btnLoadDay.setFocusPainted(false);
         btnLoadDay.addActionListener(e -> {
-            Date selectedDate = (Date) dateSpinner.getValue();
-            loadDayPayments(selectedDate);
+            try {
+                LocalDate date = LocalDate.parse(dateTextField.getText(), DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+                loadDayPayments(Date.from(date.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()));
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Invalid date format. Please use YYYY-MM-DD", "Error", JOptionPane.ERROR_MESSAGE);
+            }
         });
 
 
@@ -404,7 +678,13 @@ public class TreasurerReportsTab extends JPanel {
         btnRefreshDaily.addActionListener(e -> {
             refreshData();
             loadDailySummary();
-            loadDayPayments((Date) dateSpinner.getValue());
+            try {
+                LocalDate date = LocalDate.parse(dateTextField.getText(), DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+                loadDayPayments(Date.from(date.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()));
+            } catch (Exception ex) {
+                // Keep current date if parsing fails
+                loadDayPayments(new Date());
+            }
         });
 
 
@@ -418,7 +698,7 @@ public class TreasurerReportsTab extends JPanel {
 
 
         controlPanel.add(lblDate);
-        controlPanel.add(dateSpinner);
+        controlPanel.add(datePanel);
         controlPanel.add(Box.createHorizontalStrut(10));
         controlPanel.add(btnLoadDay);
         controlPanel.add(Box.createHorizontalStrut(10));

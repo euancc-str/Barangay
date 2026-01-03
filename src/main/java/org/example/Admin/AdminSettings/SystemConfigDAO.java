@@ -63,7 +63,9 @@ public class SystemConfigDAO {
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, key);
+
             ResultSet rs = stmt.executeQuery();
+            System.out.println(key);
             if (rs.next()) return rs.getString("configValue");
         } catch (SQLException e) { e.printStackTrace(); }
 
@@ -100,6 +102,21 @@ public class SystemConfigDAO {
         } catch (SQLException e) { e.printStackTrace(); }
         return list;
     }
+    public List<String> getCategory() {
+        List<String> list = new ArrayList<>();
+        String sql = "SELECT DISTINCT category FROM system_options ORDER BY sortOrder ASC";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) list.add(rs.getString("category"));
+        } catch (SQLException e) { e.printStackTrace(); }
+        return list;
+    }
+    public String[] getOptionsCategory() {
+        List<String> list = getCategory(); // Reuse method above
+        return list.toArray(new String[0]);
+    }
 
     public String[] getOptionsNature(String category) {
         List<String> list = getOptions(category); // Reuse method above
@@ -114,7 +131,7 @@ public class SystemConfigDAO {
             stmt.setString(1, category);
             stmt.setString(2, value);
 
-            // Smart Sorting Logic for Purok (Extracts number)
+
             int order = 0;
             try {
                 if (value.toLowerCase().contains("purok")) {

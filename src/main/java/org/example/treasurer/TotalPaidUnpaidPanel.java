@@ -435,7 +435,7 @@ public class TotalPaidUnpaidPanel extends JPanel {
         unpaidTextPanel.setOpaque(false);
 
 
-        JLabel unpaidLabel = new JLabel("Total Unpaid (Pending)");
+        JLabel unpaidLabel = new JLabel("Total Voided (Pending)");
         unpaidLabel.setFont(new Font("Arial", Font.BOLD, 18));
         unpaidLabel.setForeground(Color.DARK_GRAY);
 

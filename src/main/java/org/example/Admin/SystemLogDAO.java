@@ -1,36 +1,58 @@
 package org.example.Admin;
 
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import org.example.DatabaseConnection;
 
+
 public class SystemLogDAO {
-    public void addLog(String action, String target, int staffId) {
+    public boolean addLog(String actionType, String userType, int userId) {
         String sql = "INSERT INTO system_logs (actionType, targetResident, staffId, logDate) VALUES (?, ?, ?, NOW())";
+
+
+
+        if (actionType.length() > 255) {
+            actionType = actionType.substring(0, 255);
+        }
+
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, action);
-            stmt.setString(2, target);
-            stmt.setInt(3, staffId);
-            stmt.executeUpdate();
+
+
+            stmt.setString(1, actionType);
+            stmt.setString(2, userType);
+            stmt.setInt(3, userId);
+
+
+            return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
+            return false;
         }
     }
 
-    // --- RETRIEVE LOGS WITH DATE FILTER ---
+
+    private String truncateLogMessage(String message, int maxLength) {
+        if (message.length() > maxLength) {
+            return message.substring(0, maxLength);
+        }
+        return message;
+    }
     public List<Object[]> getLogsByFilter(String filterType) {
         List<Object[]> logs = new ArrayList<>();
 
-        // Base SQL Query
+
         StringBuilder sql = new StringBuilder("""
-            SELECT s.logId, s.actionType, s.targetResident, 
-                   CONCAT(b.firstName, ' ', b.lastName) AS staffName, 
-                   s.logDate 
-            FROM system_logs s
-            LEFT JOIN barangay_staff b ON s.staffId = b.staffId 
-        """);
+           SELECT s.logId, s.actionType, s.targetResident,
+                  CONCAT(b.firstName, ' ', b.lastName) AS staffName,
+                  s.logDate
+           FROM system_logs s
+           LEFT JOIN barangay_staff b ON s.staffId = b.staffId
+       """);
+
 
         switch (filterType) {
             case "Today":
@@ -48,11 +70,14 @@ public class SystemLogDAO {
                 break;
         }
 
+
         sql.append(" ORDER BY s.logDate DESC");
+
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql.toString());
              ResultSet rs = stmt.executeQuery()) {
+
 
             while (rs.next()) {
                 String id = "LOG-" + String.format("%04d", rs.getInt("logId"));
@@ -65,6 +90,7 @@ public class SystemLogDAO {
                 logs.add(new Object[]{id, action, target, staff, date});
             }
 
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -75,14 +101,42 @@ public class SystemLogDAO {
         try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
              java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
 
+
             stmt.setInt(1, logId);
             int rows = stmt.executeUpdate();
             return rows > 0; // Returns true if deleted
+
 
         } catch (java.sql.SQLException e) {
             e.printStackTrace();
             return false;
         }
     }
+    // Inside SystemLogDAO class
+    public int getLatestLogId(String actionFilter) {
+
+        String sql = "SELECT MAX(logId) FROM system_logs";
+        if (actionFilter != null && !actionFilter.isEmpty()) {
+            sql += " WHERE actionType LIKE ?";
+        }
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            if (actionFilter != null && !actionFilter.isEmpty()) {
+                pstmt.setString(1, "%" + actionFilter + "%");
+            }
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1); // Returns the highest ID (e.g., 502)
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0; // Return 0 if table is empty
+    }
+
 
 }

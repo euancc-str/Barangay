@@ -1,17 +1,21 @@
 package org.example.treasurer;
 
 
+
+
 import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.Admin.SystemLogDAO;
 import org.example.DocumentRequestDao;
 import org.example.Documents.DocumentRequest;
 import org.example.Documents.DocumentType;
 import org.example.Documents.Payment;
+import org.example.Interface.Main;
 import org.example.ResidentDAO;
 import org.example.StaffDAO;
 import org.example.UserDataManager;
 import org.example.Users.BarangayStaff;
-import org.example.Users.Resident;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
 
 
 import javax.swing.*;
@@ -26,10 +30,15 @@ import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 
 
+
+
 public class TreasurerDashboard extends JFrame {
+
+
 
 
     private JPanel contentContainer;
@@ -43,9 +52,14 @@ public class TreasurerDashboard extends JFrame {
 
 
 
+
+
+
     private JTextField searchField;
     private JLabel lblRecordCount;
     private TableRowSorter<DefaultTableModel> sorter;
+
+
 
 
     // Gradient colors
@@ -55,11 +69,21 @@ public class TreasurerDashboard extends JFrame {
     private final Color DARK_CERULEAN = new Color(70, 130, 180);
 
 
+    private void maximizeFrame() {
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+    }
     public TreasurerDashboard() {
         setTitle("Documentary Request - Treasurer Dashboard");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1400, 900);
+
+
+        setUndecorated(true);
+        maximizeFrame();
         setLocationRelativeTo(null);
+
+
+
+
 
 
         // Main container
@@ -67,9 +91,13 @@ public class TreasurerDashboard extends JFrame {
         mainPanel.setBackground(DARK_CERULEAN);
 
 
+
+
         // Sidebar
         sidebar = createSidebar();
         mainPanel.add(sidebar, BorderLayout.WEST);
+
+
 
 
         // Content area with CardLayout
@@ -90,29 +118,42 @@ public class TreasurerDashboard extends JFrame {
         contentArea.setBorder(new EmptyBorder(15, 15, 15, 15));
 
 
+
+
         cardLayout = new CardLayout();
         contentContainer = new JPanel(cardLayout);
         contentContainer.setOpaque(false);
 
 
+
+
         // Add different panels
-        contentContainer.add(new TreasurerPersonalInformation(), "personal_info");
         contentContainer.add(createDashboardPanel(), "dashboard");
         contentContainer.add(createTotalPaidUnpaidPanel(), "total");
-        contentContainer.add(createPlaceholderPanel("Barangay Official Profile"), "profile");
         contentContainer.add(new TreasurerReportsTab(), "financial_reports");
+        if(UserDataManager.getInstance().getCurrentStaff().getPosition().equals("Admin")){
+            sidebar.add(createMenuItem("admin_view", "Admin Dashboard", false));
+        }
         contentArea.add(contentContainer, BorderLayout.CENTER);
         mainPanel.add(contentArea, BorderLayout.CENTER);
+
+
 
 
         add(mainPanel);
 
 
+
+
+
+
         // Show dashboard by default
         cardLayout.show(contentContainer, "dashboard");
+        startNotificationService();
     }
     private void loadTableData(DefaultTableModel model, String status) {
         if (model == null) return;
+
 
         // USE SWINGWORKER TO PREVENT FREEZING
         new SwingWorker<List<DocumentRequest>, Void>() {
@@ -123,58 +164,72 @@ public class TreasurerDashboard extends JFrame {
                 return rd.getAllResidentsDocument(status);
             }
 
+
             @Override
             protected void done() {
                 // UI THREAD: Update Table
                 try {
                     List<DocumentRequest> residentsData = get();
 
+
                     // 1. Clear Table
                     model.setRowCount(0);
 
+
                     // 2. Populate Table
-                        if(status.equals("Approved")){
-                            for (DocumentRequest req : residentsData) {
-
-                                model.addRow(new Object[]{
-                                        req.getRequestId(),
-                                        req.getFullName(),
-                                        req.getName(),
-                                        req.getStatus(),
-                                        req.getTotalFee()
-                                });
-                            }
-                        }else{
-                            for (DocumentRequest req : residentsData) {
-                                if(!isRecent(req.getRequestDate())){
-                                    continue;
-                                }
-                                model.addRow(new Object[]{
-                                        req.getRequestId(),
-                                        req.getFullName(),
-                                        req.getName(),
-                                        req.getStatus(),
-                                        req.getRequestDate()
-                                });
-                            }
+                    if (status.equals("Approved") || status.equals("Released") || status.equals("Verified")) {
+                        // For Approved, Released, Verified - show all records
+                        for (DocumentRequest req : residentsData) {
+                            model.addRow(new Object[]{
+                                    req.getRequestId(),
+                                    req.getFullName(),
+                                    req.getName(),
+                                    req.getStatus(),  // Show actual status
+                                    req.getTotalFee()
+                            });
                         }
+                    } else if (status.equals("Pending")) {
+                        // For Pending - show as "Voided"
+                        for (DocumentRequest req : residentsData) {
 
+
+                            model.addRow(new Object[]{
+                                    req.getRequestId(),
+                                    req.getFullName(),
+                                    req.getName(),
+                                    "Pending",
+                                    req.getRequestDate()
+                            });
+                        }
+                    } else {
+                        // Handle other statuses
+                        for (DocumentRequest req : residentsData) {
+                            model.addRow(new Object[]{
+                                    req.getRequestId(),
+                                    req.getFullName(),
+                                    req.getName(),
+                                    req.getStatus(),
+                                    req.getRequestDate()
+                            });
+                        }
+                    }
 
 
                     // 3. Update UI
-                    if(paymentTable != null) paymentTable.repaint();
+                    if (paymentTable != null) paymentTable.repaint();
+
 
                     // 4. Re-apply filters
                     if (searchField != null && !searchField.getText().isEmpty()) {
-                        // applyFilters(); // Ensure you have this method accessible or reimplemented
-                        // Simple reimplementation for now if not accessible:
-                        if(sorter != null) sorter.setRowFilter(RowFilter.regexFilter("(?i)" + searchField.getText()));
+                        if (sorter != null) sorter.setRowFilter(RowFilter.regexFilter("(?i)" + searchField.getText()));
                         updateRecordCount();
                     } else {
                         updateRecordCount();
                     }
 
+
                     updateTotalPaidUnpaidPanel();
+
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -183,11 +238,14 @@ public class TreasurerDashboard extends JFrame {
         }.execute();
     }
 
+
     private boolean isRecent(Object dateObj) {
         if (dateObj == null) return false;
 
+
         try {
             LocalDateTime reqTime = null;
+
 
             if (dateObj instanceof java.sql.Timestamp) {
                 reqTime = ((java.sql.Timestamp) dateObj).toLocalDateTime();
@@ -197,10 +255,13 @@ public class TreasurerDashboard extends JFrame {
             }
             else {
 
+
                 String dateStr = dateObj.toString();
+
 
                 if (dateStr.contains(".")) dateStr = dateStr.split("\\.")[0];
                 dateStr = dateStr.replace("T", " ");
+
 
                 DateTimeFormatter formatter;
                 if (dateStr.length() == 19) {
@@ -211,8 +272,10 @@ public class TreasurerDashboard extends JFrame {
                     return false;
                 }
 
+
                 reqTime = LocalDateTime.parse(dateStr, formatter);
             }
+
 
             // 3. Calculate Difference
             if (reqTime != null) {
@@ -221,12 +284,18 @@ public class TreasurerDashboard extends JFrame {
                 return diff >= 0 && diff <= 5;
             }
 
+
         } catch (Exception e) {
             // e.printStackTrace(); // Quiet fail
         }
         return false;
     }
     private SystemConfigDAO dao;
+
+    private Map<String, JPanel> sidebarMenuItems = new ConcurrentHashMap<>();
+    private Map<String, Boolean> notificationBadges = new ConcurrentHashMap<>();
+    private javax.swing.Timer notificationTimer;
+    private int lastRequestCount = -1; // Tracks new document requests
 
 
     private JPanel createSidebar() {
@@ -249,16 +318,22 @@ public class TreasurerDashboard extends JFrame {
         sidebar.setBorder(new EmptyBorder(0, 0, 0, 0));
 
 
+
+
         // Logo and Title
         JPanel logoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 25));
         logoPanel.setOpaque(false);
         logoPanel.setMaximumSize(new Dimension(260, 90));
 
 
+
+
         dao = new SystemConfigDAO();
-        String logoPath = dao.getConfig("logoPath");
+        String logoPath = dao.getLogoPath();
         JPanel logoCircle = new JPanel() {
-            private Image logoImage = new ImageIcon(System.getProperty("asset.image.base-path")+logoPath).getImage();
+            private Image logoImage = new ImageIcon( logoPath).getImage();
+
+
 
 
             @Override
@@ -268,15 +343,23 @@ public class TreasurerDashboard extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
 
+
+
                 int diameter = Math.min(getWidth(), getHeight());
+
+
 
 
                 // Draw circular clipping area
                 g2.setClip(new Ellipse2D.Float(0, 0, diameter, diameter));
 
 
+
+
                 // Draw the logo image scaled to the panel size
                 g2.drawImage(logoImage, 0, 0, diameter, diameter, this);
+
+
 
 
                 // Optional: Add a cerulean circular border
@@ -286,8 +369,12 @@ public class TreasurerDashboard extends JFrame {
                 g2.drawOval(0, 0, diameter - 1, diameter - 1);
 
 
+
+
                 g2.dispose();
             }
+
+
 
 
             @Override
@@ -298,34 +385,44 @@ public class TreasurerDashboard extends JFrame {
         logoCircle.setOpaque(false);
 
 
+
+
         JLabel titleLabel = new JLabel("Serbisyong Barangay");
         titleLabel.setForeground(Color.WHITE);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 15));
+
+
 
 
         logoPanel.add(logoCircle);
         logoPanel.add(titleLabel);
 
 
+
+
         sidebar.add(logoPanel);
         sidebar.add(Box.createVerticalStrut(10));
 
 
-        // Menu Items
-        sidebar.add(createMenuItem("personal_info", "Personal Information", false));
+
+
+
         sidebar.add(createMenuItem("dashboard", "Dashboard", true));
         sidebar.add(createMenuItem("financial_reports", "Financial Reports", false));
         sidebar.add(createMenuItem("total", "Total Paid and Unpaid", false));
-        sidebar.add(createMenuItem("profile", "Barangay Official Profile", false));
 
 
         sidebar.add(Box.createVerticalGlue());
+
+
 
 
         // Logout button
         JPanel logoutPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 25));
         logoutPanel.setOpaque(false);
         logoutPanel.setMaximumSize(new Dimension(260, 70));
+
+
 
 
         JPanel logoutButton = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8)) {
@@ -345,9 +442,13 @@ public class TreasurerDashboard extends JFrame {
         logoutButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
 
+
+
         JLabel logoutIcon = new JLabel("⊗");
         logoutIcon.setForeground(Color.WHITE);
         logoutIcon.setFont(new Font("Arial", Font.BOLD, 18));
+
+
 
 
         JLabel logoutText = new JLabel("LOG OUT");
@@ -355,24 +456,36 @@ public class TreasurerDashboard extends JFrame {
         logoutText.setFont(new Font("Arial", Font.BOLD, 13));
 
 
+
+
         logoutButton.add(logoutIcon);
         logoutButton.add(logoutText);
 
 
+
+
         logoutButton.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
-                dispose();
+
+
                 openMainWindow();
+                dispose();
             }
         });
+
+
 
 
         logoutPanel.add(logoutButton);
         sidebar.add(logoutPanel);
 
 
+
+
         return sidebar;
     }
+
+
 
 
     private void openMainWindow() {
@@ -387,6 +500,8 @@ public class TreasurerDashboard extends JFrame {
                     JOptionPane.ERROR_MESSAGE);
         }
     }
+
+
 
 
     private JPanel createMenuItem(String type, String text, boolean selected) {
@@ -414,8 +529,7 @@ public class TreasurerDashboard extends JFrame {
         menuItem.setMaximumSize(new Dimension(260, 65));
         menuItem.setCursor(new Cursor(Cursor.HAND_CURSOR));
         menuItem.setOpaque(false);
-
-
+        sidebarMenuItems.put(type, menuItem);
         // Icon panel
         JPanel iconPanel = new JPanel() {
             @Override
@@ -424,6 +538,8 @@ public class TreasurerDashboard extends JFrame {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(Color.WHITE);
+
+
 
 
                 switch(type) {
@@ -438,6 +554,16 @@ public class TreasurerDashboard extends JFrame {
                         g2.drawLine(12, 18, 28, 18);
                         g2.drawLine(12, 24, 20, 24);
                         break;
+
+
+                    case "financial_reports":
+                        g2.fillRect(10, 10, 20, 20);
+                        g2.setColor(new Color(100, 100, 100));
+                        g2.fillRect(15, 5, 10, 30);
+                        g2.setColor(Color.WHITE);
+                        g2.fillRect(20, 15, 10, 15);
+                        break;
+
                     case "total":
                         g2.fillRect(8, 15, 24, 20);
                         g2.setColor(new Color(100, 100, 100));
@@ -450,6 +576,13 @@ public class TreasurerDashboard extends JFrame {
                         g2.fillArc(2, 22, 36, 25, 0, 180);
                         break;
                 }
+                if (notificationBadges.getOrDefault(type, false)) {
+                    g2.setColor(new Color(255, 50, 50)); // Red
+                    g2.fillOval(30, 0, 12, 12);
+                    g2.setColor(Color.WHITE);
+                    g2.setStroke(new BasicStroke(1f));
+                    g2.drawOval(30, 0, 12, 12);
+                }
             }
             @Override
             public Dimension getPreferredSize() {
@@ -459,21 +592,51 @@ public class TreasurerDashboard extends JFrame {
         iconPanel.setOpaque(false);
 
 
+
+
         JLabel textLabel = new JLabel(text);
         textLabel.setForeground(Color.WHITE);
         textLabel.setFont(new Font("Arial", Font.PLAIN, 14));
+
+
 
 
         menuItem.add(iconPanel);
         menuItem.add(textLabel);
 
 
+
+
         // Click handler to switch tabs
         menuItem.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
+                if (type.equals("admin_view")) {
+                    JFrame currentFrame = (JFrame) SwingUtilities.getWindowAncestor(menuItem);
+                    new Main().openAdminDashboard(org.example.UserDataManager.getInstance().getCurrentStaff());
+
+
+                    if (currentFrame != null) {
+                        currentFrame.dispose();
+                    }
+                    return;
+                }
+
+
+                // Normal behavior for other tabs
                 cardLayout.show(contentContainer, type);
                 updateSelectedMenuItem(menuItem);
+                if (notificationBadges.getOrDefault(type, false)) {
+                    notificationBadges.put(type, false);
+                    menuItem.repaint();
+
+                    // Optional: Refresh the table when they click the dashboard
+                    if (type.equals("dashboard")) {
+                        showPendingPayments();
+                    }
+                }
             }
+
+
 
 
             public void mouseEntered(MouseEvent e) {
@@ -481,6 +644,8 @@ public class TreasurerDashboard extends JFrame {
                     menuItem.repaint();
                 }
             }
+
+
 
 
             public void mouseExited(MouseEvent e) {
@@ -491,7 +656,107 @@ public class TreasurerDashboard extends JFrame {
         });
 
 
+
+
         return menuItem;
+    }
+
+    private void startNotificationService() {
+        // Check every 5 seconds
+        notificationTimer = new javax.swing.Timer(5000, e -> checkForUpdates());
+        notificationTimer.start();
+    }
+
+    private void checkForUpdates() {
+        new SwingWorker<Integer, Void>() {
+            @Override
+            protected Integer doInBackground() throws Exception {
+                String sql = "SELECT COUNT(*) FROM system_logs WHERE actionType = 'Request Document'";
+
+                try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+                     java.sql.PreparedStatement ps = conn.prepareStatement(sql);
+                     java.sql.ResultSet rs = ps.executeQuery()) {
+
+                    if (rs.next()) {
+                        return rs.getInt(1);
+                    }
+                }
+                return 0;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    int currentCount = get();
+
+                    if (lastRequestCount == -1) {
+                        lastRequestCount = currentCount;
+                        return;
+                    }
+
+                    // If count increased, a resident submitted a request
+                    if (currentCount > lastRequestCount) {
+                        // 1. Show Red Dot on Dashboard tab
+                        triggerBadge("dashboard");
+
+                        // 2. Show Toast
+                        showToastNotification("New Document Request!");
+
+                        // 3. Sound
+                        java.awt.Toolkit.getDefaultToolkit().beep();
+
+                        lastRequestCount = currentCount;
+
+                        // Optional: Auto-refresh data if on dashboard
+                        // showPendingPayments();
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
+    private void triggerBadge(String menuName) {
+        notificationBadges.put(menuName, true);
+        if (sidebarMenuItems.containsKey(menuName)) {
+            sidebarMenuItems.get(menuName).repaint();
+        }
+    }
+
+    private void showToastNotification(String message) {
+        JWindow toast = new JWindow();
+        toast.setBackground(new Color(0, 0, 0, 0));
+
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(new Color(40, 40, 40, 220));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+
+        JLabel lbl = new JLabel("🔔 " + message);
+        lbl.setForeground(Color.WHITE);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
+        panel.add(lbl);
+        toast.add(panel);
+        toast.pack();
+
+        Dimension scr = Toolkit.getDefaultToolkit().getScreenSize();
+        int x = scr.width - toast.getWidth() - 20;
+        int y = scr.height - toast.getHeight() - 50;
+        toast.setLocation(x, y);
+        panel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                toast.dispose();
+            }
+        });
+        toast.setVisible(true);
+        toast.setAlwaysOnTop(true);
+
+        new javax.swing.Timer(10000, e -> {
+            toast.dispose();
+            ((javax.swing.Timer)e.getSource()).stop();
+        }).start();
     }
 
 
@@ -511,14 +776,20 @@ public class TreasurerDashboard extends JFrame {
     }
 
 
+
+
     private JPanel createDashboardPanel() {
         JPanel containerPanel = new JPanel(new BorderLayout(0, 0));
         containerPanel.setOpaque(false);
 
 
+
+
         // Header
         JPanel headerPanel = createHeaderPanel();
         containerPanel.add(headerPanel, BorderLayout.NORTH);
+
+
 
 
         // Main Content
@@ -540,10 +811,14 @@ public class TreasurerDashboard extends JFrame {
         contentPanel.setBorder(new EmptyBorder(35, 60, 35, 60));
 
 
+
+
         // Button Panel
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 30, 0));
         buttonPanel.setOpaque(false);
         buttonPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
+
+
 
 
         // Create buttons with hover effects
@@ -551,8 +826,12 @@ public class TreasurerDashboard extends JFrame {
         btnPending.addActionListener(e -> showPendingPayments());
 
 
+
+
         btnVerified = createRoundedButton("Verified Payment", new Color(0, 128, 0));
         btnVerified.addActionListener(e -> showVerifiedPayments());
+
+
 
 
         // Set initial state - Pending selected
@@ -560,12 +839,18 @@ public class TreasurerDashboard extends JFrame {
         setButtonSelected(btnVerified, false);
 
 
+
+
         buttonPanel.add(btnPending);
         buttonPanel.add(btnVerified);
 
 
+
+
         contentPanel.add(buttonPanel);
         contentPanel.add(Box.createVerticalStrut(30));
+
+
 
 
         // Separator Line
@@ -576,7 +861,11 @@ public class TreasurerDashboard extends JFrame {
         contentPanel.add(separator);
 
 
+
+
         contentPanel.add(Box.createVerticalStrut(30));
+
+
 
 
         // Search Section
@@ -585,9 +874,13 @@ public class TreasurerDashboard extends JFrame {
         searchPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
 
 
+
+
         JLabel searchLabel = new JLabel("Search: ");
         searchLabel.setFont(new Font("Arial", Font.BOLD, 14));
         searchLabel.setForeground(Color.DARK_GRAY);
+
+
 
 
         searchField = new JTextField(20);
@@ -595,6 +888,8 @@ public class TreasurerDashboard extends JFrame {
         searchField.setBackground(Color.WHITE);
         searchField.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(CERULEAN_BLUE, 1, true), new EmptyBorder(5, 5, 5, 5)));
+
+
 
 
         searchField.addKeyListener(new KeyAdapter() {
@@ -612,12 +907,18 @@ public class TreasurerDashboard extends JFrame {
         });
 
 
+
+
         searchPanel.add(searchLabel);
         searchPanel.add(searchField);
 
 
+
+
         contentPanel.add(searchPanel);
         contentPanel.add(Box.createVerticalStrut(10));
+
+
 
 
         // Create tables
@@ -630,14 +931,19 @@ public class TreasurerDashboard extends JFrame {
             public boolean isCellEditable(int row, int column) { return false; }
         };
 
+
         loadTableData(pendingTableModel, "Pending");
         loadTableData(verifiedTableModel, "Approved");
         paymentTable = new JTable(pendingTableModel);
         styleTable(paymentTable);
 
 
+
+
         sorter = new TableRowSorter<>(pendingTableModel);
         paymentTable.setRowSorter(sorter);
+
+
 
 
         paymentTable.addMouseListener(new MouseAdapter() {
@@ -653,6 +959,8 @@ public class TreasurerDashboard extends JFrame {
         });
 
 
+
+
         JScrollPane tableScrollPane = new JScrollPane(paymentTable);
         tableScrollPane.setBorder(BorderFactory.createLineBorder(CERULEAN_BLUE, 2));
         tableScrollPane.setPreferredSize(new Dimension(1200, 400));
@@ -660,7 +968,11 @@ public class TreasurerDashboard extends JFrame {
         tableScrollPane.getViewport().setBackground(VERY_LIGHT_BLUE);
 
 
+
+
         contentPanel.add(tableScrollPane);
+
+
 
 
         // Record Counter
@@ -669,21 +981,31 @@ public class TreasurerDashboard extends JFrame {
         footerPanel.setOpaque(false);
 
 
+
+
         lblRecordCount = new JLabel("Total Records: " + paymentTable.getRowCount());
         lblRecordCount.setFont(new Font("Arial", Font.BOLD, 13));
         lblRecordCount.setForeground(Color.DARK_GRAY);
+
+
 
 
         footerPanel.add(lblRecordCount);
         contentPanel.add(footerPanel);
 
 
+
+
         contentPanel.add(Box.createVerticalStrut(20));
+
+
 
 
         containerPanel.add(contentPanel, BorderLayout.CENTER);
         return containerPanel;
     }
+
+
 
 
     private void updateRecordCount() {
@@ -692,6 +1014,11 @@ public class TreasurerDashboard extends JFrame {
             lblRecordCount.setText("Total Records: " + count);
         }
     }
+
+
+
+
+
 
 
 
@@ -711,18 +1038,26 @@ public class TreasurerDashboard extends JFrame {
         table.getTableHeader().setReorderingAllowed(false);
 
 
+
+
         JTableHeader header = table.getTableHeader();
         header.setDefaultRenderer(new GradientHeaderRenderer());
         header.setPreferredSize(new Dimension(header.getWidth(), 50));
         header.setBorder(BorderFactory.createEmptyBorder());
 
 
+
+
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(JLabel.CENTER);
 
 
+
+
         DefaultTableCellRenderer leftRenderer = new DefaultTableCellRenderer();
         leftRenderer.setHorizontalAlignment(JLabel.LEFT);
+
+
 
 
         for (int i = 0; i < table.getColumnCount(); i++) {
@@ -733,6 +1068,8 @@ public class TreasurerDashboard extends JFrame {
             }
         }
     }
+
+
 
 
     // Custom Table Header Renderer with Cerulean Gradient
@@ -749,9 +1086,13 @@ public class TreasurerDashboard extends JFrame {
         }
 
 
+
+
         @Override
         protected void paintComponent(Graphics g) {
             Graphics2D g2d = (Graphics2D) g.create();
+
+
 
 
             GradientPaint gradient = new GradientPaint(
@@ -760,8 +1101,12 @@ public class TreasurerDashboard extends JFrame {
             );
 
 
+
+
             g2d.setPaint(gradient);
             g2d.fillRect(0, 0, getWidth(), getHeight());
+
+
 
 
             super.paintComponent(g2d);
@@ -775,17 +1120,19 @@ public class TreasurerDashboard extends JFrame {
         styleTable(paymentTable);
         sorter = new TableRowSorter<>(pendingTableModel);
         paymentTable.setRowSorter(sorter);
-        if(searchField != null) searchField.setText("");
+        if (searchField != null) searchField.setText("");
 
 
         setButtonSelected(btnPending, true);
         setButtonSelected(btnVerified, false);
         showingPending = true;
-        updateTableHeader("Pending Payment");
+        updateTableHeader("Voided Payment");
         updateTotalPaidUnpaidPanel();
         updateRecordCount();
         loadTableData(pendingTableModel, "Pending");
     }
+
+
 
 
     private void showVerifiedPayments() {
@@ -795,23 +1142,87 @@ public class TreasurerDashboard extends JFrame {
 
         sorter = new TableRowSorter<>(verifiedTableModel);
         paymentTable.setRowSorter(sorter);
-        if(searchField != null) searchField.setText("");
+        if (searchField != null) searchField.setText("");
 
 
         setButtonSelected(btnPending, false);
         setButtonSelected(btnVerified, true);
         showingPending = false;
-        updateTableHeader("Verified Payment");
+        updateTableHeader("Approved/Released/Verified Payment");  // Updated header
         updateTotalPaidUnpaidPanel();
         updateRecordCount();
-        loadTableData(verifiedTableModel, "Approved");
+
+
+        // Fetch multiple statuses for verified tab
+        loadVerifiedData();
     }
+    private void loadVerifiedData() {
+        // Clear table first
+        verifiedTableModel.setRowCount(0);
+
+
+        // Create SwingWorker to fetch data for multiple statuses
+        new SwingWorker<Void, Void>() {
+            List<DocumentRequest> approvedData = new ArrayList<>();
+            List<DocumentRequest> releasedData = new ArrayList<>();
+            List<DocumentRequest> verifiedData = new ArrayList<>();
+
+
+            @Override
+            protected Void doInBackground() throws Exception {
+                DocumentRequestDao rd = new DocumentRequestDao();
+                approvedData = rd.getAllResidentsDocument("Approved");
+                releasedData = rd.getAllResidentsDocument("Released");
+                verifiedData = rd.getAllResidentsDocument("Verified");
+                return null;
+            }
+
+
+            @Override
+            protected void done() {
+                try {
+                    // Combine all data
+                    List<DocumentRequest> allData = new ArrayList<>();
+                    allData.addAll(approvedData);
+                    allData.addAll(releasedData);
+                    allData.addAll(verifiedData);
+
+
+                    // Add to table
+                    for (DocumentRequest req : allData) {
+                        verifiedTableModel.addRow(new Object[]{
+                                req.getRequestId(),
+                                req.getFullName(),
+                                req.getName(),
+                                req.getStatus(),  // Show actual status (Approved, Released, or Verified)
+                                req.getTotalFee()
+                        });
+                    }
+
+
+                    // Update UI
+                    if (paymentTable != null) {
+                        paymentTable.repaint();
+                        updateRecordCount();
+                    }
+
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
+
 
 
     private void updateTableHeader(String title) {
         contentContainer.revalidate();
         contentContainer.repaint();
     }
+
+
 
 
     private void setButtonSelected(JButton button, boolean selected) {
@@ -827,12 +1238,16 @@ public class TreasurerDashboard extends JFrame {
     }
 
 
+
+
     private JButton createRoundedButton(String text, Color bgColor) {
         JButton button = new JButton(text) {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+
 
 
                 // Create gradient for button
@@ -842,6 +1257,8 @@ public class TreasurerDashboard extends JFrame {
                 );
                 g2.setPaint(gradient);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 25, 25);
+
+
 
 
                 g2.setColor(getForeground());
@@ -879,6 +1296,8 @@ public class TreasurerDashboard extends JFrame {
     }
 
 
+
+
     private JPanel createHeaderPanel() {
         JPanel headerPanel = new JPanel(new BorderLayout()) {
             @Override
@@ -901,9 +1320,13 @@ public class TreasurerDashboard extends JFrame {
         ));
 
 
+
+
         JPanel titlePanel = new JPanel();
         titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
         titlePanel.setOpaque(false);
+
+
 
 
         JLabel lblDocumentary = new JLabel("Documentary");
@@ -911,17 +1334,24 @@ public class TreasurerDashboard extends JFrame {
         lblDocumentary.setForeground(Color.WHITE);
 
 
+
+
         JLabel lblRequest = new JLabel("Request");
         lblRequest.setFont(new Font("Arial", Font.BOLD, 22));
         lblRequest.setForeground(Color.WHITE);
+
+
 
 
         titlePanel.add(lblDocumentary);
         titlePanel.add(lblRequest);
 
 
+
+
         JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         userPanel.setOpaque(false);
+
 
         BarangayStaff staff = UserDataManager.getInstance().getCurrentStaff();
         String name = staff.getFirstName();
@@ -936,12 +1366,16 @@ public class TreasurerDashboard extends JFrame {
         lblUser.setForeground(Color.WHITE);
 
 
+
+
         JPanel userIcon = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+
 
 
                 // Gradient for user icon
@@ -951,6 +1385,8 @@ public class TreasurerDashboard extends JFrame {
                 );
                 g2.setPaint(gradient);
                 g2.fillOval(0, 0, 45, 45);
+
+
 
 
                 g2.setColor(Color.WHITE);
@@ -965,8 +1401,12 @@ public class TreasurerDashboard extends JFrame {
         userIcon.setOpaque(false);
 
 
+
+
         userPanel.add(lblUser);
         userPanel.add(userIcon);
+
+
 
 
         headerPanel.add(titlePanel, BorderLayout.WEST);
@@ -975,13 +1415,19 @@ public class TreasurerDashboard extends JFrame {
     }
 
 
+
+
     private JPanel createPlaceholderPanel(String title) {
         JPanel containerPanel = new JPanel(new BorderLayout(0, 0));
         containerPanel.setOpaque(false);
 
 
+
+
         JPanel headerPanel = createHeaderPanel();
         containerPanel.add(headerPanel, BorderLayout.NORTH);
+
+
 
 
         JPanel contentPanel = new JPanel() {
@@ -1001,10 +1447,14 @@ public class TreasurerDashboard extends JFrame {
         contentPanel.setBorder(new EmptyBorder(50, 50, 50, 50));
 
 
+
+
         JLabel label = new JLabel(title + " - Coming Soon");
         label.setFont(new Font("Arial", Font.BOLD, 24));
         label.setForeground(Color.DARK_GRAY);
         contentPanel.add(label);
+
+
 
 
         containerPanel.add(contentPanel, BorderLayout.CENTER);
@@ -1012,11 +1462,15 @@ public class TreasurerDashboard extends JFrame {
     }
 
 
+
+
     private JPanel createTotalPaidUnpaidPanel() {
         int paidCount = verifiedTableModel.getRowCount();
         int unpaidCount = pendingTableModel.getRowCount();
         return new TotalPaidUnpaidPanel(paidCount, unpaidCount);
     }
+
+
 
 
     private void updateTotalPaidUnpaidPanel() {
@@ -1033,7 +1487,11 @@ public class TreasurerDashboard extends JFrame {
     }
 
 
+
+
     // ... [Rest of the methods remain the same] ...
+
+
 
 
     private void handleRowDoubleClick(int row) {
@@ -1043,7 +1501,11 @@ public class TreasurerDashboard extends JFrame {
         String documentType = (String) paymentTable.getValueAt(row, 2);
 
 
+
+
         boolean isPending = paymentTable.getModel() == pendingTableModel || showingPending;
+
+
 
 
         if (isPending) {
@@ -1058,9 +1520,11 @@ public class TreasurerDashboard extends JFrame {
                 Object[] rowData = {requestId, name, documentType, "Approved" };
 
 
+
+
                 int staffId = Integer.parseInt(staff.getStaffId());
                 staffDAO.documentDecisionByStatus("Approved", UserDataManager.getInstance().getResidentId(), staffId,"Paid",requestId,"confirmed payment");
-                systemLogDAO.addLog("Verified Payment", name,staffId);
+                systemLogDAO.addLog("Verified Document", name,staffId);
                 DocumentType docType = UserDataManager.getInstance().getDocumentTypeByName(documentType);
                 DocumentRequest dao = new ResidentDAO().findDocumentRequestById(requestId);
                 UserDataManager.getInstance().addPayment(docType,dao,UserDataManager.getInstance().getCurrentStaff());
@@ -1082,7 +1546,7 @@ public class TreasurerDashboard extends JFrame {
                 UserDataManager.getInstance().setResidentId(doc.getResidentId());
                 int staffId = Integer.parseInt(staff.getStaffId());
                 staffDAO.documentDecisionByStatus("Pending", UserDataManager.getInstance().getResidentId(), staffId,"Unpaid",requestId,"Awaiting approval");
-                systemLogDAO.addLog("Unverified Payment", name,staffId);
+                systemLogDAO.addLog("Unverified Document", name,staffId);
                 verifiedTableModel.removeRow(row);
                 pendingTableModel.addRow(rowData);
                 showLargeMessageDialog("Success", "Payment unverified successfully!",0," ","",requestId);
@@ -1094,9 +1558,13 @@ public class TreasurerDashboard extends JFrame {
     private static ResidentDAO rd = new ResidentDAO();
 
 
+
+
     private static SystemLogDAO systemLogDAO = new SystemLogDAO();
     private static StaffDAO staffDAO = new StaffDAO();
     BarangayStaff staff = UserDataManager.getInstance().getCurrentStaff();
+
+
 
 
     private boolean showLargeConfirmDialog(String title, String htmlMessage, boolean destructiveYes, String name, String docType,int requestId) {
@@ -1105,9 +1573,13 @@ public class TreasurerDashboard extends JFrame {
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
 
+
+
         JPanel content = new JPanel(new BorderLayout(20, 20));
         content.setBorder(new EmptyBorder(18, 18, 18, 18));
         content.setBackground(VERY_LIGHT_BLUE);
+
+
 
 
         JLabel messageLabel = new JLabel("<html><div style='font-size:14px; width:420px; font-weight:bold; color:#000000;'>" + htmlMessage + "</div></html>");
@@ -1116,8 +1588,12 @@ public class TreasurerDashboard extends JFrame {
         content.add(messageLabel, BorderLayout.CENTER);
 
 
+
+
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
         buttonPanel.setBackground(VERY_LIGHT_BLUE);
+
+
 
 
         JButton btnYes = new JButton("Yes");
@@ -1132,6 +1608,8 @@ public class TreasurerDashboard extends JFrame {
         });
 
 
+
+
         if(destructiveYes){
             JButton print = new JButton("Print");
             print.setFont(new Font("Arial", Font.BOLD, 16));
@@ -1142,6 +1620,8 @@ public class TreasurerDashboard extends JFrame {
             buttonPanel.add(print);
             print.addActionListener(e ->   printReceipt(name,docType,requestId));
         }
+
+
 
 
         JButton btnNo = new JButton("No");
@@ -1167,16 +1647,22 @@ public class TreasurerDashboard extends JFrame {
                     JOptionPane.WARNING_MESSAGE
             );
 
+
             if (confirm == JOptionPane.YES_OPTION) {
+
 
                 new FinancialDAO().deleteRequest(requestId);
 
+
                 JOptionPane.showMessageDialog(dialog, "Request deleted successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
+
 
                 dialog.dispose();
 
+
             }
         });
+
 
         buttonPanel.add(btnYes);
         buttonPanel.add(btnNo);
@@ -1188,8 +1674,12 @@ public class TreasurerDashboard extends JFrame {
         dialog.setVisible(true);
 
 
+
+
         return result[0];
     }
+
+
 
 
     private void showLargeMessageDialog(String title, String message, int id,String name, String documentType, int requestId) {
@@ -1197,9 +1687,13 @@ public class TreasurerDashboard extends JFrame {
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
 
+
+
         JPanel content = new JPanel(new BorderLayout(20, 20));
         content.setBorder(new EmptyBorder(18, 18, 18, 18));
         content.setBackground(VERY_LIGHT_BLUE);
+
+
 
 
         JLabel messageLabel = new JLabel("<html><div style='font-size:14px; width:420px; text-align:center;'>" + message + "</div></html>");
@@ -1208,8 +1702,12 @@ public class TreasurerDashboard extends JFrame {
         content.add(messageLabel, BorderLayout.CENTER);
 
 
+
+
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         buttonPanel.setBackground(VERY_LIGHT_BLUE);
+
+
 
 
         JButton ok = new JButton("OK");
@@ -1221,6 +1719,8 @@ public class TreasurerDashboard extends JFrame {
         ok.addActionListener(e -> dialog.dispose());
 
 
+
+
         buttonPanel.add(ok);
         content.add(buttonPanel, BorderLayout.SOUTH);
         dialog.getContentPane().add(content);
@@ -1230,10 +1730,15 @@ public class TreasurerDashboard extends JFrame {
         dialog.setVisible(true);
 
 
+
+
         if(id == 1){
+
 
         }
     }
+
+
 
 
     private static void printReceipt(String residentName, String docType,int requestId) {
@@ -1255,10 +1760,14 @@ public class TreasurerDashboard extends JFrame {
     }
 
 
+
+
     private void printReceipt1(String residentName, String docType) {
         JDialog receiptDialog = new JDialog(this, "Print Receipt", true);
         receiptDialog.setSize(350, 500);
         receiptDialog.setLayout(new BorderLayout());
+
+
 
 
         JTextArea receiptArea = new JTextArea();
@@ -1266,6 +1775,8 @@ public class TreasurerDashboard extends JFrame {
         receiptArea.setEditable(false);
         receiptArea.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         receiptArea.setBackground(Color.WHITE);
+
+
 
 
         DocumentType documentType = UserDataManager.getInstance().getDocumentTypeByName(docType);
@@ -1288,12 +1799,18 @@ public class TreasurerDashboard extends JFrame {
         sb.append("       Barangay Treasurer      \n");
 
 
+
+
         receiptArea.setText(sb.toString());
         receiptDialog.add(new JScrollPane(receiptArea), BorderLayout.CENTER);
 
 
+
+
         JPanel btnPanel = new JPanel(new FlowLayout());
         btnPanel.setBackground(VERY_LIGHT_BLUE);
+
+
 
 
         JButton btnPrint = new JButton("🖨 Print");
@@ -1302,10 +1819,14 @@ public class TreasurerDashboard extends JFrame {
         btnPrint.setFont(new Font("Arial", Font.BOLD, 14));
 
 
+
+
         JButton btnClose = new JButton("Close");
         btnClose.setBackground(new Color(220, 53, 69));
         btnClose.setForeground(Color.WHITE);
         btnClose.setFont(new Font("Arial", Font.BOLD, 14));
+
+
 
 
         btnPrint.addActionListener(e -> {
@@ -1321,7 +1842,11 @@ public class TreasurerDashboard extends JFrame {
         });
 
 
+
+
         btnClose.addActionListener(e -> receiptDialog.dispose());
+
+
 
 
         btnPanel.add(btnPrint);
@@ -1329,9 +1854,13 @@ public class TreasurerDashboard extends JFrame {
         receiptDialog.add(btnPanel, BorderLayout.SOUTH);
 
 
+
+
         receiptDialog.setLocationRelativeTo(this);
         receiptDialog.setVisible(true);
     }
+
+
 
 
     static class RoundedBorder extends AbstractBorder {
@@ -1364,6 +1893,8 @@ public class TreasurerDashboard extends JFrame {
     }
 
 
+
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
@@ -1373,9 +1904,15 @@ public class TreasurerDashboard extends JFrame {
             }
 
 
+
+
             TreasurerDashboard dashboard = new TreasurerDashboard();
             dashboard.setVisible(true);
         });
     }
 }
+
+
+
+
 

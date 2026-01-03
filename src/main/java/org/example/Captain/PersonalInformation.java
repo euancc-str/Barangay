@@ -246,7 +246,7 @@ public class PersonalInformation extends JPanel {
 
         JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         userPanel.setBackground(HEADER_BG);
-        BarangayStaff staff = new StaffDAO().findStaffByPosition("Brgy.Captain");
+        BarangayStaff staff = new StaffDAO().findStaffByPosition("Captain");
 
         JLabel lblUser = new JLabel("Hi Mr. "+staff.getFirstName());
         lblUser.setFont(new Font("Arial", Font.PLAIN, 15));
@@ -507,7 +507,7 @@ public class PersonalInformation extends JPanel {
                 JOptionPane.showMessageDialog(this, "Form submitted successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
             }
             BarangayStaff currentStaff = UserDataManager.getInstance().getCurrentStaff();
-            if (currentStaff != null) {
+            if (currentStaff != null && !currentStaff.getPosition().equals("Admin")) {
                 // Update the staff object with form data
                 BarangayStaff updatedStaff = currentStaff.toBuilder()
                         .firstName(txtFirstName.getText().trim())
@@ -519,7 +519,7 @@ public class PersonalInformation extends JPanel {
                         .contactNo(txtPhone.getText().trim())
                         .email(txtEmail.getText().trim())
                         .civilStatus(cmbCivilStatus.getSelectedItem().toString())
-                        .updatedAt(java.time.LocalDateTime.now()) // Mark the time
+                        .updatedAt(java.time.LocalDateTime.now())
                         .build();
                 UserDataManager.getInstance().updateStaff(updatedStaff);
 

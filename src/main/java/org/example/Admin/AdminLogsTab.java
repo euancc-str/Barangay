@@ -1,9 +1,19 @@
 // AdminLogsTab.java - Updated color scheme
 package org.example.Admin;
 
+import com.lowagie.text.Document;
+import com.lowagie.text.PageSize;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfWriter;
+
 import java.awt.*;
 import java.awt.event.*;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.text.MessageFormat;
+import java.time.LocalDateTime;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.border.*;
@@ -23,6 +33,9 @@ public class AdminLogsTab extends JPanel {
     private final Color BG_COLOR = new Color(245, 247, 250);
     private final Color HEADER_BG = new Color(44, 62, 80);
     private final Color TABLE_HEADER_BG = new Color(52, 152, 219);
+    private LocalDateTime lastLogDate = LocalDateTime.MIN; // Initialize to minimum value
+    private int lastMaxId = 0;
+    private javax.swing.Timer autoRefreshTimer;
 
     public AdminLogsTab() {
         setLayout(new BorderLayout(0, 0));
@@ -33,7 +46,9 @@ public class AdminLogsTab extends JPanel {
 
         // Load data initially
         loadLogData();
+        startAutoRefresh();
     }
+
 
     public void loadLogData() {
         // 1. Get current filter (safely)
@@ -66,29 +81,164 @@ public class AdminLogsTab extends JPanel {
 
                     updateRecordCount();
 
+                    // Update lastMaxId after loading data
+                    updateLastMaxId();
+
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
-        }.execute(); // Don't forget .execute()!
+        }.execute();
     }
 
+    // NEW METHOD: Update lastMaxId after loading data
+    private void updateLastMaxId() {
+        new SwingWorker<Integer, Void>() {
+            @Override
+            protected Integer doInBackground() throws Exception {
+                String sql = "SELECT MAX(logId) as max_id FROM system_logs";
+                try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+                     java.sql.Statement stmt = conn.createStatement()) {
+
+                    java.sql.ResultSet rs = stmt.executeQuery(sql);
+                    return rs.next() ? rs.getInt("max_id") : 0;
+                }
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    lastMaxId = get();
+                    System.out.println("Updated lastMaxId to: " + lastMaxId);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+    private void startAutoRefresh() {
+        autoRefreshTimer = new javax.swing.Timer(2000, e -> {
+            // Only refresh if user isn't selecting a row
+            if (logsTable != null && logsTable.getSelectedRow() == -1) {
+                checkForUpdates();
+            }
+        });
+        autoRefreshTimer.start();
+    }
+
+    private void checkForUpdates() {
+        new SwingWorker<Boolean, Void>() {
+            @Override
+            protected Boolean doInBackground() throws Exception {
+                // Simple query - just get the latest ID
+                String sql = "SELECT MAX(logId) as max_id FROM system_logs";
+
+                try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+                     java.sql.Statement stmt = conn.createStatement()) {
+
+                    java.sql.ResultSet rs = stmt.executeQuery(sql);
+                    if (rs.next()) {
+                        int currentMaxId = rs.getInt("max_id");
+                        return currentMaxId > lastMaxId;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    boolean hasUpdates = get();
+                    if (hasUpdates) {
+                        System.out.println("New log data detected! Refreshing...");
+                        loadLogData();
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }.execute();
+    }
     // =========================================================================
     // 1. PRINT FUNCTIONALITY
     // =========================================================================
     private void handlePrint() {
-        MessageFormat header = new MessageFormat("System Audit Logs Report");
-        MessageFormat footer = new MessageFormat("Page {0,number,integer}");
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Save Report as PDF");
+        int userSelection = fileChooser.showSaveDialog(this);
 
-        try {
-            boolean complete = logsTable.print(JTable.PrintMode.FIT_WIDTH, header, footer);
-            if (complete) {
-                JOptionPane.showMessageDialog(this, "Report saved successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File file = fileChooser.getSelectedFile();
+            if (!file.getAbsolutePath().endsWith(".pdf")) {
+                file = new File(file.getAbsolutePath() + ".pdf");
             }
-        } catch (Exception pe) {
-            JOptionPane.showMessageDialog(this, "Printing failed: " + pe.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+
+            try {
+                // 1. Create Document (Landscape)
+                Document doc = new Document(PageSize.A4.rotate()); // ✅ Fixed: lowercase 'rotate()'
+                PdfWriter.getInstance(doc, new FileOutputStream(file));
+                doc.open();
+
+                // 2. Add Title
+                com.lowagie.text.Font titleFont = new com.lowagie.text.Font(com.lowagie.text.Font.HELVETICA, 18, com.lowagie.text.Font.BOLD);
+                Paragraph title = new Paragraph("Logs List", titleFont);
+                title.setAlignment(com.lowagie.text.Element.ALIGN_CENTER);
+                title.setSpacingAfter(20);
+                doc.add(title);
+
+                // 3. Create Table
+                int colCount = logsTable.getColumnCount();
+                PdfPTable pdfTable = new PdfPTable(colCount);
+                pdfTable.setWidthPercentage(100);
+
+                // 4. Add Headers (✅ MATCHING YOUR TABLE COLORS)
+                // We use the same color: new Color(52, 152, 219)
+                java.awt.Color headerColor = new java.awt.Color(52, 152, 219);
+
+                com.lowagie.text.Font headerFont = new com.lowagie.text.Font(com.lowagie.text.Font.HELVETICA, 12, com.lowagie.text.Font.BOLD, java.awt.Color.BLACK);
+
+                for (int i = 0; i < colCount; i++) {
+                    PdfPCell cell = new PdfPCell(new Paragraph(logsTable.getColumnName(i), headerFont));
+                    cell.setBackgroundColor(headerColor); // ✅ Blue Background
+                    cell.setHorizontalAlignment(com.lowagie.text.Element.ALIGN_CENTER);
+                    cell.setVerticalAlignment(com.lowagie.text.Element.ALIGN_MIDDLE);
+                    cell.setPadding(8); // More padding like your table
+                    pdfTable.addCell(cell);
+                }
+
+                // 5. Add Rows
+                com.lowagie.text.Font rowFont = new com.lowagie.text.Font(com.lowagie.text.Font.HELVETICA, 10, com.lowagie.text.Font.NORMAL);
+
+                for (int i = 0; i < logsTable.getRowCount(); i++) {
+                    for (int j = 0; j < colCount; j++) {
+                        Object val = logsTable.getValueAt(i, j);
+                        String text = (val != null) ? val.toString() : "";
+
+                        PdfPCell cell = new PdfPCell(new Paragraph(text, rowFont));
+                        cell.setPadding(6);
+                        cell.setHorizontalAlignment(com.lowagie.text.Element.ALIGN_CENTER);
+
+                        // ✅ Zebra Striping (Light Blue tint to match theme)
+                        if (i % 2 == 1) {
+                            cell.setBackgroundColor(new java.awt.Color(235, 245, 250));
+                        }
+
+                        pdfTable.addCell(cell);
+                    }
+                }
+
+                doc.add(pdfTable);
+                doc.close();
+
+                JOptionPane.showMessageDialog(this, "Export Success!\nFile: " + file.getAbsolutePath());
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Export Error: " + e.getMessage());
+            }
         }
     }
+
 
     // =========================================================================
     // GUI CONSTRUCTION
@@ -151,6 +301,7 @@ public class AdminLogsTab extends JPanel {
         btnPrint.setPreferredSize(new Dimension(160, 40));
         btnPrint.addActionListener(e -> handlePrint());
         rightPrint.add(btnPrint);
+
 
         topPanel.add(leftPanel, BorderLayout.WEST);
         topPanel.add(rightPrint, BorderLayout.EAST);

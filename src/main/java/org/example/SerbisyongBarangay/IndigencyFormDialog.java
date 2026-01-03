@@ -1,25 +1,32 @@
 package org.example.SerbisyongBarangay;
 
+
 import lombok.Data;
 import org.example.Admin.AdminSettings.ImageUtils;
 import org.example.Admin.AdminSettings.PhotoDAO;
 import org.example.Admin.AdminSettings.SystemConfigDAO;
+import org.example.Admin.SystemLogDAO;
 import org.example.Documents.DocumentType;
 import org.example.StaffDAO;
 import org.example.UserDataManager;
 import org.example.Users.BarangayStaff;
 import org.example.Users.Resident;
 
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
+
 public class IndigencyFormDialog extends JDialog {
+
 
     // ✅ DECLARE ALL FORM FIELDS AS INSTANCE VARIABLES
     private JTextField txtName;
@@ -33,47 +40,52 @@ public class IndigencyFormDialog extends JDialog {
     private JTextField txtDate;
     private JTextField txtPerYearIncome;
     private JTextField txtCurrentAddress;
-    private JTextField txtPurpose;
+    private JTextArea txtPurpose;
     private JTextField street;
     private JComboBox<String> txtPurok;
+
     // Store the current resident
     private Resident currentResident;
+    private SystemConfigDAO dao;
 
     // Store form data after submission
     private IndigencyFormData formData;
+
 
     public IndigencyFormDialog(Frame owner) {
         super(owner, "Certificate of Indigency Form", true);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setUndecorated(true);
 
+
         // ✅ Load current resident
         currentResident = UserDataManager.getInstance().getCurrentResident();
 
+
         // Main panel setup
         JPanel mainPanel = new JPanel(new BorderLayout());
-        mainPanel.setBackground(Color.WHITE);
-        mainPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK, 3));
+        mainPanel.setBackground(new Color(245, 248, 250));
+        mainPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(70, 130, 180), 2),
+                BorderFactory.createEmptyBorder(2, 2, 2, 2)
+        ));
 
-        // --- Header Panel ---
-        JPanel headerPanel = createHeaderPanel();
-        mainPanel.add(headerPanel, BorderLayout.NORTH);
 
-        // --- Form Panel (using GridBagLayout for robust alignment) ---
-        JPanel formPanel = createFormPanel();
-        mainPanel.add(formPanel, BorderLayout.CENTER);
+        mainPanel.add(createHeaderPanel(), BorderLayout.NORTH);
+        mainPanel.add(createFormPanel(), BorderLayout.CENTER);
+        mainPanel.add(createButtonPanel(), BorderLayout.SOUTH);
 
-        // --- Buttons Panel ---
-        JPanel buttonPanel = createButtonPanel();
-        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
 
         setContentPane(mainPanel);
         pack();
+        setSize(750, 750);
         setLocationRelativeTo(owner);
+
 
         // ✅ Load resident data into form
         loadResidentData();
     }
+
 
     // ✅ METHOD TO LOAD RESIDENT DATA INTO FORM
     private void loadResidentData() {
@@ -83,9 +95,11 @@ public class IndigencyFormDialog extends JDialog {
             txtMiddleName.setText(currentResident.getMiddleName() != null ? currentResident.getMiddleName() : "");
             txtAge.setText(String.valueOf(currentResident.getAge()));
 
+
             if (currentResident.getGender() != null) {
                 cmbSex.setSelectedItem(currentResident.getGender());
             }
+
 
             if (currentResident.getCivilStatus() != null) {
                 txtCivilStatus.setText(currentResident.getCivilStatus());
@@ -96,10 +110,23 @@ public class IndigencyFormDialog extends JDialog {
             txtPurok.setSelectedItem(currentResident.getPurok());
             street.setText(currentResident.getStreet());
 
+
             txtCurrentAddress.setText(currentResident.getAddress() != null ? currentResident.getAddress() : "");
+
 
             // Set today's date
             txtDate.setText(LocalDate.now().format(DateTimeFormatter.ofPattern("MM/dd/yyyy")));
+            txtDate.setEditable(false);
+
+            // Set birth date from resident data
+            String dob = (currentResident != null && currentResident.getDob() != null) ?
+                    currentResident.getDob().toString() : "";
+            cmbBirthDate.setSelectedItem(dob);
+            cmbBirthDate.setEnabled(false);
+
+
+            txtAge.setEditable(false);
+
 
             System.out.println("✅ Loaded resident data: " + currentResident.getFirstName());
         } else {
@@ -107,275 +134,419 @@ public class IndigencyFormDialog extends JDialog {
         }
     }
 
+
     private JPanel createHeaderPanel() {
-        JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBackground(Color.WHITE);
-        headerPanel.setBorder(new EmptyBorder(10, 15, 10, 15));
+        JPanel header = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                GradientPaint gradient = new GradientPaint(
+                        0, 0, new Color(70, 130, 180),
+                        0, getHeight(), new Color(90, 150, 200)
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
 
-        JLabel titleLabel = new JLabel(
-                "<html><center><b>Please Fill Up the Form</b><br>Certificate of Indigency</center></html>");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
-        titleLabel.setHorizontalAlignment(JLabel.CENTER);
-        headerPanel.add(titleLabel, BorderLayout.CENTER);
+        header.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+        header.setPreferredSize(new Dimension(0, 60));
 
-        // Close button (X)
-        JButton closeButton = new JButton("X");
-        closeButton.setFont(new Font("Arial", Font.BOLD, 16));
-        closeButton.setBackground(Color.WHITE);
-        closeButton.setForeground(Color.BLACK);
-        closeButton.setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
-        closeButton.setFocusPainted(false);
-        closeButton.setPreferredSize(new Dimension(30, 30));
-        closeButton.addActionListener(e -> dispose());
+        JLabel title = new JLabel("<html><center><b>CERTIFICATE OF INDIGENCY FORM</b><br>" +
+                "<span style='font-size:10px; font-weight:normal;'>Official Document Request</span></center></html>");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        title.setForeground(Color.WHITE);
+        title.setHorizontalAlignment(JLabel.CENTER);
 
-        JPanel closeButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        closeButtonPanel.setOpaque(false);
-        closeButtonPanel.add(closeButton);
-        headerPanel.add(closeButtonPanel, BorderLayout.EAST);
+        header.add(title, BorderLayout.CENTER);
 
-        return headerPanel;
+        header.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(50, 110, 160)),
+                BorderFactory.createEmptyBorder(0, 0, 2, 0)
+        ));
+
+        return header;
     }
-    private SystemConfigDAO dao;
+
+
     private JPanel createFormPanel() {
         JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBackground(Color.WHITE);
-        formPanel.setBorder(new EmptyBorder(10, 20, 10, 20));
+        formPanel.setBackground(new Color(245, 248, 250));
+        formPanel.setBorder(BorderFactory.createCompoundBorder(
+                new EmptyBorder(15, 20, 15, 20),
+                BorderFactory.createLineBorder(new Color(220, 220, 220), 1)
+        ));
+
 
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.insets = new Insets(6, 6, 6, 6);
         gbc.anchor = GridBagConstraints.WEST;
-
+        gbc.fill = GridBagConstraints.HORIZONTAL;
         int row = 0;
 
-        // ✅ 1. Name (Initialize instance variable)
-        txtName = new JTextField(20);
-        row = addField(formPanel, gbc, "Name:", txtName, row, 1, 3);
 
-        // ✅ 2. Last Name
-        txtLastName = new JTextField(20);
-        row = addField(formPanel, gbc, "Last Name:", txtLastName, row, 1, 1);
+        Font labelFont = new Font("Segoe UI", Font.BOLD, 12);
+        Color labelColor = new Color(60, 60, 60);
 
-        // ✅ 3. Sex ComboBox (Starting on row 1, spanning 2 rows)
+
+        // Row 0: Name
+        txtName = createStyledTextField(25);
+        row = addField(formPanel, gbc, "Name:", txtName, row, 1, 3, labelFont, labelColor);
+
+
+        // Row 1: Last Name
+        txtLastName = createStyledTextField(25);
+        row = addField(formPanel, gbc, "Last Name:", txtLastName, row, 1, 1, labelFont, labelColor);
+
+
+        // Sex ComboBox
         cmbSex = new JComboBox<>(new String[] { "Male", "Female" });
         customizeComboBox(cmbSex);
 
+
         gbc.gridx = 2;
-        gbc.gridy = 1;
+        gbc.gridy = row-1;
         gbc.gridheight = 2;
         gbc.gridwidth = 2;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
         formPanel.add(cmbSex, gbc);
-
         gbc.gridheight = 1;
         gbc.gridwidth = 1;
 
-        // ✅ 4. Middle Name
-        txtMiddleName = new JTextField(20);
-        row = addField(formPanel, gbc, "Middle Name:", txtMiddleName, row, 1, 3);
 
-        // ✅ 5. Suffix
-        txtSuffix = new JTextField(20);
-        row = addField(formPanel, gbc, "Suffix:", txtSuffix, row, 1, 3);
+        // Row 2: Middle Name
+        txtMiddleName = createStyledTextField(25);
+        row = addField(formPanel, gbc, "Middle Initial:", txtMiddleName, row, 1, 3, labelFont, labelColor);
 
-        // ✅ 6. Age and Birth Date (Same Row)
-        txtAge = new JTextField(10);
-        cmbBirthDate = new JComboBox<>(new String[] {
-             currentResident.getDob().toString()
-        });
+
+        // Row 3: Suffix
+        txtSuffix = createStyledTextField(25);
+        row = addField(formPanel, gbc, "Suffix:", txtSuffix, row, 1, 3, labelFont, labelColor);
+
+
+        // Row 4: Age and Birth Date
+        txtAge = createStyledTextField(10);
+
+        String dob = (currentResident != null && currentResident.getDob() != null) ?
+                currentResident.getDob().toString() : "";
+        cmbBirthDate = new JComboBox<>(new String[] { dob });
         customizeComboBox(cmbBirthDate);
 
-        // Age Label (col 0)
+
+        // Age Label
+        JLabel ageLabel = new JLabel("Age:");
+        ageLabel.setFont(labelFont);
+        ageLabel.setForeground(labelColor);
         gbc.gridx = 0;
         gbc.gridy = row;
         gbc.gridwidth = 1;
         gbc.weightx = 0;
         gbc.fill = GridBagConstraints.NONE;
-        formPanel.add(new JLabel("Age:"), gbc);
+        formPanel.add(ageLabel, gbc);
 
-        // Age Field (col 1)
+
+        // Age Field
         gbc.gridx = 1;
         gbc.weightx = 0.3;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         formPanel.add(txtAge, gbc);
 
-        // Birth Date Label (col 2)
+
+        // Birth Date Label
+        JLabel birthDateLabel = new JLabel("Birth Date:");
+        birthDateLabel.setFont(labelFont);
+        birthDateLabel.setForeground(labelColor);
         gbc.gridx = 2;
         gbc.weightx = 0;
         gbc.fill = GridBagConstraints.NONE;
-        formPanel.add(new JLabel("Birth Date:"), gbc);
+        formPanel.add(birthDateLabel, gbc);
 
-        // Birth Date ComboBox (col 3)
+
+        // Birth Date ComboBox
         gbc.gridx = 3;
         gbc.weightx = 0.7;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         formPanel.add(cmbBirthDate, gbc);
 
+
         row++;
 
-        // ✅ 7. Civil Status and Date
-        txtCivilStatus = new JTextField(10);
+
+        // Row 5: Civil Status and Date
+        txtCivilStatus = createStyledTextField(12);
+        txtDate = createStyledTextField(12);
+
+        // Civil Status Label
+        JLabel civilLabel = new JLabel("Civil Status:");
+        civilLabel.setFont(labelFont);
+        civilLabel.setForeground(labelColor);
         gbc.gridx = 0;
         gbc.gridy = row;
         gbc.weightx = 0;
         gbc.fill = GridBagConstraints.NONE;
-        formPanel.add(new JLabel("Civil Status:"), gbc);
+        formPanel.add(civilLabel, gbc);
 
+        // Civil Status Field
         gbc.gridx = 1;
         gbc.weightx = 0.5;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         formPanel.add(txtCivilStatus, gbc);
 
-        // Date (Right side)
-        txtDate = new JTextField(10);
+        // Date Label
+        JLabel dateLabel = new JLabel("Date:");
+        dateLabel.setFont(labelFont);
+        dateLabel.setForeground(labelColor);
         gbc.gridx = 2;
         gbc.weightx = 0;
         gbc.fill = GridBagConstraints.NONE;
-        formPanel.add(new JLabel("Date:"), gbc);
+        formPanel.add(dateLabel, gbc);
 
+        // Date Field
         gbc.gridx = 3;
         gbc.weightx = 0.5;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         formPanel.add(txtDate, gbc);
+
         row++;
 
-        // ✅ 8. Per year Income
-        txtPerYearIncome = new JTextField(20);
-        row = addField(formPanel, gbc, "Per year Income:", txtPerYearIncome, row, 1, 3);
 
-        // ✅ 9. Current Address
-        txtCurrentAddress = new JTextField(20);
-        row = addField(formPanel, gbc, "Current Address:", txtCurrentAddress, row, 1, 3);
-        dao=new SystemConfigDAO();
-        String [] puroks = dao.getOptionsNature("purok");
+        // Row 6: Per Year Income
+        txtPerYearIncome = createStyledTextField(25);
+        txtPerYearIncome.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyTyped(KeyEvent e) {
+                char c = e.getKeyChar();
+                if (!Character.isDigit(c) && c != '.' && c != KeyEvent.VK_BACK_SPACE && c != KeyEvent.VK_DELETE) {
+                    e.consume();
+                    Toolkit.getDefaultToolkit().beep();
+                }
+
+
+                String text = txtPerYearIncome.getText();
+                if (c == '.' && text.contains(".")) {
+                    e.consume();
+                    Toolkit.getDefaultToolkit().beep();
+                }
+            }
+        });
+        row = addField(formPanel, gbc, "Per Year Income:", txtPerYearIncome, row, 1, 3, labelFont, labelColor);
+
+
+        // Row 7: Purok
+        dao = new SystemConfigDAO();
+        String[] puroks = dao.getOptionsNature("purok");
         txtPurok = new JComboBox<>(puroks);
         customizeComboBox(txtPurok);
+
+        JLabel purokLabel = new JLabel("Purok:");
+        purokLabel.setFont(labelFont);
+        purokLabel.setForeground(labelColor);
         gbc.gridx = 0;
         gbc.gridy = row;
         gbc.gridwidth = 1;
         gbc.weightx = 0;
         gbc.fill = GridBagConstraints.NONE;
-        formPanel.add(new JLabel("Purok:"), gbc);
+        formPanel.add(purokLabel, gbc);
 
         gbc.gridx = 1;
         gbc.gridwidth = 3;
         gbc.weightx = 1.0;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         formPanel.add(txtPurok, gbc);
-        row++;
-        street = new JTextField(20);
-        row = addField(formPanel, gbc, "Street:", street, row, 1, 3);
 
-        // ✅ 10. Purpose
-        txtPurpose = new JTextField(20);
+        row++;
+
+
+        // Row 8: Street
+        street = createStyledTextField(25);
+        row = addField(formPanel, gbc, "Street:", street, row, 1, 3, labelFont, labelColor);
+
+
+        // Row 9: Current Address
+        txtCurrentAddress = createStyledTextField(25);
+        row = addField(formPanel, gbc, "Current Address:", txtCurrentAddress, row, 1, 3, labelFont, labelColor);
+
+
+        // Row 10: Purpose
+        JLabel purposeLabel = new JLabel("Purpose:");
+        purposeLabel.setFont(labelFont);
+        purposeLabel.setForeground(labelColor);
         gbc.gridx = 0;
         gbc.gridy = row;
+        gbc.gridwidth = 1;
         gbc.weightx = 0;
         gbc.fill = GridBagConstraints.NONE;
-        formPanel.add(new JLabel("Purpose:"), gbc);
+        gbc.anchor = GridBagConstraints.NORTHWEST;
+        formPanel.add(purposeLabel, gbc);
+
+        txtPurpose = new JTextArea(4, 25);
+        txtPurpose.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        txtPurpose.setLineWrap(true);
+        txtPurpose.setWrapStyleWord(true);
+        txtPurpose.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(180, 200, 220), 1),
+                BorderFactory.createEmptyBorder(6, 8, 6, 8)
+        ));
+        txtPurpose.setBackground(Color.WHITE);
+
+        JScrollPane purposeScrollPane = new JScrollPane(txtPurpose);
+        purposeScrollPane.setBorder(null);
+        purposeScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        purposeScrollPane.setPreferredSize(new Dimension(0, 70));
 
         gbc.gridx = 1;
         gbc.gridwidth = 3;
         gbc.weightx = 1.0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        formPanel.add(txtPurpose, gbc);
+        gbc.weighty = 0.2;
+        gbc.fill = GridBagConstraints.BOTH;
+        formPanel.add(purposeScrollPane, gbc);
+        gbc.weighty = 0.0;
+
         row++;
 
-        // Filler
+
+        // Add vertical spacer
         gbc.gridx = 0;
         gbc.gridy = row;
         gbc.weighty = 1.0;
         gbc.fill = GridBagConstraints.VERTICAL;
         formPanel.add(Box.createVerticalGlue(), gbc);
-        JPanel stackPanel = new JPanel();
-        stackPanel.setLayout(new BoxLayout(stackPanel, BoxLayout.Y_AXIS));
-        stackPanel.setBackground(Color.WHITE);
 
 
         return formPanel;
     }
 
-    private int addField(JPanel panel, GridBagConstraints gbc, String labelText, JTextField textField, int row,
-                         int colSpanField, int colSpanEmpty) {
-        gbc.gridx = 0;
-        gbc.gridy = row;
-        gbc.gridwidth = 1;
-        gbc.fill = GridBagConstraints.NONE;
-        gbc.weightx = 0;
-        panel.add(new JLabel(labelText), gbc);
 
-        gbc.gridx = 1;
-        gbc.gridwidth = colSpanField;
-        gbc.weightx = 1.0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        panel.add(textField, gbc);
-
-        gbc.gridx = 1 + colSpanField;
-        gbc.gridwidth = colSpanEmpty;
-        gbc.weightx = 0;
-        gbc.fill = GridBagConstraints.NONE;
-        panel.add(Box.createHorizontalGlue(), gbc);
-
-        return ++row;
+    private JTextField createStyledTextField(int columns) {
+        JTextField textField = new JTextField(columns);
+        textField.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        textField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(180, 200, 220), 1),
+                BorderFactory.createEmptyBorder(6, 8, 6, 8)
+        ));
+        textField.setBackground(Color.WHITE);
+        return textField;
     }
 
+
     private JPanel createButtonPanel() {
-        JPanel buttonPanel = new JPanel(new GridLayout(1, 2, 10, 0));
-        buttonPanel.setBackground(Color.WHITE);
-        buttonPanel.setBorder(new EmptyBorder(10, 20, 20, 20));
+        JPanel buttonPanel = new JPanel(new GridLayout(1, 2, 15, 0));
+        buttonPanel.setBackground(new Color(245, 248, 250));
+        buttonPanel.setBorder(new EmptyBorder(12, 20, 15, 20));
+
 
         JButton cancelButton = new JButton("CANCEL");
-        cancelButton.setBackground(new Color(220, 50, 50));
+        cancelButton.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        cancelButton.setBackground(new Color(220, 80, 80));
         cancelButton.setForeground(Color.WHITE);
-        cancelButton.setFont(new Font("Arial", Font.BOLD, 18));
-        cancelButton.setBorderPainted(false);
-        cancelButton.setFocusPainted(false);
+        cancelButton.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(200, 60, 60), 1),
+                BorderFactory.createEmptyBorder(8, 0, 8, 0)
+        ));
+        cancelButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
         cancelButton.addActionListener(e -> {
             dispose();
-            requestaDocumentFrame frame = new requestaDocumentFrame();
-            frame.setVisible(true);
+
         });
 
-        JButton proceedButton = new JButton("PROCEED");
-        proceedButton.setBackground(new Color(90, 180, 90));
-        proceedButton.setForeground(Color.WHITE);
-        proceedButton.setFont(new Font("Arial", Font.BOLD, 18));
-        proceedButton.setBorderPainted(false);
-        proceedButton.setFocusPainted(false);
-        proceedButton.addActionListener(e -> {
-            // ✅ COLLECT AND VALIDATE DATA
-            if (validateForm()) {
-                collectFormData();
-                DocumentType certificateOfIndigency = UserDataManager.getInstance().getDocumentTypeByName("Certificate of Indigency");
-
-                String purpose = txtPurpose.getText().toString() + "Income: " + txtPerYearIncome.getText();
-                UserDataManager.getInstance().residentRequestsDocument(currentResident,null,certificateOfIndigency,purpose);
-                JOptionPane.showMessageDialog(this,
-                        "Indigency certificate request submitted successfully!\n\n" +
-                                "Applicant: " + formData.getFullName() + "\n" +
-                                "Purpose: " + formData.getPurpose(),
-                        "Success",
-                        JOptionPane.INFORMATION_MESSAGE);
-
-                // Print collected data (for debugging)
-                printFormData();
-
-                // TODO: Save to database
-                // saveToDatabase();
-
-                dispose();
+        cancelButton.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) {
+                cancelButton.setBackground(new Color(230, 100, 100));
+                cancelButton.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(new Color(210, 80, 80), 1),
+                        BorderFactory.createEmptyBorder(8, 0, 8, 0)
+                ));
+            }
+            public void mouseExited(MouseEvent e) {
+                cancelButton.setBackground(new Color(220, 80, 80));
+                cancelButton.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(new Color(200, 60, 60), 1),
+                        BorderFactory.createEmptyBorder(8, 0, 8, 0)
+                ));
             }
         });
+
+
+        JButton proceedButton = new JButton("PROCEED");
+        proceedButton.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        proceedButton.setBackground(new Color(70, 130, 180));
+        proceedButton.setForeground(Color.WHITE);
+        proceedButton.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(50, 110, 160), 1),
+                BorderFactory.createEmptyBorder(8, 0, 8, 0)
+        ));
+        proceedButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        proceedButton.addActionListener(e -> {
+            if (!validateForm()) {
+                return;
+            }
+
+
+            if (txtPurpose.getText().trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Please enter a purpose.");
+                return;
+            }
+
+
+            collectFormData();
+            DocumentType certificateOfIndigency = UserDataManager.getInstance().getDocumentTypeByName("Certificate of Indigency");
+
+
+            if (certificateOfIndigency == null) {
+                JOptionPane.showMessageDialog(this, "Error: Document Type 'Certificate of Indigency' not found in database settings.");
+                return;
+            }
+
+
+            String purpose = txtPurpose.getText().toString() + " | Income: " + txtPerYearIncome.getText();
+            UserDataManager.getInstance().residentRequestsDocument(currentResident, null, certificateOfIndigency, purpose);
+            Resident currentResident = UserDataManager.getInstance().getCurrentResident();
+            String name = currentResident.getFirstName() + " " + currentResident.getLastName();
+            int staffId = Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId());
+            new SystemLogDAO().addLog("Request Document",name,staffId);
+            JOptionPane.showMessageDialog(this,
+                    "Certificate of Indigency request submitted successfully!",
+                    "Success",
+                    JOptionPane.INFORMATION_MESSAGE);
+
+
+            printFormData();
+            dispose();
+
+        });
+
+        proceedButton.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) {
+                proceedButton.setBackground(new Color(90, 150, 200));
+                proceedButton.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(new Color(70, 130, 180), 1),
+                        BorderFactory.createEmptyBorder(8, 0, 8, 0)
+                ));
+            }
+            public void mouseExited(MouseEvent e) {
+                proceedButton.setBackground(new Color(70, 130, 180));
+                proceedButton.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(new Color(50, 110, 160), 1),
+                        BorderFactory.createEmptyBorder(8, 0, 8, 0)
+                ));
+            }
+        });
+
 
         buttonPanel.add(cancelButton);
         buttonPanel.add(proceedButton);
 
+
         return buttonPanel;
     }
+
 
     // ✅ VALIDATE FORM DATA
     private boolean validateForm() {
         StringBuilder errors = new StringBuilder();
+
 
         if (txtName.getText().trim().isEmpty()) {
             errors.append("• Name is required\n");
@@ -392,6 +563,13 @@ public class IndigencyFormDialog extends JDialog {
         if (txtPurpose.getText().trim().isEmpty()) {
             errors.append("• Purpose is required\n");
         }
+        if (txtPurpose.getText().length() > 250) {
+            errors.append("• Purpose length should not exceed 250 \n");
+        }
+        if (txtPerYearIncome.getText().trim().isEmpty()) {
+            errors.append("• Per Year Income is required\n");
+        }
+
 
         if (errors.length() > 0) {
             JOptionPane.showMessageDialog(this,
@@ -401,12 +579,15 @@ public class IndigencyFormDialog extends JDialog {
             return false;
         }
 
+
         return true;
     }
+
 
     // ✅ COLLECT DATA FROM FORM FIELDS
     private void collectFormData() {
         formData = new IndigencyFormData();
+
 
         formData.setFirstName(txtName.getText().trim());
         formData.setLastName(txtLastName.getText().trim());
@@ -421,21 +602,23 @@ public class IndigencyFormDialog extends JDialog {
         formData.setCurrentAddress(txtCurrentAddress.getText().trim());
         formData.setPurpose(txtPurpose.getText().trim());
 
-        // Store resident ID if available
 
         if (currentResident != null) {
             formData.setResidentId(currentResident.getResidentId());
         }
 
+
         System.out.println("✅ Form data collected successfully!");
     }
 
-    // ✅ GET COLLECTED FORM DATA (Call this from outside)
+
+    // ✅ GET COLLECTED FORM DATA
     public IndigencyFormData getFormData() {
         return formData;
     }
 
-    // ✅ PRINT FORM DATA (For debugging)
+
+    // ✅ PRINT FORM DATA
     private void printFormData() {
         if (formData != null) {
             System.out.println("\n========== INDIGENCY FORM DATA ==========");
@@ -453,34 +636,71 @@ public class IndigencyFormDialog extends JDialog {
         }
     }
 
-    private void customizeComboBox(JComboBox<?> comboBox) {
-        comboBox.setBackground(Color.WHITE);
-        comboBox.setFont(new Font("Arial", Font.PLAIN, 14));
-        comboBox.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
-        comboBox.setRenderer(new DefaultListCellRenderer() {
+
+    private int addField(JPanel panel, GridBagConstraints gbc, String labelText, JTextField textField, int row,
+                         int colSpanField, int colSpanEmpty, Font labelFont, Color labelColor) {
+        JLabel label = new JLabel(labelText);
+        label.setFont(labelFont);
+        label.setForeground(labelColor);
+        gbc.gridx = 0;
+        gbc.gridy = row;
+        gbc.gridwidth = 1;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.weightx = 0;
+        panel.add(label, gbc);
+
+
+        gbc.gridx = 1;
+        gbc.gridwidth = colSpanField;
+        gbc.weightx = 1.0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        panel.add(textField, gbc);
+
+
+        gbc.gridx = 1 + colSpanField;
+        gbc.gridwidth = colSpanEmpty;
+        gbc.weightx = 0;
+        gbc.fill = GridBagConstraints.NONE;
+        panel.add(Box.createHorizontalGlue(), gbc);
+
+
+        return ++row;
+    }
+
+
+    private void customizeComboBox(JComboBox<?> cb) {
+        cb.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        cb.setBackground(Color.WHITE);
+        cb.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(180, 200, 220), 1),
+                BorderFactory.createEmptyBorder(4, 8, 4, 8)
+        ));
+        cb.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        cb.setRenderer(new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected,
                                                           boolean cellHasFocus) {
                 JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected,
                         cellHasFocus);
-                label.setBorder(new EmptyBorder(5, 5, 5, 5));
+                label.setBorder(new EmptyBorder(3, 8, 3, 8));
                 return label;
             }
         });
     }
 
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame();
-
             frame.setSize(800, 600);
             frame.setLocationRelativeTo(null);
             frame.setVisible(false);
 
+
             IndigencyFormDialog dialog = new IndigencyFormDialog(frame);
             dialog.setVisible(true);
 
-            // Access form data after dialog closes
+
             IndigencyFormData data = dialog.getFormData();
             if (data != null) {
                 System.out.println("Retrieved form data: " + data.getFullName());
@@ -515,6 +735,7 @@ class IndigencyFormData {
     private String currentAddress;
     private String purpose;
 
+
     public String getFullName() {
         StringBuilder fullName = new StringBuilder();
         if (firstName != null && !firstName.isEmpty()) fullName.append(firstName);
@@ -522,6 +743,7 @@ class IndigencyFormData {
         if (lastName != null && !lastName.isEmpty()) fullName.append(" ").append(lastName);
         return fullName.toString().trim();
     }
+
 
     @Override
     public String toString() {
@@ -534,3 +756,6 @@ class IndigencyFormData {
                 '}';
     }
 }
+
+
+

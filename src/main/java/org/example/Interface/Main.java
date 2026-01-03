@@ -1,32 +1,68 @@
 package org.example.Interface;
 
 
-import lombok.SneakyThrows;
-import org.example.Admin.AdminSettings.SystemConfigDAO;
-import org.example.Admin.AdminSystemSettings;
-import org.example.Users.BarangayStaff;
-import org.example.Users.Resident;
-import org.example.UserDataManager;
-import org.example.utils.ResourceUtils;
 
 
-import javax.swing.*;
-import javax.swing.border.AbstractBorder;
-import javax.swing.plaf.basic.BasicComboBoxUI;
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.Frame;
+import java.awt.GradientPaint;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
+import java.awt.Image;
+import java.awt.Insets;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.time.LocalDateTime;
 import java.util.Properties;
+
+
+import javax.swing.BorderFactory;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JPasswordField;
+import javax.swing.JProgressBar;
+import javax.swing.JTextField;
+import javax.swing.SwingConstants;
+import javax.swing.SwingWorker;
+import javax.swing.border.AbstractBorder;
+import javax.swing.plaf.basic.BasicComboBoxUI;
+
+
+import org.example.Admin.AdminSettings.SystemConfigDAO;
+import org.example.UserDataManager;
+import org.example.Users.BarangayStaff;
+import org.example.Users.Resident;
+import org.example.utils.ResourceUtils;
+
+
+import lombok.SneakyThrows;
+
+
 
 
 public class Main {
     static class RoundedBorder extends AbstractBorder {
         private int radius;
         private Color color;
-
 
         public RoundedBorder(int radius, Color color) {
             this.radius = radius;
@@ -44,10 +80,14 @@ public class Main {
         }
 
 
+
+
         @Override
         public Insets getBorderInsets(Component c) {
             return new Insets(4, 8, 4, 8);
         }
+
+
 
 
         @Override
@@ -57,9 +97,6 @@ public class Main {
             return insets;
         }
     }
-
-
-    // Custom Panel with Gradient Background
     static class GradientPanel extends JPanel {
         @Override
         protected void paintComponent(Graphics g) {
@@ -68,6 +105,8 @@ public class Main {
             g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
             int w = getWidth();
             int h = getHeight();
+
+
 
 
             // Cerulean to Light Sky Blue gradient
@@ -79,13 +118,9 @@ public class Main {
         }
     }
 
-
-    // Custom Text Field with Placeholder
     static class PlaceholderTextField extends JTextField {
         private String placeholder;
         private boolean showingPlaceholder;
-
-
         public PlaceholderTextField(String placeholder) {
             super();
             this.placeholder = placeholder;
@@ -94,7 +129,6 @@ public class Main {
             setForeground(Color.GRAY);
 
 
-            // Add focus listener to handle placeholder behavior
             addFocusListener(new FocusAdapter() {
                 @Override
                 public void focusGained(FocusEvent e) {
@@ -104,6 +138,8 @@ public class Main {
                         showingPlaceholder = false;
                     }
                 }
+
+
 
 
                 @Override
@@ -118,6 +154,8 @@ public class Main {
         }
 
 
+
+
         @Override
         public String getText() {
             return showingPlaceholder ? "" : super.getText();
@@ -125,14 +163,20 @@ public class Main {
     }
 
 
+
+
     // Custom ComboBox UI for rounded appearance
     static class RoundedComboBoxUI extends BasicComboBoxUI {
         private int radius;
 
 
+
+
         public RoundedComboBoxUI(int radius) {
             this.radius = radius;
         }
+
+
 
 
         @Override
@@ -146,11 +190,15 @@ public class Main {
         }
 
 
+
+
         @Override
         public void paintCurrentValueBackground(Graphics g, Rectangle bounds, boolean hasFocus) {
             // Do nothing to remove the default background
         }
     }
+
+
 
 
     // Method to create icon with consistent size
@@ -165,6 +213,8 @@ public class Main {
             return createPlaceholderIcon(width, height);
         }
     }
+
+
 
 
     // Method to create a placeholder icon when image is not found
@@ -185,33 +235,33 @@ public class Main {
 
 
 
-    private static void openRegisterWindow(JFrame currentFrame) {
-        try {
-            // Close the current login frame
-            currentFrame.dispose();
 
 
-            // Using reflection to load and run the Register class
-            Class<?> registerClass = Class.forName("org.example.Interface.Register");
-            java.lang.reflect.Method mainMethod = registerClass.getMethod("main", String[].class);
-            mainMethod.invoke(null, (Object) new String[]{});
 
 
-        } catch (ClassNotFoundException e) {
-            JOptionPane.showMessageDialog(null,
-                    "Register class not found. Please create Register.java in the interfaces package.",
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE);
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(null,
-                    "Error opening registration form: " + e.getMessage(),
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE);
-        }
+    private static void showServerSettings() {
+
+
+        JDialog dialog = new JDialog((Frame) null, "Server Configuration", true);
+        dialog.setSize(900, 900);
+
+
+        dialog.setLocationRelativeTo(null);
+        dialog.setLayout(new BorderLayout());
+        org.example.Admin.AdminSettings.AdminServerConfigTab configPanel =
+                new org.example.Admin.AdminSettings.AdminServerConfigTab();
+
+
+        dialog.add(configPanel, BorderLayout.CENTER);
+
+
+        // 3. Show it
+        dialog.setVisible(true);
     }
 
 
     private static SystemConfigDAO dao;
+
 
     @SneakyThrows
     private static void loadPropertiesToSystem(){
@@ -223,21 +273,23 @@ public class Main {
     }
 
 
+
+
     public static void main(String[] args) {
         loadPropertiesToSystem();
 
         JFrame frame = new JFrame("Serbisyong Barangay");
+        frame.setUndecorated(true);
         frame.setSize(800, 500);
+        frame.setExtendedState(Frame.MAXIMIZED_BOTH);
         frame.setResizable(true);
         frame.setLocationRelativeTo(null);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-
         // Set frame icon (optional)
         dao = new SystemConfigDAO();
-        String logoPath = dao.getConfig("logoPath");
+        String logoPath = dao.getLogoPath();
         System.out.println(logoPath);
-
 
         try {
             ImageIcon icon = new ImageIcon(logoPath);
@@ -246,178 +298,149 @@ public class Main {
             System.out.println("Icon not found");
         }
 
-
         // Set gradient background for the main frame
         frame.setContentPane(new GradientPanel());
-
-
         frame.setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
 
-
-        // Left panel - 65% width - For image/content
+        // CENTERED CONTAINER PANEL - This will hold both logo and login form
         gbc.gridx = 0;
         gbc.gridy = 0;
-        gbc.weightx = 0.65;  // 65% of available width
-        gbc.weighty = 1.0;   // 100% of available height
-        gbc.fill = GridBagConstraints.BOTH; // Stretch to fill space
+        gbc.weightx = 1.0;
+        gbc.weighty = 1.0;
+        gbc.fill = GridBagConstraints.BOTH;
 
+        JPanel centerContainer = new JPanel();
+        centerContainer.setOpaque(false); // Make transparent to show gradient background
+        centerContainer.setLayout(new GridBagLayout());
 
-        JPanel leftPanel = new JPanel();
-        leftPanel.setOpaque(false); // Make transparent to show gradient background
-        leftPanel.setLayout(new GridBagLayout());
+        GridBagConstraints containerGbc = new GridBagConstraints();
+        containerGbc.gridx = 0;
+        containerGbc.anchor = GridBagConstraints.CENTER;
+        containerGbc.insets = new Insets(0, 0, 0, 0);
 
+        // LOGO AT THE TOP - CENTERED
+        containerGbc.gridy = 0;
+        containerGbc.insets = new Insets(20, 0, 20, 0);
 
-        // Add content to left panel matching your image
-        GridBagConstraints leftGbc = new GridBagConstraints();
-        leftGbc.gridx = 0;
-        leftGbc.anchor = GridBagConstraints.CENTER;
-        leftGbc.insets = new Insets(10, 50, 30, 50);
-
-
-        // Add Logo Image at the top
-        leftGbc.gridy = 0;
         try {
-            String bigLogo = dao.getConfig("bigLogoPath");
-            ImageIcon originalIcon = new ImageIcon(System.getProperty("asset.image.base-path") + bigLogo);
+            String bigLogo = dao.getBigLogoPath();
+            ImageIcon originalIcon = new ImageIcon(bigLogo);
             Image originalImage = originalIcon.getImage();
-            Image resizedImage = originalImage.getScaledInstance(80, 80, Image.SCALE_SMOOTH);
+            // Adjust logo size as needed
+            Image resizedImage = originalImage.getScaledInstance(100, 100, Image.SCALE_SMOOTH);
             ImageIcon resizedIcon = new ImageIcon(resizedImage);
             JLabel logoLabel = new JLabel(resizedIcon);
-            leftPanel.add(logoLabel, leftGbc);
+            logoLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            centerContainer.add(logoLabel, containerGbc);
         } catch (Exception e) {
             System.out.println("Logo not found, using placeholder");
             JLabel placeholder = new JLabel("[LOGO]");
             placeholder.setFont(new Font("Arial", Font.BOLD, 16));
             placeholder.setForeground(Color.WHITE);
-            leftPanel.add(placeholder, leftGbc);
+            placeholder.setHorizontalAlignment(SwingConstants.CENTER);
+            centerContainer.add(placeholder, containerGbc);
         }
 
-
-        // Main Title
-        leftGbc.gridy = 1;
+        // MAIN TITLE - CENTERED
+        containerGbc.gridy = 1;
+        containerGbc.insets = new Insets(0, 0, 5, 0);
         JLabel mainTitle = new JLabel("Serbisyong Barangay");
         mainTitle.setFont(new Font("Arial", Font.BOLD, 28));
         mainTitle.setForeground(Color.WHITE);
-        leftPanel.add(mainTitle, leftGbc);
+        mainTitle.setHorizontalAlignment(SwingConstants.CENTER);
+        centerContainer.add(mainTitle, containerGbc);
 
-
-        // Subtitle
-        leftGbc.gridy = 2;
+        // SUBTITLE - CENTERED
+        containerGbc.gridy = 2;
+        containerGbc.insets = new Insets(0, 0, 30, 0);
         JLabel subTitle = new JLabel("Documentary Request System");
         subTitle.setFont(new Font("Arial", Font.PLAIN, 16));
         subTitle.setForeground(Color.WHITE);
-        leftPanel.add(subTitle, leftGbc);
+        subTitle.setHorizontalAlignment(SwingConstants.CENTER);
+        centerContainer.add(subTitle, containerGbc);
 
+        // LOGIN FORM PANEL - CENTERED
+        containerGbc.gridy = 3;
+        containerGbc.fill = GridBagConstraints.NONE;
+        containerGbc.insets = new Insets(0, 0, 0, 0);
 
-        // Separator line
-        leftGbc.gridy = 3;
-        leftGbc.fill = GridBagConstraints.HORIZONTAL;
-        leftGbc.insets = new Insets(20, 50, 20, 50);
+        JPanel loginFormPanel = new JPanel();
+        loginFormPanel.setOpaque(false);
+        loginFormPanel.setLayout(new GridBagLayout());
+        loginFormPanel.setBorder(BorderFactory.createEmptyBorder(20, 40, 20, 40));
+        loginFormPanel.setBackground(new Color(255, 255, 255, 30)); // Semi-transparent white
 
+        GridBagConstraints formGbc = new GridBagConstraints();
+        formGbc.gridx = 0;
+        formGbc.fill = GridBagConstraints.HORIZONTAL;
+        formGbc.insets = new Insets(5, 20, 5, 20);
 
-        // Second separator
-        leftGbc.gridy = 8;
-        leftGbc.fill = GridBagConstraints.HORIZONTAL;
-        leftGbc.insets = new Insets(20, 50, 20, 50);
-
-
-        frame.add(leftPanel, gbc);
-
-
-        // Right panel - 35% width - Login form
-        gbc.gridx = 1;
-        gbc.weightx = 0.35;  // 35% of available width
-
-
-        JPanel rightPanel = new JPanel();
-        rightPanel.setOpaque(false); // Make transparent to show gradient background
-        rightPanel.setLayout(new GridBagLayout());
-
-
-        // Create constraints for the login form
-        GridBagConstraints rightGbc = new GridBagConstraints();
-        rightGbc.gridx = 0;
-        rightGbc.fill = GridBagConstraints.HORIZONTAL;
-        rightGbc.insets = new Insets(5, 20, 5, 20);
-
-
-        // Welcome label at top
-        rightGbc.gridy = 0;
-        rightGbc.insets = new Insets(30, 20, 20, 20);
+        // WELCOME LABEL
+        formGbc.gridy = 0;
+        formGbc.insets = new Insets(0, 20, 20, 20);
         JLabel welcomeLabel = new JLabel("WELCOME!");
         welcomeLabel.setFont(new Font("Arial", Font.BOLD, 24));
         welcomeLabel.setForeground(Color.WHITE);
         welcomeLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        rightPanel.add(welcomeLabel, rightGbc);
-
+        loginFormPanel.add(welcomeLabel, formGbc);
 
         // Username
-        rightGbc.gridy = 1;
-        rightGbc.insets = new Insets(5, 20, 5, 30);
+        formGbc.gridy = 1;
+        formGbc.insets = new Insets(5, 20, 5, 20);
         JLabel usernameLabel = new JLabel("Username");
         usernameLabel.setFont(new Font("Arial", Font.PLAIN, 12));
         usernameLabel.setForeground(Color.WHITE);
-        rightPanel.add(usernameLabel, rightGbc);
+        loginFormPanel.add(usernameLabel, formGbc);
 
-
-        rightGbc.gridy = 2;
+        formGbc.gridy = 2;
+        formGbc.insets = new Insets(0, 20, 15, 20);
         // Create a panel for icon + text field
-        JPanel usernamePanel = new JPanel(new BorderLayout(5, 0)); // 5px horizontal gap
-        usernamePanel.setOpaque(false); // Make transparent
-
+        JPanel usernamePanel = new JPanel(new BorderLayout(5, 0));
+        usernamePanel.setOpaque(false);
 
         // Add icon on the left
         JLabel usernameIcon = new JLabel(createIcon("profile.png", 32, 32));
         usernamePanel.add(usernameIcon, BorderLayout.WEST);
 
-
-
-
         // Add text field on the right with placeholder
         PlaceholderTextField usernameField = new PlaceholderTextField("Enter your username");
-        usernameField.setPreferredSize(new Dimension(180, 35)); // Reduced width to accommodate icon
+        usernameField.setPreferredSize(new Dimension(200, 35));
         usernameField.setBorder(new RoundedBorder(15, Color.WHITE));
         usernameField.setOpaque(true);
         usernameField.setBackground(Color.WHITE);
         usernamePanel.add(usernameField, BorderLayout.CENTER);
 
-
-        rightPanel.add(usernamePanel, rightGbc);
-
+        loginFormPanel.add(usernamePanel, formGbc);
 
         // Password
-        rightGbc.gridy = 3;
+        formGbc.gridy = 3;
+        formGbc.insets = new Insets(5, 20, 5, 20);
         JLabel passwordLabel = new JLabel("Password");
         passwordLabel.setFont(new Font("Arial", Font.PLAIN, 12));
         passwordLabel.setForeground(Color.WHITE);
-        rightPanel.add(passwordLabel, rightGbc);
+        loginFormPanel.add(passwordLabel, formGbc);
 
-
-        rightGbc.gridy = 4;
+        formGbc.gridy = 4;
+        formGbc.insets = new Insets(0, 20, 20, 20);
         // Create a panel for icon + password field
         JPanel passwordPanel = new JPanel(new BorderLayout(5, 0));
-        passwordPanel.setOpaque(false); // Make transparent
-
+        passwordPanel.setOpaque(false);
 
         // Add icon on the left
         JLabel passwordIcon = new JLabel(createIcon("password.png", 32, 32));
         passwordPanel.add(passwordIcon, BorderLayout.WEST);
 
-
-
-
         // Add password field on the right
         JPasswordField passwordField = new JPasswordField();
-        passwordField.setPreferredSize(new Dimension(180, 35));
+        passwordField.setPreferredSize(new Dimension(200, 35));
         passwordField.setBorder(new RoundedBorder(15, Color.WHITE));
         passwordField.setOpaque(true);
         passwordField.setBackground(Color.WHITE);
         // Set placeholder for password field using echo char trick
-        passwordField.setEchoChar((char) 0); // Show text normally initially
+        passwordField.setEchoChar((char) 0);
         passwordField.setText("Enter your password");
         passwordField.setForeground(Color.GRAY);
-
 
         passwordField.addFocusListener(new FocusAdapter() {
             @Override
@@ -425,10 +448,9 @@ public class Main {
                 if (String.valueOf(passwordField.getPassword()).equals("Enter your password")) {
                     passwordField.setText("");
                     passwordField.setForeground(Color.BLACK);
-                    passwordField.setEchoChar('•'); // Set to bullet character for password
+                    passwordField.setEchoChar('•');
                 }
             }
-
 
             @Override
             public void focusLost(FocusEvent e) {
@@ -440,75 +462,37 @@ public class Main {
             }
         });
 
-
         passwordPanel.add(passwordField, BorderLayout.CENTER);
+        loginFormPanel.add(passwordPanel, formGbc);
 
-
-        rightPanel.add(passwordPanel, rightGbc);
-
-
-        // Log In As
-        rightGbc.gridy = 5;
-
-
-        rightGbc.gridy = 6;
-        // Create a panel for icon + combo box
-        JPanel comboBoxPanel = new JPanel(new BorderLayout(5, 0));
-        comboBoxPanel.setOpaque(false); // Make transparent
-
-
-        // Add icon on the left
-
-
-
-
-        // Add combo box on the right
-        AdminSystemSettings systemSettings = new AdminSystemSettings();
-        String[] loginOptions = systemSettings.getLoginOptions();
-
-
-        rightPanel.add(comboBoxPanel, rightGbc);
-
-
-        // Log In Button
-        rightGbc.gridy = 7;
-        rightGbc.insets = new Insets(20, 20, 10, 20);
+        // Login Button
+        formGbc.gridy = 5;
+        formGbc.insets = new Insets(10, 20, 15, 20);
         JButton loginButton = new JButton("Log In");
         loginButton.setPreferredSize(new Dimension(200, 35));
-        loginButton.setBackground(new Color(50, 50, 50)); // Dark Gray
+        loginButton.setBackground(new Color(50, 50, 50));
         loginButton.setForeground(Color.WHITE);
         loginButton.setFont(new Font("Arial", Font.BOLD, 14));
-        // Round the button corners
         loginButton.setBorder(new RoundedBorder(10, new Color(50, 50, 50)));
         loginButton.setOpaque(true);
         loginButton.setContentAreaFilled(true);
         loginButton.setFocusPainted(false);
 
-
-        // Add hover effect
         loginButton.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
-                loginButton.setBackground(new Color(80, 80, 80)); // Lighter gray on hover
+                loginButton.setBackground(new Color(80, 80, 80));
             }
-
 
             @Override
             public void mouseExited(MouseEvent e) {
-                loginButton.setBackground(new Color(50, 50, 50)); // Original dark gray
+                loginButton.setBackground(new Color(50, 50, 50));
             }
         });
-        rightPanel.add(loginButton, rightGbc);
-
-
-        // Sign Up Link
-        rightGbc.gridy = 8;
-        rightGbc.insets = new Insets(10, 20, 30, 20);
-
+        // LOGIN ACTION LISTENER
         loginButton.addActionListener(e -> {
             String username = usernameField.getText().trim();
             String password = new String(passwordField.getPassword()).trim();
-
 
             if (username.isEmpty()) {
                 JOptionPane.showMessageDialog(frame,
@@ -518,7 +502,6 @@ public class Main {
                 return;
             }
 
-
             if (password.isEmpty()) {
                 JOptionPane.showMessageDialog(frame,
                         "Please enter your password.",
@@ -526,51 +509,280 @@ public class Main {
                         JOptionPane.WARNING_MESSAGE);
                 return;
             }
-
             BarangayStaff staff = UserDataManager.getInstance().validateStaffLogin(username, password);
             if (staff != null && staff.getStatus().equals("Active")) {
-                // ✅ SET CURRENT STAFF
-                UserDataManager.getInstance().setCurrentStaff(staff);
-                staff.setLastLogin(LocalDateTime.now());
+                // 1. Show Loading Screen
+                JDialog loader = createLoadingDialog(frame);
+                // 2. Use SwingWorker to handle the transition smoothly
+                SwingWorker<Void, Void> worker = new SwingWorker<>() {
+                    @Override
+                    protected Void doInBackground() throws Exception {
+                        Thread.sleep(1750);
+                        return null;
+                    }
 
+                    @Override
+                    protected void done() {
+                        try {
+                            UserDataManager.getInstance().setCurrentStaff(staff);
 
-                JOptionPane.showMessageDialog(frame,
-                        "Login Successful!\n\n" +
-                                "Welcome, " + staff.getFirstName() + " " + staff.getLastName() + "!\n" +
-                                "Role: " + staff.getRole(),
-                        "Login Success",
-                        JOptionPane.INFORMATION_MESSAGE);
+                            if (staff.getRole().equals("Brgy.Secretary")) {
+                                openSecretaryWithLoader(frame, staff);
+                            } else if (staff.getRole().equals("Brgy.Captain")) {
+                                openCaptainDashboard(staff);
+                            } else if (staff.getRole().equals("Brgy.Treasurer")) {
+                                openTreasurerDashboard(staff);
+                            } else {
+                                new Main().openAdminDashboard(staff);
+                            }
 
+                            loader.dispose();
+                            frame.dispose();
 
-                frame.dispose();
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
+                    }
+                };
 
-
-                // Open appropriate dashboard based on role
-                if (staff.getRole().equals("Brgy.Secretary")) {
-                    openSecretaryDashboard(staff);
-                } else if (staff.getRole().equals("Brgy.Captain")) {
-                    openCaptainDashboard(staff);
-                } else if (staff.getRole().equals("Brgy.Treasurer")){
-                    openTreasurerDashboard(staff);
-                } else {
-                    openAdminDashboard(staff);
-                }
+                worker.execute();
+                loader.setVisible(true);
             } else {
+                JOptionPane.showMessageDialog(frame, "Invalid username or password", "Login Failed", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        loginFormPanel.add(loginButton, formGbc);
+
+        // Server Settings Button
+        formGbc.gridy = 6;
+        formGbc.insets = new Insets(10, 20, 10, 20);
+        JButton btnSettings = new JButton("⚙ Server Settings");
+        btnSettings.setFont(new Font("Arial", Font.PLAIN, 12));
+        btnSettings.setBackground(new Color(240, 240, 240));
+        btnSettings.setForeground(Color.BLACK);
+        btnSettings.setBorder(new RoundedBorder(10, Color.LIGHT_GRAY));
+        btnSettings.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnSettings.setFocusPainted(false);
+        btnSettings.addActionListener(e -> showServerSettings());
+        loginFormPanel.add(btnSettings, formGbc);
+
+        // Add the login form panel to the center container
+        centerContainer.add(loginFormPanel, containerGbc);
+
+        // Add the center container to the frame
+        frame.add(centerContainer, gbc);
+
+        // Perform startup connection check
+        performStartupConnectionCheck();
+
+        frame.setVisible(true);
+    }
+    private static void openSecretaryWithLoader(JFrame loginFrame, BarangayStaff staff) {
+        // 1. Create a transparent, undecorated dialog
+        JDialog loader = new JDialog(loginFrame, true);
+        loader.setUndecorated(true);
+        loader.setBackground(new Color(0, 0, 0, 0)); // Crucial for rounded corners!
+        loader.setSize(380, 100);
+        loader.setLocationRelativeTo(loginFrame);
 
 
-                JOptionPane.showMessageDialog(frame,
-                        "Invalid username or password ",
-                        "Login Failed",
-                        JOptionPane.ERROR_MESSAGE);
+        // 2. Create a Custom Rounded Panel
+        JPanel panel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+
+                // Draw clean white rounded rectangle
+                g2.setColor(Color.WHITE);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+
+
+                // Draw subtle gray border
+                g2.setColor(new Color(220, 220, 220));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 20, 20);
+            }
+        };
+        panel.setLayout(new BorderLayout(15, 15));
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+        panel.setOpaque(false); // Let the rounded paintComponent show through
+
+
+        // 3. Add Content
+        // LEFT: Icon (optional, looks nice)
+        JLabel iconLabel = new JLabel("⚡"); // You can swap this for an ImageIcon
+        iconLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 30));
+        iconLabel.setForeground(new Color(0, 123, 167)); // Brand Blue
+
+
+        // CENTER: Text Info
+        JPanel textPanel = new JPanel(new GridLayout(2, 1));
+        textPanel.setOpaque(false);
+
+
+        JLabel titleLabel = new JLabel("Logging in...");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        titleLabel.setForeground(Color.DARK_GRAY);
+
+
+        JLabel subtitleLabel = new JLabel("Preparing Secretary Dashboard");
+        subtitleLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        subtitleLabel.setForeground(Color.GRAY);
+
+
+        textPanel.add(titleLabel);
+        textPanel.add(subtitleLabel);
+
+
+        // BOTTOM: Custom Flat Progress Bar
+        JProgressBar progressBar = new JProgressBar(0, 100);
+        progressBar.setPreferredSize(new Dimension(100, 6)); // Thin and sleek
+        progressBar.setBorderPainted(false);
+        progressBar.setBackground(new Color(230, 230, 230)); // Light gray track
+        progressBar.setForeground(new Color(0, 123, 167));   // Brand blue fill
+
+
+        // Remove the ugly standard Java UI styling
+        progressBar.setUI(new javax.swing.plaf.basic.BasicProgressBarUI() {
+            @Override protected void paintDeterminate(Graphics g, JComponent c) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+
+                int width = progressBar.getWidth();
+                int height = progressBar.getHeight();
+                int fillWidth = (int) ((width * progressBar.getPercentComplete()));
+
+
+                // Draw Background
+                g2d.setColor(progressBar.getBackground());
+                g2d.fillRoundRect(0, 0, width, height, height, height);
+
+
+                // Draw Fill
+                g2d.setColor(progressBar.getForeground());
+                g2d.fillRoundRect(0, 0, fillWidth, height, height, height);
             }
         });
 
 
-        frame.add(rightPanel, gbc);
+        // Assembly
+        panel.add(iconLabel, BorderLayout.WEST);
+        panel.add(textPanel, BorderLayout.CENTER);
+        panel.add(progressBar, BorderLayout.SOUTH);
+        loader.add(panel);
 
 
-        frame.setVisible(true);
+        // 4. Background Worker (Timer)
+        SwingWorker<Void, Integer> worker = new SwingWorker<>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                for (int i = 0; i <= 100; i += 5) { // Faster increments for smoother animation
+                    Thread.sleep(80); // 30ms * 20 steps = ~0.6 seconds (adjust as needed)
+                    publish(i);
+                }
+                Thread.sleep(200); // Tiny pause at 100% to let user see it finished
+                return null;
+            }
+
+
+            @Override
+            protected void process(java.util.List<Integer> chunks) {
+                progressBar.setValue(chunks.get(chunks.size() - 1));
+            }
+
+
+            @Override
+            protected void done() {
+                try {
+                    loader.dispose();
+                    openSecretaryDashboard(staff);
+                    loginFrame.dispose();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+
+
+        worker.execute();
+        loader.setVisible(true);
+    }
+    private static JDialog createLoadingDialog(JFrame owner) {
+        JDialog dialog = new JDialog(owner, "Loading", true);
+        dialog.setUndecorated(true);
+        dialog.setSize(300, 80);
+        dialog.setLocationRelativeTo(owner);
+        dialog.setLayout(new BorderLayout());
+
+
+        JPanel content = new JPanel(new BorderLayout(10, 10));
+        content.setBackground(Color.WHITE);
+        content.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200), 1));
+        content.setBorder(new javax.swing.border.EmptyBorder(20, 20, 20, 20));
+
+
+        JLabel lblMessage = new JLabel("Accessing Dashboard...", SwingConstants.CENTER);
+        lblMessage.setFont(new Font("Arial", Font.PLAIN, 14));
+        lblMessage.setForeground(Color.DARK_GRAY);
+
+
+        JProgressBar progressBar = new JProgressBar();
+        progressBar.setIndeterminate(true);
+        progressBar.setPreferredSize(new Dimension(200, 8));
+        progressBar.setForeground(new Color(0, 123, 167));
+        progressBar.setBorder(BorderFactory.createEmptyBorder());
+
+
+        content.add(lblMessage, BorderLayout.CENTER);
+        content.add(progressBar, BorderLayout.SOUTH);
+
+
+        dialog.add(content);
+        return dialog;
+    }
+    private static void performStartupConnectionCheck() {
+        // Loop continuously until connected or user quits
+        while (true) {
+            try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection()) {
+                // If this line succeeds, we are connected!
+                if (conn != null && !conn.isClosed()) {
+                    System.out.println("✅ Startup Connection Check: SUCCESS");
+                    break; // Exit the loop and start the app
+                }
+            } catch (Exception e) {
+                System.out.println("❌ Startup Connection Check: FAILED (" + e.getMessage() + ")");
+
+
+                // Show Error Dialog with Options
+                String message = "Database Connection Failed!\n\n" +
+                        "Error: " + e.getMessage() + "\n\n" +
+                        "The application cannot start without a database connection.\n" +
+                        "Please configure the Server Settings.";
+
+
+                Object[] options = {"⚙ Open Server Settings", "Exit"};
+                int choice = JOptionPane.showOptionDialog(null, message,
+                        "Startup Error",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.ERROR_MESSAGE,
+                        null, options, options[0]);
+
+
+                if (choice == 0) {
+                    // User clicked "Open Server Settings"
+                    showServerSettings();
+                    // After this method returns (dialog closed), the loop runs again to RETRY the connection.
+                    loadPropertiesToSystem(); // Reload properties in case they were changed
+                } else {
+                    // User clicked "Exit" or closed window
+                    System.exit(0);
+                }
+            }
+        }
     }
     private static void createFallbackResidentDashboard(Resident resident) {
         JFrame dashboard = new JFrame("Resident Dashboard - " + resident.getFirstName());
@@ -579,7 +791,11 @@ public class Main {
         dashboard.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
 
+
+
         JPanel panel = new JPanel(new BorderLayout());
+
+
 
 
         JLabel welcomeLabel = new JLabel(
@@ -592,6 +808,8 @@ public class Main {
         panel.add(welcomeLabel, BorderLayout.NORTH);
 
 
+
+
         JButton logoutBtn = new JButton("Logout");
         logoutBtn.addActionListener(e -> {
             UserDataManager.getInstance().logout();
@@ -599,6 +817,8 @@ public class Main {
             main(new String[]{});
         });
         panel.add(logoutBtn, BorderLayout.SOUTH);
+
+
 
 
         dashboard.add(panel);
@@ -609,6 +829,8 @@ public class Main {
             currentFrame.dispose();
 
 
+
+
             // Try to open the userMain class for residents
             try {
                 Class<?> userMainClass = Class.forName("org.example.SerbisyongBarangay.userMain");
@@ -616,7 +838,11 @@ public class Main {
                 Object userMainInstance = constructor.newInstance();
 
 
+
+
                 System.out.println("✅ Resident dashboard (userMain) opened for: " + resident.getFirstName());
+
+
 
 
             } catch (ClassNotFoundException e) {
@@ -624,6 +850,8 @@ public class Main {
                 System.out.println("⚠️ userMain class not found, using fallback dashboard");
                 createFallbackResidentDashboard(resident);
             }
+
+
 
 
         } catch (Exception ex) {
@@ -642,9 +870,13 @@ public class Main {
             Object captainInstance = constructor.newInstance();
 
 
+
+
             // Make it visible
             javax.swing.JFrame captainFrame = (javax.swing.JFrame) captainInstance;
             captainFrame.setVisible(true);
+
+
 
 
         } catch (Exception ex) {
@@ -655,7 +887,7 @@ public class Main {
                     JOptionPane.ERROR_MESSAGE);
         }
     }
-    private static void openAdminDashboard(BarangayStaff staff) {
+    public void openAdminDashboard(BarangayStaff staff) {
         // Simply open the main container
         new org.example.Admin.AdminDashboard().setVisible(true);
     }
@@ -666,11 +898,9 @@ public class Main {
             java.lang.reflect.Constructor<?> constructor = captainClass.getDeclaredConstructor();
             Object captainInstance = constructor.newInstance();
 
-
             // Make it visible
             javax.swing.JFrame captainFrame = (javax.swing.JFrame) captainInstance;
             captainFrame.setVisible(true);
-
 
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -688,9 +918,13 @@ public class Main {
             Object secretaryInstance = constructor.newInstance();
 
 
+
+
             // Make it visible
             javax.swing.JFrame secretaryFrame = (javax.swing.JFrame) secretaryInstance;
             secretaryFrame.setVisible(true);
+
+
 
 
         } catch (Exception ex) {
@@ -702,4 +936,8 @@ public class Main {
         }
     }
 }
+
+
+
+
 

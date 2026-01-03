@@ -11,6 +11,23 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class StaffDAO {
+    public boolean updateRequestStatus(int requestId, String newStatus) {
+        String sql = "UPDATE document_request SET status = ?, updatedAt = NOW() WHERE request_id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, newStatus);
+            stmt.setInt(2, requestId);
+
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
     public void addReasonForRejection(int residentId, String reason, int staffId){
         String sql = """
                 SELECT requestId FROM document_request WHERE residentId = ? AND status = 'Pending'
@@ -52,7 +69,7 @@ public class StaffDAO {
     }
 
     public List<BarangayStaff> getAllStaff(){
-        String sql = "SELECT CONCAT(firstName, ' ',middleName,' ',lastName) AS fullName, staffId, position, contactNo, status,lastLogin,username,password,idNumber FROM barangay_staff";
+        String sql = "SELECT  firstName,middleName ,lastName,staffId, position, contactNo, status,lastLogin,username,password,idNumber FROM barangay_staff";
         List<BarangayStaff> staffList = new ArrayList<>();
         try(Connection conn = DatabaseConnection.getConnection();
             PreparedStatement pstmt = conn.prepareStatement(sql)){
@@ -60,7 +77,8 @@ public class StaffDAO {
             while(rs.next()){
                 BarangayStaff staff = new BarangayStaff();
                 staff.setStaffId(String.valueOf(rs.getInt("staffId")));
-                staff.setName(rs.getString("fullName"));
+                String m = rs.getString("middleName")!=null? rs.getString("middleName") :"";
+                staff.setName(rs.getString("firstName")+" " +m+" "+rs.getString("lastName"));
                 staff.setPosition(rs.getString("position"));
                 staff.setContactNo(rs.getString("contactNo"));
                 staff.setStatus(rs.getString("status"));
@@ -113,10 +131,9 @@ public class StaffDAO {
             e.printStackTrace();
         }
     }
-    public void documentDecisionByStatus(String status, int residentId, int staffId, String paymentStatus, int requestId,String remarks) {
-        // 1. FIX: Removed "CONCAT(resident...)"
-        // We filter ONLY by columns that exist inside 'document_request' (residentId)
-        String sql = "UPDATE document_request SET status = ?, staffId = ?, paymentStatus = ?,updatedAt=? , remarks =? WHERE residentId = ? AND requestId = ?";
+    public void documentDecisionByStatus(String status, int residentId, int staffId, String paymentStatus, int requestId, String remarks) {
+        // Remove updatedAt from the query - let the trigger handle it
+        String sql = "UPDATE document_request SET status = ?, staffId = ?, paymentStatus = ?, remarks = ? WHERE residentId = ? AND requestId = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -124,10 +141,9 @@ public class StaffDAO {
             pstmt.setString(1, status);
             pstmt.setInt(2, staffId);
             pstmt.setString(3, paymentStatus);
-            pstmt.setTimestamp(4, Timestamp.valueOf(LocalDateTime.now()));
-            pstmt.setString(5,remarks);
-            pstmt.setInt(6, residentId);
-            pstmt.setInt(7,requestId);
+            pstmt.setString(4, remarks);
+            pstmt.setInt(5, residentId);
+            pstmt.setInt(6, requestId);
 
             int rowsUpdated = pstmt.executeUpdate();
             System.out.println(status + " resident" + residentId + " ,req id" + requestId);
@@ -139,9 +155,9 @@ public class StaffDAO {
         }
     }
     public void updateResident(Resident resident, int staffId){
-        String sql = "UPDATE resident SET address=?,status=?,username=?,password=?,updatedAt=? WHERE residentId= ?";
+        String sql = "UPDATE resident SET address=?,status=?,username=?,password=?,updatedAt=?,purok=?,street = ?,civilStatus = ?,householdNo = ?, isPwd=? WHERE residentId= ?";
         SystemLogDAO logDAO = new SystemLogDAO();
-        logDAO.addLog("Updated personal info", resident.getName(),staffId);
+        logDAO.addLog("Updated Resident info", resident.getName(),staffId);
         try(Connection conn = DatabaseConnection.getConnection();
             PreparedStatement pstmt = conn.prepareStatement(sql)){
             pstmt.setString(1,resident.getAddress());
@@ -149,16 +165,22 @@ public class StaffDAO {
             pstmt.setString(3,resident.getUsername());
             pstmt.setString(4,resident.getPassword());
             pstmt.setTimestamp(5, Timestamp.valueOf(LocalDateTime.now()));
-            pstmt.setInt(6,resident.getResidentId());
+            pstmt.setString(6,resident.getPurok());
+            pstmt.setString(7,resident.getStreet());
+            pstmt.setString(8,resident.getCivilStatus());
+            pstmt.setString(9,resident.getHouseholdNo());
+            pstmt.setInt(10,resident.getIsPwd());
+            pstmt.setInt(11,resident.getResidentId());
             int rowsUpdated = pstmt.executeUpdate();
             System.out.println("✅ Updated " + rowsUpdated + " row(s) successfully!");
             System.out.println(resident);
         }catch(SQLException e) {
-
+            System.err.println("❌ Error updating: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     public BarangayStaff findStaffByPosition(String position){
-        String sql = "SELECT firstName,lastName,middleName,position,password,username,position FROM barangay_staff WHERE position = ?";
+        String sql = "SELECT firstName,lastName,middleName,position,password,username,position,staffId FROM barangay_staff WHERE position = ?";
         BarangayStaff staff = null;
         try(Connection conn = DatabaseConnection.getConnection();
             PreparedStatement pstmt = conn.prepareStatement(sql)){
@@ -172,7 +194,8 @@ public class StaffDAO {
                         .username(rs.getString("username"))
                         .password(rs.getString("password"))
                         .position(rs.getString("position"))
-                        .role("position")
+                        .staffId(rs.getString("staffId"))
+
                         .build();
             }
         }catch(SQLException e) {
@@ -194,6 +217,7 @@ public class StaffDAO {
                 staff = BarangayStaff.builder()
                         .firstName(rs.getString("firstName"))
                         .lastName(rs.getString("lastName"))
+                        .residentId(rs.getInt("residentId"))
                         .middleName(rs.getString("middleName"))
                         .username(rs.getString("username"))
                         .password(rs.getString("password"))
@@ -202,6 +226,8 @@ public class StaffDAO {
                         .staffId(rs.getString("staffId"))
                         .address(rs.getString("address"))
                         .suffix(rs.getString("suffix"))
+                        .status(rs.getString("status"))
+                        .email(rs.getString("email"))
                         .contactNo(rs.getString("contactNo"))
                         .sex(rs.getString("sex"))
                         .dob(rs.getDate("birthDate") != null ? rs.getDate("birthDate").toLocalDate() : null)
@@ -313,5 +339,40 @@ public class StaffDAO {
             e.printStackTrace();
             return false;
         }
+    }
+
+    public boolean updateStaffDetailsIfExists(Resident resident, int residentId) {
+        String sql = "UPDATE barangay_staff " +
+                "SET contactNo = ?, civilStatus = ?, address = ? WHERE residentId = ?";
+
+        try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, resident.getContactNo());
+            pstmt.setString(2, resident.getCivilStatus());
+            pstmt.setString(3, resident.getAddress());
+            pstmt.setInt(4, residentId);
+
+            int rowsAffected = pstmt.executeUpdate();
+
+
+            if (rowsAffected > 0) {
+
+                new SystemLogDAO().addLog(
+                        "Updated a Staff (Synced from Resident)",
+                        resident.getName(),
+                        Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId())
+                );
+                System.out.println("Synced Staff Info for Resident ID: " + residentId);
+                return true;
+            } else {
+
+                return false;
+            }
+
+        } catch (java.sql.SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 }

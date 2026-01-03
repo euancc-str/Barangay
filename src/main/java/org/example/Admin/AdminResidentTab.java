@@ -3,10 +3,12 @@ package org.example.Admin;
 
 import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.Documents.DocumentRequest;
+import org.example.HouseholdDAO;
 import org.example.ResidentDAO;
 import org.example.StaffDAO;
 import org.example.UserDataManager;
 import org.example.Users.Resident;
+import org.example.utils.AutoRefresher;
 
 import java.awt.*;
 import java.awt.event.*;
@@ -53,8 +55,118 @@ public class AdminResidentTab extends JPanel {
             JTableHeader rh = residentTable.getTableHeader();
             if (rh != null) rh.setForeground(Color.BLACK);
         }
+        addAncestorListener(new javax.swing.event.AncestorListener() {
+            @Override
+            public void ancestorAdded(javax.swing.event.AncestorEvent event) {
+
+                if (refresher != null) {
+                    refresher.stop();
+                }
+                refresher = new AutoRefresher("Resident", AdminResidentTab.this::loadResidentData);
+                System.out.println("Tab opened/active. Auto-refresh started.");
+            }
+
+            @Override
+            public void ancestorRemoved(javax.swing.event.AncestorEvent event) {
+
+                if (refresher != null) {
+                    refresher.stop();
+                    refresher = null;
+                }
+                System.out.println("Tab hidden/closed. Auto-refresh stopped.");
+            }
+
+            @Override
+            public void ancestorMoved(javax.swing.event.AncestorEvent event) { }
+        });
+    }
+    private AutoRefresher refresher;
+
+    private javax.swing.Timer lightTimer;
+    private static volatile long lastGlobalUpdate = System.currentTimeMillis();
+    private void startLightPolling() {
+        lightTimer = new javax.swing.Timer(3000, e -> { // Every 3 seconds
+            if (residentTable != null && residentTable.getSelectedRow() == -1) {
+                // Just check a simple "last updated" flag
+                checkLightUpdate();
+            }
+        });
+        lightTimer.start();
     }
 
+    private void checkLightUpdate() {
+        // Quick query - just get the latest timestamp
+        new SwingWorker<Long, Void>() {
+            @Override
+            protected Long doInBackground() throws Exception {
+                String sql = "SELECT UNIX_TIMESTAMP(MAX(GREATEST(" +
+                        "COALESCE(updatedAt, '1970-01-01'), " +
+                        "COALESCE(createdAt, '1970-01-01')" +
+                        "))) as last_ts FROM resident";
+
+                try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+                     java.sql.Statement stmt = conn.createStatement()) {
+
+                    java.sql.ResultSet rs = stmt.executeQuery(sql);
+                    if (rs.next()) {
+                        return rs.getLong("last_ts") * 1000L; // Convert to milliseconds
+                    }
+                }
+                return 0L;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    long dbTimestamp = get();
+                    if (dbTimestamp > lastGlobalUpdate) {
+                        lastGlobalUpdate = dbTimestamp;
+                        loadResidentData();
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+// Add these methods to your AdminResidentTab class:
+
+    private void addNameValidation(JTextField textField) {
+        textField.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyTyped(KeyEvent e) {
+                char c = e.getKeyChar();
+                String currentText = textField.getText();
+
+                // Allow letters (including international), spaces, hyphens, and apostrophes
+                // Also allow backspace, delete, tab, and enter
+                if (!isValidNameChar(c) &&
+                        c != KeyEvent.VK_BACK_SPACE &&
+                        c != KeyEvent.VK_DELETE &&
+                        c != KeyEvent.VK_TAB &&
+                        c != KeyEvent.VK_ENTER) {
+                    e.consume(); // Ignore the key press
+                    Toolkit.getDefaultToolkit().beep(); // Optional: sound feedback
+                }
+            }
+
+            private boolean isValidNameChar(char c) {
+                // Allow letters (including international characters), spaces, hyphens, and apostrophes
+                return Character.isLetter(c) ||
+                        c == ' ' ||
+                        c == '-' ||
+                        c == '\'' ||
+                        c == '.'; // Allow dot for initials
+            }
+        });
+    }
+
+    private void enforceLetterOnlyOnNames(JTextField firstNameField, JTextField middleNameField, JTextField lastNameField) {
+        // Add validation to each field
+        addNameValidation(firstNameField);
+        addNameValidation(middleNameField);
+        addNameValidation(lastNameField);
+    }
     public void loadResidentData() {
         new SwingWorker<List<Resident>, Void>() {
             @Override
@@ -188,6 +300,7 @@ public class AdminResidentTab extends JPanel {
 
         JTextField txtName = createStyledTextField(name);
         addStyledRow(detailsPanel, "Full Name:", txtName);
+        addNameValidation(txtName);
         txtName.setEditable(false);
         String[] genders = new SystemConfigDAO().getOptionsNature("sex");
         JComboBox<String> cbGender = new JComboBox<>(genders);
@@ -209,9 +322,18 @@ public class AdminResidentTab extends JPanel {
         purok.setSelectedItem(residentData.getPurok());
         JTextField street = createStyledTextField("");
         addStyledRow(detailsPanel, "Street:", street);
+        JTextField household = createStyledTextField("");
+        addStyledRow(detailsPanel, "Household Num:", household);
+        household.setText(residentData.getHouseholdNo());
         street.setText(residentData.getStreet());
         // --- 2. DATE OF BIRTH & AUTO AGE LOGIC ---
-
+        JCheckBox chkPwd = new JCheckBox("Is Person with Disability (PWD)?");
+        chkPwd.setBackground(Color.WHITE);
+        chkPwd.setFont(new Font("Arial", Font.PLAIN, 14));
+        chkPwd.setFocusPainted(false);
+        if (residentData.getIsPwd() == 1) {
+            chkPwd.setSelected(true);
+        }
         // Age Field (Read Only)
         JTextField txtContact = createStyledTextField("");
         ((javax.swing.text.AbstractDocument) txtContact.getDocument()).setDocumentFilter(new PhoneDocumentFilter());
@@ -223,6 +345,7 @@ public class AdminResidentTab extends JPanel {
         JComboBox<String> cbcivilStatus = new JComboBox<>(civilStatus);
         cbcivilStatus.setBackground(Color.WHITE);
         addStyledRow(detailsPanel,"Civil status:",cbcivilStatus);
+        addStyledRow(detailsPanel, "PWD Status:", chkPwd);
         cbcivilStatus.setSelectedItem(residentData.getCivilStatus());
         detailsPanel.add(Box.createVerticalStrut(15));
         detailsPanel.add(Box.createVerticalStrut(10));
@@ -242,22 +365,21 @@ public class AdminResidentTab extends JPanel {
 
         JButton btnSave = createRoundedButton("Save Changes", BTN_UPDATE_COLOR);
         btnSave.setPreferredSize(new Dimension(200, 45));
-
-        btnSave.addActionListener(e -> {
+          btnSave.addActionListener(e -> {
 
             if (txtName.getText().trim().isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "Name cannot be empty.", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-
-
-            if(address.length() < 10){
-                JOptionPane.showMessageDialog(dialog, "Address Length should not be less than 10", "Error", JOptionPane.ERROR_MESSAGE);
+            if(household.getText().trim().isEmpty()){
+                JOptionPane.showMessageDialog(dialog, "household cannot be empty.", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-
-
-
+              if (txtContact.getText().length() != 11) {
+                  JOptionPane.showMessageDialog(dialog, "Phone number must be exactly 11 digits (09...)", "Error", JOptionPane.ERROR_MESSAGE);
+                  return;
+              }
+            int isPwdValue = chkPwd.isSelected() ? 1 : 0;
             int confirm = JOptionPane.showConfirmDialog(dialog, "Save changes?", "Confirm", JOptionPane.YES_NO_OPTION);
             if(confirm == JOptionPane.YES_OPTION) {
                 // Update Table Model
@@ -272,13 +394,20 @@ public class AdminResidentTab extends JPanel {
                         .street(street.getText())
                         .purok(purok.getSelectedItem().toString())
                         .contactNo(txtContact.getText())
+                        .address(txtAddress.getText())
+                        .name(name)
+                        .householdNo(household.getText())
+                        .isPwd(isPwdValue)
                         .civilStatus(cbcivilStatus.getSelectedItem().toString())
+                        .age(Integer.parseInt(age))
                         .build();
-
+                new StaffDAO().updateStaffDetailsIfExists(resident,resident.getResidentId());
                new StaffDAO().updateResident(resident,
                        Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
 
-                   dialog.dispose();
+                logDAO.addLog("Updated a Resident", name, Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
+
+                dialog.dispose();
             }
         });
 
@@ -312,7 +441,7 @@ public class AdminResidentTab extends JPanel {
         JComboBox<String> cbGender = new JComboBox<>(genders);
         cbGender.setBackground(Color.WHITE);
 
-        JTextField txtAddress = createStyledTextField("");
+        JTextField txtAddress = createStyledTextField("Barangay Alawihao ");
         String [] dao = new SystemConfigDAO().getOptionsNature("purok");
 
         JComboBox<String> purok = new JComboBox<>(dao);
@@ -327,7 +456,10 @@ public class AdminResidentTab extends JPanel {
         txtAge.setEditable(false); // Prevent manual typing
         txtAge.setBackground(new Color(245, 245, 245)); // Grey out slightly
 
-
+        JCheckBox chkPwd = new JCheckBox("Is Person with Disability (PWD)?");
+        chkPwd.setBackground(Color.WHITE);
+        chkPwd.setFont(new Font("Arial", Font.PLAIN, 14));
+        chkPwd.setFocusPainted(false);
         // Date Components
         String[] months = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
         JComboBox<String> cbMonth = new JComboBox<>(months);
@@ -370,6 +502,9 @@ public class AdminResidentTab extends JPanel {
 
                 // Calculate Age
                 int age = Period.between(birthDate, now).getYears();
+                if (age >= 60) {
+                    chkPwd.setSelected(true); // Auto-check if 60+
+                }
 
                 // Update Field
                 if (age < 0) {
@@ -394,6 +529,7 @@ public class AdminResidentTab extends JPanel {
         String[] civilStatus = new SystemConfigDAO().getOptionsNature("civilStatus");
         JComboBox<String> cbcivilStatus = new JComboBox<>(civilStatus);
         cbcivilStatus.setBackground(Color.WHITE);
+        JTextField household = createStyledTextField("");
 
         // --- 3. ADD TO PANEL ---
         addStyledRow(formPanel, "First Name:", txtName);
@@ -407,11 +543,12 @@ public class AdminResidentTab extends JPanel {
 
         addStyledRow(formPanel, "Address:", txtAddress);
         addStyledRow(formPanel,"Purok",purok);
+        addStyledRow(formPanel, "Household Num:", household);
         addStyledRow(formPanel,"Street",street);
         addStyledRow(formPanel, "Civil status:",cbcivilStatus);
+        addStyledRow(formPanel, "PWD Status:", chkPwd);
+        enforceLetterOnlyOnNames(txtName, middleName, lastName);
 
-
-        // --- 4. SAVE BUTTON ---
         JButton btnSave = createRoundedButton("Register", BTN_ADD_COLOR);
         btnSave.addActionListener(e -> {
             String contact = txtContact.getText().trim();
@@ -426,23 +563,26 @@ public class AdminResidentTab extends JPanel {
                         "Resident '" + fName + " " + lName + "' is already registered!",
                         "Duplicate Entry",
                         JOptionPane.WARNING_MESSAGE);
-                return; // Stop here, do not save!
+                return;
+            }
+
+            if(street1.trim().isEmpty() && street1.length() < 5){
+                JOptionPane.showMessageDialog(dialog, "street Length should not be empty and less than 5", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
             }
             if (!mName.isEmpty()) {
-                // Regex: Matches exactly ONE letter (a-z or A-Z), optionally followed by a dot
                 if (!mName.matches("^[a-zA-Z]\\.?$")) {
                     JOptionPane.showMessageDialog(dialog,
                             "Middle Initial must be a single letter (e.g., 'A' or 'A.').",
                             "Invalid Format",
                             JOptionPane.WARNING_MESSAGE);
-                    return; // Stop here
+                    return;
                 }
 
-                // Format: Remove any existing dot, uppercase the letter, then append a dot
                 mName = mName.replace(".", "").toUpperCase() + ".";
             }
-            if(address.length() < 5){
-                JOptionPane.showMessageDialog(dialog, "Address Length should not be less than 10", "Error", JOptionPane.ERROR_MESSAGE);
+            if(address.length() < 5 && address.trim().isEmpty()){
+                JOptionPane.showMessageDialog(dialog, "Address Length should not be less than 5", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             // 1. Check if Empty
@@ -457,6 +597,10 @@ public class AdminResidentTab extends JPanel {
                 return;
             }
             // 1. VALIDATION (Name Check)
+            if(household.getText().trim().isEmpty()){
+                JOptionPane.showMessageDialog(dialog, "household cannot be empty.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
             if (txtName.getText().trim().isEmpty() || lastName.getText().trim().isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "Names cannot be empty.", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
@@ -468,7 +612,7 @@ public class AdminResidentTab extends JPanel {
                 JOptionPane.showMessageDialog(dialog, "Please select a valid birth date.", "Invalid Date", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-
+            int isPwdValue = chkPwd.isSelected() ? 1 : 0;
             try {
                 // 3. GET DATE FROM DROPDOWNS
                 String mStr = (String) cbMonth.getSelectedItem();
@@ -502,7 +646,8 @@ public class AdminResidentTab extends JPanel {
                         .age(Integer.parseInt(ageText))
                         .dob(birthDate)
                         .address(txtAddress.getText())
-
+                        .isPwd(isPwdValue)
+                        .householdNo(household.getText())
                         .contactNo(txtContact.getText())
                         .civilStatus(cbcivilStatus.getSelectedItem().toString())
                         .position("Resident")
@@ -515,10 +660,21 @@ public class AdminResidentTab extends JPanel {
                         .build();
 
                 // 6. SAVE TO DB
-                SystemLogDAO logDAO = new SystemLogDAO();
-                logDAO.addLog("Added a resident", resident.getName(), Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
-                UserDataManager.getInstance().addResident(resident);
 
+                logDAO.addLog("Added a Resident", resident.getName(), Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
+                UserDataManager.getInstance().addResident(resident);
+                HouseholdDAO householdDAO = new org.example.HouseholdDAO();
+                String hNo = household.getText().trim();
+                if (!hNo.isEmpty()) {
+                    boolean updated = householdDAO.incrementMemberCount(hNo);
+                    if (updated) {
+                        System.out.println("Household " + hNo + " count increased.");
+                    } else {
+                        // Optional: Handle case where household doesn't exist yet
+                        // You might want to ask to create it, or just ignore for now
+                        System.out.println("Household " + hNo + " not found. Count not updated.");
+                    }
+                }
                 JOptionPane.showMessageDialog(dialog, "Resident Added Successfully!");
                 dialog.dispose();
 
@@ -573,7 +729,7 @@ public class AdminResidentTab extends JPanel {
     // =========================================================================
     // GUI SETUP
     // =========================================================================
-
+    SystemLogDAO logDAO = new SystemLogDAO();
     private JPanel createContentPanel() {
         JPanel contentPanel = new JPanel();
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));

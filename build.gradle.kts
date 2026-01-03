@@ -16,6 +16,8 @@ dependencies {
     compileOnly("org.projectlombok:lombok:1.18.42")
     annotationProcessor("org.projectlombok:lombok:1.18.42")
     implementation("com.mysql:mysql-connector-j:9.1.0")
+    implementation("com.toedter:jcalendar:1.4")
+    implementation("com.github.librepdf:openpdf:1.3.30")
 }
 
 

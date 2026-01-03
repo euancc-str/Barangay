@@ -6,6 +6,7 @@ import org.example.StaffDAO;
 import org.example.UserDataManager;
 import org.example.Users.BarangayStaff;
 import org.example.Users.Resident;
+import org.example.utils.AutoRefresher;
 
 import java.awt.*;
 import java.awt.event.*;
@@ -37,8 +38,79 @@ public class AdminStaffTab extends JPanel {
         add(createHeaderPanel(), BorderLayout.NORTH);
         add(new JScrollPane(createContentPanel()), BorderLayout.CENTER);
         loadStaffData();
+        addAncestorListener(new javax.swing.event.AncestorListener() {
+            @Override
+            public void ancestorAdded(javax.swing.event.AncestorEvent event) {
+
+                if (refresher != null) {
+                    refresher.stop();
+                }
+                refresher = new AutoRefresher("Staff", AdminStaffTab.this::loadStaffData);
+                System.out.println("Tab opened/active. Auto-refresh started.");
+            }
+
+            @Override
+            public void ancestorRemoved(javax.swing.event.AncestorEvent event) {
+
+                if (refresher != null) {
+                    refresher.stop();
+                    refresher = null;
+                }
+                System.out.println("Tab hidden/closed. Auto-refresh stopped.");
+            }
+
+            @Override
+            public void ancestorMoved(javax.swing.event.AncestorEvent event) { }
+        });
+    }
+    private AutoRefresher refresher;
+    private javax.swing.Timer lightTimer;
+    private static volatile long lastGlobalUpdate = System.currentTimeMillis();
+    private void startLightPolling() {
+        lightTimer = new javax.swing.Timer(3000, e -> { // Every 3 seconds
+            if (staffTable != null && staffTable.getSelectedRow() == -1) {
+                // Just check a simple "last updated" flag
+                checkLightUpdate();
+            }
+        });
+        lightTimer.start();
     }
 
+    private void checkLightUpdate() {
+        // Quick query - just get the latest timestamp
+        new SwingWorker<Long, Void>() {
+            @Override
+            protected Long doInBackground() throws Exception {
+                String sql = "SELECT UNIX_TIMESTAMP(MAX(GREATEST(" +
+                        "COALESCE(updatedAt, '1970-01-01'), " +
+                        "COALESCE(createdAt, '1970-01-01')" +
+                        "))) as last_ts FROM barangay_staff";
+
+                try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+                     java.sql.Statement stmt = conn.createStatement()) {
+
+                    java.sql.ResultSet rs = stmt.executeQuery(sql);
+                    if (rs.next()) {
+                        return rs.getLong("last_ts") * 1000L; // Convert to milliseconds
+                    }
+                }
+                return 0L;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    long dbTimestamp = get();
+                    if (dbTimestamp > lastGlobalUpdate) {
+                        lastGlobalUpdate = dbTimestamp;
+                       loadStaffData();
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }.execute();
+    }
     // =========================================================================
     // DATA LOADING
     // =========================================================================
@@ -87,7 +159,6 @@ public class AdminStaffTab extends JPanel {
 
         int modelRow = staffTable.convertRowIndexToModel(selectedRow);
 
-        // 1. Get the ID safely
         String idStr = String.valueOf(tableModel.getValueAt(modelRow, 0));
         int staffId = Integer.parseInt(idStr);
 
@@ -126,26 +197,28 @@ public class AdminStaffTab extends JPanel {
         JTextField txtId = createStyledTextField(staff.getStaffId());
         txtId.setEditable(false);
         txtId.setBackground(new Color(250, 250, 250));
+        JTextField txtResId = createStyledTextField(String.valueOf(staff.getResidentId()));
+        txtResId.setEditable(false);
+        txtResId.setBackground(new Color(250, 250, 250));
         addStyledRow(detailsPanel, "Staff ID:", txtId);
-
+        addStyledRow(detailsPanel, "Resident ID:", txtResId);
         // --- 2. SPLIT NAMES & RESIDENT LINK ---
         JTextField txtFirst = createStyledTextField(staff.getFirstName());
         JTextField txtMiddle = createStyledTextField(staff.getMiddleName() != null ? staff.getMiddleName() : "");
         JTextField txtLast = createStyledTextField(staff.getLastName());
         JTextField txtSuffix = createStyledTextField(staff.getSuffix() != null ? staff.getSuffix() : "");
-
         JTextField txtContact = createStyledTextField(staff.getContactNo());
         JTextField txtAddress = createStyledTextField(staff.getAddress() != null ? staff.getAddress() : "");
         JTextField txtEmail = createStyledTextField(staff.getEmail() != null ? staff.getEmail() : "");
-
-        // Link Button
+        JTextField txtSex = createStyledTextField(staff.getSex() != null ? staff.getSex() : "");
+        JTextField txtCivilStatus = createStyledTextField(staff.getCivilStatus() != null ? staff.getCivilStatus() : "");
         JButton btnLink = new JButton("<html><center>Select from<br>Resident List</center></html>");
         btnLink.setFont(new Font("Arial", Font.PLAIN, 10));
         btnLink.setFocusPainted(false);
         btnLink.setBackground(new Color(240, 240, 240));
 
-        // LINKING LOGIC: Pass all fields to be auto-filled
-        btnLink.addActionListener(e -> openResidentSelector(dialog, txtFirst, txtMiddle, txtLast, txtSuffix, txtContact, txtAddress, txtEmail));
+
+        btnLink.addActionListener(e -> openResidentSelector(dialog, txtFirst, txtMiddle, txtLast, txtSuffix, txtContact, txtAddress, txtEmail,txtSex,txtCivilStatus,txtResId));
 
         JPanel nameHeader = new JPanel(new BorderLayout());
         nameHeader.setBackground(Color.WHITE);
@@ -158,11 +231,14 @@ public class AdminStaffTab extends JPanel {
         addStyledRow(detailsPanel, "Last Name:", txtLast);
         addStyledRow(detailsPanel, "Suffix:", txtSuffix);
         addStyledRow(detailsPanel, "Address:", txtAddress);
-
+        addStyledRow(detailsPanel, "Sex:", txtSex);
+        addStyledRow(detailsPanel, "Civil status:", txtCivilStatus);
+        txtSex.setEditable(false);
+        txtCivilStatus.setEditable(false);
         // --- 3. POSITION & TERM LIMIT ---
-        String[] positions = {"Secretary", "Treasurer", "Brgy.Captain", "Admin"};
+        String[] positions = {"Brgy.Secretary", "Brgy.Treasurer", "Brgy.Captain", "Admin"};
         JComboBox<String> cbPosition = new JComboBox<>(positions);
-        cbPosition.setSelectedItem(staff.getPosition());
+        cbPosition.setSelectedItem(staff.getRole());
         cbPosition.setBackground(Color.WHITE);
         addStyledRow(detailsPanel, "Position:", cbPosition);
 
@@ -202,7 +278,7 @@ public class AdminStaffTab extends JPanel {
         detailsPanel.add(termWrapper);
         detailsPanel.add(Box.createVerticalStrut(10));
 
-        // --- 4. CONTACT & STATUS ---
+
         addStyledRow(detailsPanel, "Contact No:", txtContact);
         addStyledRow(detailsPanel, "Email:", txtEmail);
 
@@ -221,58 +297,64 @@ public class AdminStaffTab extends JPanel {
 
         mainPanel.add(new JScrollPane(detailsPanel), BorderLayout.CENTER);
 
-        // Buttons
+
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
         btnPanel.setBackground(Color.WHITE);
-
+        cbPosition.setEnabled(false);
         JButton btnCancel = createRoundedButton("Cancel", Color.GRAY);
         btnCancel.setPreferredSize(new Dimension(150, 45));
         btnCancel.addActionListener(e -> dialog.dispose());
 
         JButton btnSave = createRoundedButton("Save Changes", BTN_UPDATE_COLOR);
         btnSave.setPreferredSize(new Dimension(200, 45));
+        enforceLetterOnlyOnNames(txtFirst, txtMiddle, txtLast);
+// Inside showUpdateStaffDialog method...
 
-        // --- SAVE ACTION ---
         btnSave.addActionListener(e -> {
             // A. Get Inputs
             String newFirst = txtFirst.getText().trim();
             String newLast = txtLast.getText().trim();
+            String newMiddle = txtMiddle.getText().trim();
 
             String inputUser = txtUser.getText().trim();
             String inputPass = txtPass.getText().trim();
 
-            // B. Validation
+
             if (newFirst.isEmpty() || newLast.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "First and Last names are required.", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            String mName = txtMiddle.getText().trim();
-            if (!mName.isEmpty()) {
-                if (!mName.matches("^[a-zA-Z]\\.?$")) {
+
+
+            if (!newMiddle.isEmpty()) {
+                if (!newMiddle.matches("^[a-zA-Z]\\.?$")) {
                     JOptionPane.showMessageDialog(dialog,
                             "Middle Initial must be a single letter (e.g., 'A' or 'A.').",
                             "Invalid Format",
                             JOptionPane.WARNING_MESSAGE);
-                    return; // Stop here
+                    return;
                 }
-
-                // Format: Remove any existing dot, uppercase the letter, then append a dot
-                mName = mName.replace(".", "").toUpperCase() + ".";
+                newMiddle = newMiddle.replace(".", "").toUpperCase() + ".";
             }
 
-            // C. Credential Logic (Keep old if *****)
+
+            boolean nameChanged = !newFirst.equalsIgnoreCase(staff.getFirstName()) ||
+                    !newLast.equalsIgnoreCase(staff.getLastName());
+
+            // Prepare Credentials
+
             String finalUser = (!inputUser.equals("*****") && !inputUser.isEmpty()) ? inputUser : staff.getUsername();
             String finalPass = (!inputPass.equals("*****") && !inputPass.isEmpty()) ? inputPass : staff.getPassword();
 
-            // D. Captain Override Warning
             Object selectedPos = cbPosition.getSelectedItem();
             String posStr = (selectedPos != null) ? selectedPos.toString() : "";
 
-            if ("Brgy.Captain".equals(posStr)) {
+            // Captain Change Warning
+            if ("Brgy.Captain".equals(posStr) && nameChanged) {
                 int override = JOptionPane.showConfirmDialog(dialog,
-                        "You are updating the BARANGAY CAPTAIN.\n" +
-                                "The new name '" + newFirst + " " + newLast + "' will replace the current captain.\n" +
-                                "Term: " + txtTermStart.getText() + " to " + txtTermEnd.getText() + ".\n\nProceed?",
+                        "You are replacing the BARANGAY CAPTAIN.\n" +
+                                "Current: " + staff.getFirstName() + " " + staff.getLastName() + "\n" +
+                                "New: " + newFirst + " " + newLast + "\n\nProceed?",
                         "Confirm Leadership Change", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
                 if (override != JOptionPane.YES_OPTION) return;
             }
@@ -280,32 +362,45 @@ public class AdminStaffTab extends JPanel {
             Object selectedStatus = cbStatus.getSelectedItem();
             String statusStr = (selectedStatus != null) ? selectedStatus.toString() : "Active";
 
+            // D. Build the Updated Object
             BarangayStaff updatedStaff = BarangayStaff.builder()
-                    .staffId(staff.getStaffId()) // Primary Key
+                    .staffId(staff.getStaffId())
                     .firstName(newFirst)
-                    .middleName(txtMiddle.getText().trim())
+                    .residentId(Integer.parseInt(txtResId.getText()))
+                    .middleName(newMiddle)
                     .lastName(newLast)
                     .suffix(txtSuffix.getText().trim())
                     .position(posStr)
-                    .role(posStr)
+                    .sex(txtSex.getText())
                     .contactNo(txtContact.getText().trim())
                     .email(txtEmail.getText().trim())
                     .username(finalUser)
                     .password(finalPass)
                     .status(statusStr)
                     .address(txtAddress.getText().trim())
-                    // Keep existing fields we didn't edit
                     .dob(staff.getDob())
                     .citizenship(staff.getCitizenship())
-                    .civilStatus(staff.getCivilStatus())
+                    .civilStatus(txtCivilStatus.getText())
                     .department(staff.getDepartment())
                     .lastLogin(staff.getLastLogin())
                     .idNumber(staff.getIdNumber())
                     .build();
 
-            // F. Call Your Method (NO LOGS as requested)
-            UserDataManager.getInstance().updateStaff(updatedStaff);
-            addStaffAsResident(staff);
+
+            UserDataManager.getInstance().updateStaffUsindId(updatedStaff);
+
+
+            if (nameChanged) {
+                int choice = JOptionPane.showConfirmDialog(dialog,
+                        "The staff member has changed to " + newFirst + " " + newLast + ".\n" +
+                                "Do you want to register them as a Resident also?",
+                        "Add to Residents?", JOptionPane.YES_NO_OPTION);
+
+                if (choice == JOptionPane.YES_OPTION) {
+                    addStaffAsResident(updatedStaff);
+                }
+            }
+            logDAO.addLog("Updated staff",staff.getFirstName() + " " + staff.getLastName(), Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
             JOptionPane.showMessageDialog(dialog, "Staff updated successfully!");
             loadStaffData(); // Refresh Table
             dialog.dispose();
@@ -317,6 +412,42 @@ public class AdminStaffTab extends JPanel {
 
         dialog.add(mainPanel);
         dialog.setVisible(true);
+    }
+    private void addNameValidation(JTextField textField) {
+        textField.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyTyped(KeyEvent e) {
+                char c = e.getKeyChar();
+                String currentText = textField.getText();
+
+                // Allow letters (including international), spaces, hyphens, and apostrophes
+                // Also allow backspace, delete, tab, and enter
+                if (!isValidNameChar(c) &&
+                        c != KeyEvent.VK_BACK_SPACE &&
+                        c != KeyEvent.VK_DELETE &&
+                        c != KeyEvent.VK_TAB &&
+                        c != KeyEvent.VK_ENTER) {
+                    e.consume(); // Ignore the key press
+                    Toolkit.getDefaultToolkit().beep(); // Optional: sound feedback
+                }
+            }
+
+            private boolean isValidNameChar(char c) {
+                // Allow letters (including international characters), spaces, hyphens, and apostrophes
+                return Character.isLetter(c) ||
+                        c == ' ' ||
+                        c == '-' ||
+                        c == '\'' ||
+                        c == '.'; // Allow dot for initials
+            }
+        });
+    }
+
+    private void enforceLetterOnlyOnNames(JTextField firstNameField, JTextField middleNameField, JTextField lastNameField) {
+        // Add validation to each field
+        addNameValidation(firstNameField);
+        addNameValidation(middleNameField);
+        addNameValidation(lastNameField);
     }
     public void addStaffAsResident(BarangayStaff staff){
         java.sql.Date staffDob = Date.valueOf(staff.getDob());
@@ -332,6 +463,9 @@ public class AdminStaffTab extends JPanel {
                 .contactNo(staff.getContactNo())
                 .email(staff.getEmail())
                 .status("Active")
+                 .purok("Purok 1")
+                 .civilStatus(staff.getCivilStatus())
+                 .street("Dasmarinas street")
                 .gender(staff.getSex())
                 .address(staff.getAddress())
                 .dob(finalDob.toLocalDate())
@@ -353,7 +487,7 @@ public class AdminStaffTab extends JPanel {
     // =========================================================================
     // RESIDENT SELECTOR (Auto-Fill Fields)
     // =========================================================================
-    private void openResidentSelector(JDialog parent, JTextField first, JTextField middle, JTextField last, JTextField suffix, JTextField contact, JTextField address, JTextField email) {
+    private void openResidentSelector(JDialog parent, JTextField first, JTextField middle, JTextField last, JTextField suffix, JTextField contact, JTextField address, JTextField email,JTextField gender,JTextField cvStatus,JTextField residentId) {
         JDialog resDialog = new JDialog(parent, "Select Resident", true);
         resDialog.setSize(600, 500);
         resDialog.setLocationRelativeTo(parent);
@@ -361,13 +495,13 @@ public class AdminStaffTab extends JPanel {
         ResidentDAO rDao = new ResidentDAO();
         java.util.List<Resident> residents = rDao.getAllResidents();
 
-        String[] cols = {"ID", "Name", "Address"};
+        String[] cols = {"ID", "Name", "Address","Gender"};
         DefaultTableModel resModel = new DefaultTableModel(cols, 0) {
             public boolean isCellEditable(int r, int c) { return false; }
         };
 
         for(Resident r : residents) {
-            resModel.addRow(new Object[]{r.getResidentId(), r.getFirstName() + " " + r.getLastName(), r.getAddress()});
+            resModel.addRow(new Object[]{r.getResidentId(), r.getFirstName() + " " + r.getLastName(), r.getAddress(),r.getGender()});
         }
 
         JTable resTable = new JTable(resModel);
@@ -395,16 +529,16 @@ public class AdminStaffTab extends JPanel {
                 // Fetch Full Resident
                 Resident r = rDao.findResidentById(resId);
                 if (r != null) {
+                    residentId.setText(String.valueOf(resId));
                     first.setText(r.getFirstName());
                     middle.setText(r.getMiddleName() != null ? r.getMiddleName() : "");
                     last.setText(r.getLastName());
                     suffix.setText(r.getSuffix() != null ? r.getSuffix() : "");
                     address.setText(r.getAddress());
-
-                    // Added Contact & Email as requested
                     contact.setText(r.getContactNo() != null ? r.getContactNo() : "");
                     email.setText(r.getEmail() != null ? r.getEmail() : "");
-
+                    gender.setText(r.getGender() != null ? r.getGender():"");
+                    cvStatus.setText(r.getCivilStatus()!=null?r.getCivilStatus():"");
                     resDialog.dispose();
                 }
             } else {
@@ -646,7 +780,7 @@ public class AdminStaffTab extends JPanel {
         JTextField txtName = createStyledTextField("");
         JTextField txtLastName = createStyledTextField("");
 
-        String[] positions = {"Secretary", "Treasurer", "Brgy.Captain","Admin"};
+        String[] positions = {"Brgy.Secretary", "Brgy.Treasurer", "Brgy.Captain","Admin"};
         JComboBox<String> cbPosition = new JComboBox<>(positions);
         cbPosition.setSelectedIndex(3);
         cbPosition.setEnabled(false);
@@ -754,6 +888,7 @@ public class AdminStaffTab extends JPanel {
 
         // --- 4. SAVE BUTTON ---
         JButton btnSave = createRoundedButton("Create Account", BTN_ADD_COLOR);
+        enforceLetterOnlyOnNames(txtName, txtMiddleName, txtLastName);
         btnSave.addActionListener(e -> {
             // Validation
             if (txtName.getText().isEmpty() || txtLastName.getText().isEmpty()) {
@@ -794,12 +929,14 @@ public class AdminStaffTab extends JPanel {
                 });
 
                 // Build Staff Object
+
+
                 BarangayStaff staff = BarangayStaff.builder()
                         .firstName(txtName.getText())
                         .lastName(txtLastName.getText())
                         .position((String) cbPosition.getSelectedItem())
                         .age(age)
-                        .role((String) cbPosition.getSelectedItem())
+                        .role(mapPositionToRole(cbPosition.getSelectedItem().toString()))
                         .middleName(txtMiddleName.getText())
                         .dob(birthDate) // Use java.sql.Date for DB
                         .contactNo(txtContact.getText())
@@ -817,7 +954,7 @@ public class AdminStaffTab extends JPanel {
 
                 // Save to DB
                 UserDataManager.getInstance().addStaff(staff);
-                SystemLogDAO logDAO = new SystemLogDAO();
+
                 logDAO.addLog("Added staff",staff.getFirstName() + " " + staff.getLastName(), Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
                 JOptionPane.showMessageDialog(dialog, "Staff Account Created Successfully!");
                 dialog.dispose();
@@ -836,6 +973,22 @@ public class AdminStaffTab extends JPanel {
         dialog.add(btnPanel, BorderLayout.SOUTH);
         dialog.setVisible(true);
     }
+    SystemLogDAO logDAO = new SystemLogDAO();
+    private static String mapPositionToRole(String position) {
+        switch (position) {
+            case "Brgy.Captain":
+                return "Brgy.Captain";
+            case "Brgy.Secretary":
+                return "Brgy.Secretary";
+            case "Brgy.Treasurer":
+                return "Brgy.Treasurer";
+            case "Admin":
+                return "Admin";
+            default:
+                return "Resident";
+        }
+    }
+
     static class PlaceholderTextField extends JTextField {
         private final String placeholder;
         private boolean showingPlaceholder = true;

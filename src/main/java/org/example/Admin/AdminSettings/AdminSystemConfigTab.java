@@ -1,5 +1,6 @@
 package org.example.Admin.AdminSettings;
 
+
 import org.example.Admin.AdminSettings.ImageUtils;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -10,22 +11,34 @@ import java.awt.event.MouseEvent;
 import java.io.File;
 import java.util.List;
 
+
 public class AdminSystemConfigTab extends JPanel {
+
 
     private SystemConfigDAO dao;
 
+
     // Tab 1 Components
     private JTextField txtBrgyName;
-    private JLabel lblLogoPreview;      // Left Logo (Barangay)
-    private JLabel lblBigLogoPreview;   // Center/Watermark Logo
-    private JLabel lblDaetLogoPreview;  // NEW: Right Logo (Daet)
+    private JLabel lblLogoPreview; // Left Logo (Barangay)
+    private JLabel lblBigLogoPreview; // Center/Watermark Logo
+    private JLabel lblDaetLogoPreview; // Right Logo (Daet)
+
 
     // Tab 2 Components
     private JComboBox<String> cbCategory;
     private DefaultTableModel optionsModel;
     private JTable optionsTable;
+
+
+    // Buttons promoted to class level to control visibility
+    private JButton btnAddOption;
+    private JButton btnDelOption;
+
+
     private JTextField txtfullBrgyName;
     private AdminSettingsTab tab;
+
 
     // Modern Color Scheme
     private final Color PRIMARY_COLOR = new Color(59, 130, 246);
@@ -37,29 +50,36 @@ public class AdminSystemConfigTab extends JPanel {
     private final Color HEADER_BG = new Color(30, 41, 59);
     private final Color BORDER_COLOR = new Color(229, 231, 235);
 
+
     public AdminSystemConfigTab() {
         this.dao = new SystemConfigDAO();
         setLayout(new BorderLayout());
         setBackground(BACKGROUND_COLOR);
         this.tab = new AdminSettingsTab();
 
+
         add(createHeader(), BorderLayout.NORTH);
+
 
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.setFont(new Font("Arial", Font.BOLD, 14));
         tabbedPane.setBackground(BACKGROUND_COLOR);
         tabbedPane.setForeground(PRIMARY_COLOR);
 
+
         tabbedPane.addTab("General Settings", createGeneralPanel());
         tabbedPane.addTab("Manage Dropdowns", createOptionsPanel());
         tabbedPane.addTab("Document Fees", tab.createDocumentsPanel());
         tabbedPane.addTab("Positions & Roles", tab.createPositionsPanel());
 
+
         add(tabbedPane, BorderLayout.CENTER);
+
 
         // Load data on startup
         loadSettings();
     }
+
 
     // =======================================================
     // TAB 1: GENERAL SETTINGS
@@ -70,34 +90,43 @@ public class AdminSystemConfigTab extends JPanel {
         panel.setBackground(BACKGROUND_COLOR);
         panel.setBorder(new EmptyBorder(30, 50, 30, 50));
 
-        // Container for Logos (Grid Layout to show them side-by-side)
+
+        // Container for Logos
         JPanel logosContainer = new JPanel(new GridLayout(1, 3, 20, 0));
         logosContainer.setBackground(BACKGROUND_COLOR);
         logosContainer.setMaximumSize(new Dimension(Integer.MAX_VALUE, 220));
 
+
         // --- 1. BARANGAY LOGO (Left) ---
         logosContainer.add(createLogoUploader("Barangay Logo", "logoPath", lblLogoPreview = createLogoLabel()));
 
-        // --- 2. DAET LOGO (Right) - NEW! ---
-        logosContainer.add(createLogoUploader("Daet Logo (Right)", "daetLogoPath", lblDaetLogoPreview = createLogoLabel()));
+
+        // --- 2. DAET LOGO (Right) ---
+        logosContainer
+                .add(createLogoUploader("Daet Logo (Right)", "daetLogoPath", lblDaetLogoPreview = createLogoLabel()));
+
 
         // --- 3. BIG LOGO (Center/Watermark) ---
-        logosContainer.add(createLogoUploader("Main Interface Logo", "bigLogoPath", lblBigLogoPreview = createLogoLabel()));
+        logosContainer
+                .add(createLogoUploader("Main Interface Logo", "bigLogoPath", lblBigLogoPreview = createLogoLabel()));
+
 
         panel.add(logosContainer);
         panel.add(Box.createVerticalStrut(20));
+
 
         // --- TEXT FIELDS ---
         JPanel fieldsPanel = new JPanel(new GridLayout(0, 1, 0, 5));
         fieldsPanel.setBackground(CARD_COLOR);
         fieldsPanel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createTitledBorder(BorderFactory.createLineBorder(BORDER_COLOR), "Information"),
-                new EmptyBorder(10, 10, 10, 10)
-        ));
+                new EmptyBorder(10, 10, 10, 10)));
+
 
         txtBrgyName = createStyledField("");
         fieldsPanel.add(createStyledLabel("Barangay Name:"));
         fieldsPanel.add(txtBrgyName);
+
 
         // --- full barangay name ---
         JPanel fieldsPanel1 = new JPanel(new GridLayout(0, 1, 0, 5));
@@ -105,6 +134,7 @@ public class AdminSystemConfigTab extends JPanel {
         txtfullBrgyName = createStyledField("");
         fieldsPanel1.add(createStyledLabel("Barangay Hall Location:"));
         fieldsPanel1.add(txtfullBrgyName);
+
 
         // Save Button
         JButton btnSave = createModernButton("Save General Settings", SUCCESS_COLOR);
@@ -114,14 +144,17 @@ public class AdminSystemConfigTab extends JPanel {
             JOptionPane.showMessageDialog(this, "Settings Saved!");
         });
 
+
         panel.add(fieldsPanel);
         panel.add(Box.createVerticalStrut(10));
         panel.add(fieldsPanel1);
         panel.add(Box.createVerticalStrut(20));
         panel.add(btnSave);
 
+
         return panel;
     }
+
 
     // --- Helper to Create a Logo Box ---
     private JPanel createLogoUploader(String title, String configKey, JLabel previewLabel) {
@@ -129,27 +162,31 @@ public class AdminSystemConfigTab extends JPanel {
         logoPanel.setBackground(CARD_COLOR);
         logoPanel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createTitledBorder(BorderFactory.createLineBorder(BORDER_COLOR), title),
-                new EmptyBorder(10, 10, 10, 10)
-        ));
+                new EmptyBorder(10, 10, 10, 10)));
+
 
         JPanel content = new JPanel();
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setBackground(CARD_COLOR);
 
-        // Center the label
+
         previewLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         content.add(previewLabel);
         content.add(Box.createVerticalStrut(10));
+
 
         JButton btnUpload = createModernButton("Change", PRIMARY_COLOR);
         btnUpload.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnUpload.addActionListener(e -> handleLogoUpload(previewLabel, configKey));
 
+
         content.add(btnUpload);
         logoPanel.add(content);
 
+
         return logoPanel;
     }
+
 
     private JLabel createLogoLabel() {
         JLabel label = new JLabel();
@@ -161,93 +198,103 @@ public class AdminSystemConfigTab extends JPanel {
         return label;
     }
 
+
     private void handleLogoUpload(JLabel label, String configKey) {
         JFileChooser chooser = new JFileChooser();
         chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Images", "jpg", "png", "jpeg"));
 
+
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             File file = chooser.getSelectedFile();
-
-            // 1. Create unique filename
             String fileIdentifier = "system_" + configKey;
-
-            // 2. Save using ImageUtils (Now points to NETWORK if updated)
             String newPath = ImageUtils.saveImage(file, fileIdentifier);
 
-            if (newPath != null) {
-                // 3. Update Database with the filename
-                dao.updateConfig(configKey, newPath);
 
-                // 4. Update UI
+            if (newPath != null) {
+                dao.updateConfig(configKey, newPath);
                 ImageUtils.displayImage(label, newPath, 120, 120);
                 JOptionPane.showMessageDialog(this, "Image Updated Successfully!");
             }
         }
     }
 
+
     private void loadSettings() {
         new SwingWorker<Void, Void>() {
             String brgyName, locName;
-            String logoPath, bigLogoPath, daetLogoPath; // Added daetLogoPath
+            String logoPath, bigLogoPath, daetLogoPath;
+
 
             @Override
             protected Void doInBackground() throws Exception {
                 brgyName = dao.getConfig("barangay_name");
                 locName = dao.getConfig("defaultCtcPlace");
-
                 logoPath = dao.getConfig("logoPath");
                 bigLogoPath = dao.getConfig("bigLogoPath");
-
-                // NEW: Load Daet Logo
                 daetLogoPath = dao.getConfig("daetLogoPath");
-
                 return null;
             }
 
+
             @Override
             protected void done() {
-                if (txtBrgyName != null) txtBrgyName.setText(brgyName);
-                if (txtfullBrgyName != null) txtfullBrgyName.setText(locName);
-
-                // Display Images
-                if (lblLogoPreview != null) ImageUtils.displayImage(lblLogoPreview, logoPath, 120, 120);
-                if (lblBigLogoPreview != null) ImageUtils.displayImage(lblBigLogoPreview, bigLogoPath, 120, 120);
-
-                // NEW: Display Daet Logo
-                if (lblDaetLogoPreview != null) ImageUtils.displayImage(lblDaetLogoPreview, daetLogoPath, 120, 120);
+                if (txtBrgyName != null)
+                    txtBrgyName.setText(brgyName);
+                if (txtfullBrgyName != null)
+                    txtfullBrgyName.setText(locName);
+                if (lblLogoPreview != null)
+                    ImageUtils.displayImage(lblLogoPreview, logoPath, 120, 120);
+                if (lblBigLogoPreview != null)
+                    ImageUtils.displayImage(lblBigLogoPreview, bigLogoPath, 120, 120);
+                if (lblDaetLogoPreview != null)
+                    ImageUtils.displayImage(lblDaetLogoPreview, daetLogoPath, 120, 120);
             }
         }.execute();
     }
 
+
     // =======================================================
-    // TAB 2: OPTIONS MANAGER (Unchanged)
+    // TAB 2: OPTIONS MANAGER
     // =======================================================
     private JPanel createOptionsPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBackground(BACKGROUND_COLOR);
         panel.setBorder(new EmptyBorder(20, 20, 20, 20));
 
+
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT));
         toolbar.setBackground(BACKGROUND_COLOR);
 
-        cbCategory = new JComboBox<>(new String[]{"purok", "civilStatus","natureOfBusiness","sex"});
+
+        cbCategory = new JComboBox<>(dao.getOptionsCategory());
         cbCategory.setBackground(CARD_COLOR);
         cbCategory.setFont(new Font("Arial", Font.PLAIN, 14));
-        cbCategory.addActionListener(e -> loadOptions());
 
-        JButton btnAdd = createModernButton("Add Option", SUCCESS_COLOR);
-        btnAdd.addActionListener(e -> handleAddOption());
 
-        JButton btnDelete = createModernButton("Delete Selected", DANGER_COLOR);
-        btnDelete.addActionListener(e -> handleDeleteOption());
+        // Listener: When category changes, check visibility and load data
+        cbCategory.addActionListener(e -> {
+            updateButtonVisibility();
+            loadOptions();
+        });
+
+
+        // Initialize Buttons
+        btnAddOption = createModernButton("Add Option", SUCCESS_COLOR);
+        btnAddOption.addActionListener(e -> handleAddOption());
+
+
+        btnDelOption = createModernButton("Delete Selected", DANGER_COLOR);
+        btnDelOption.addActionListener(e -> handleDeleteOption());
+
 
         toolbar.add(createStyledLabel("Category: "));
         toolbar.add(cbCategory);
         toolbar.add(Box.createHorizontalStrut(20));
-        toolbar.add(btnAdd);
-        toolbar.add(btnDelete);
+        toolbar.add(btnAddOption);
+        toolbar.add(btnDelOption);
 
-        optionsModel = new DefaultTableModel(new String[]{"Value"}, 0);
+
+        optionsModel = new DefaultTableModel(new String[] { "Value" }, 0);
         optionsTable = new JTable(optionsModel);
         optionsTable.setRowHeight(35);
         optionsTable.setBackground(CARD_COLOR);
@@ -257,12 +304,40 @@ public class AdminSystemConfigTab extends JPanel {
         optionsTable.getTableHeader().setForeground(Color.BLACK);
         optionsTable.getTableHeader().setFont(new Font("Arial", Font.BOLD, 14));
 
+
+        // Initial setup
+        updateButtonVisibility();
         loadOptions();
+
 
         panel.add(toolbar, BorderLayout.NORTH);
         panel.add(new JScrollPane(optionsTable), BorderLayout.CENTER);
         return panel;
     }
+
+
+    // --- BUTTON VISIBILITY LOGIC ---
+    private void updateButtonVisibility() {
+        Object selected = cbCategory.getSelectedItem();
+        if (selected == null)
+            return;
+
+
+        // Convert to lowercase for safer comparison
+        String cat = selected.toString().trim().toLowerCase();
+
+
+        // LOGIC: Hide buttons if "Civil Status" (or "Sex") is selected
+        // Using "contains" covers "Civil Status", "civil status", etc.
+        boolean isRestricted = cat.contains("civil status") || cat.equals("sex");
+
+
+        if (btnAddOption != null)
+            btnAddOption.setVisible(!isRestricted);
+        if (btnDelOption != null)
+            btnDelOption.setVisible(!isRestricted);
+    }
+
 
     private void loadOptions() {
         String category = (String) cbCategory.getSelectedItem();
@@ -271,33 +346,84 @@ public class AdminSystemConfigTab extends JPanel {
             protected List<String> doInBackground() throws Exception {
                 return dao.getOptions(category);
             }
+
+
             @Override
             protected void done() {
                 try {
                     List<String> options = get();
                     if (optionsModel != null) {
                         optionsModel.setRowCount(0);
-                        for (String opt : options) optionsModel.addRow(new Object[]{opt});
+                        for (String opt : options)
+                            optionsModel.addRow(new Object[] { opt });
                     }
-                } catch (Exception e) { e.printStackTrace(); }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }.execute();
     }
 
+
+    // =======================================================
+    // ADD OPTION
+    // =======================================================
     private void handleAddOption() {
         String cat = (String) cbCategory.getSelectedItem();
+        if (cat == null)
+            return;
+
+
+        String catLower = cat.trim().toLowerCase();
         String val = JOptionPane.showInputDialog(this, "Add new " + cat + ":");
-        if (val != null && !val.trim().isEmpty()) {
-            dao.addOption(cat, val.trim());
-            loadOptions();
+
+
+        // 1. Validation: Block Null/Empty
+        if (val == null || val.trim().isEmpty()) {
+            if (val != null) {
+                JOptionPane.showMessageDialog(this, "Input cannot be empty.", "Validation Error",
+                        JOptionPane.WARNING_MESSAGE);
+            }
+            return;
         }
+
+
+        String input = val.trim();
+
+
+        // 2. Validation for Incident Type
+        if (catLower.contains("incident")) {
+            if (!input.matches("^[a-zA-Z\\sñÑ]+$")) {
+                JOptionPane.showMessageDialog(this,
+                        "Invalid Incident Type.\nInput must contain LETTERS ONLY.\n(No numbers or special characters allowed)",
+                        "Validation Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+        }
+
+
+        // 3. Validation for Purok
+        else if (catLower.contains("purok")) {
+            if (!input.matches("^[a-zA-Z0-9\\sñÑ]+$")) {
+                JOptionPane.showMessageDialog(this,
+                        "Invalid Purok Name.\nSpecial characters are not allowed.\n(Only Letters, Numbers, and Spaces)",
+                        "Validation Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+        }
+
+
+        dao.addOption(cat, input);
+        loadOptions();
     }
+
 
     private void handleDeleteOption() {
         int row = optionsTable.getSelectedRow();
         if (row != -1) {
             String val = (String) optionsModel.getValueAt(row, 0);
-            if(JOptionPane.showConfirmDialog(this, "Delete '" + val + "'?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION){
+            if (JOptionPane.showConfirmDialog(this, "Delete '" + val + "'?", "Confirm",
+                    JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                 dao.deleteOption(val);
                 loadOptions();
             }
@@ -305,6 +431,7 @@ public class AdminSystemConfigTab extends JPanel {
             JOptionPane.showMessageDialog(this, "Please select an item to delete.");
         }
     }
+
 
     // --- Visual Helpers ---
     private JTextField createStyledField(String text) {
@@ -316,12 +443,14 @@ public class AdminSystemConfigTab extends JPanel {
         return f;
     }
 
+
     private JLabel createStyledLabel(String text) {
         JLabel label = new JLabel(text);
         label.setFont(new Font("Arial", Font.BOLD, 14));
         label.setForeground(SECONDARY_COLOR);
         return label;
     }
+
 
     private JButton createModernButton(String text, Color color) {
         JButton button = new JButton(text);
@@ -332,11 +461,18 @@ public class AdminSystemConfigTab extends JPanel {
         button.setFocusPainted(false);
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
         button.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { button.setBackground(color.darker()); }
-            public void mouseExited(MouseEvent e) { button.setBackground(color); }
+            public void mouseEntered(MouseEvent e) {
+                button.setBackground(color.darker());
+            }
+
+
+            public void mouseExited(MouseEvent e) {
+                button.setBackground(color);
+            }
         });
         return button;
     }
+
 
     private JPanel createHeader() {
         JPanel h = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -349,3 +485,4 @@ public class AdminSystemConfigTab extends JPanel {
         return h;
     }
 }
+

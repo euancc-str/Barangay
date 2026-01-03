@@ -95,7 +95,6 @@ public class FinancialDAO {
     }
 
 
-    // Get all payments for a specific date
     public List<Object[]> getPaymentsByDate(Date date) {
         List<Object[]> list = new ArrayList<>();
         String sql = "SELECT r.requestId, " +
@@ -137,8 +136,6 @@ public class FinancialDAO {
         return list;
     }
 
-
-    // Get payments for today by default
     public List<Object[]> getTodaysPayments() {
         List<Object[]> list = new ArrayList<>();
         String sql = "SELECT r.requestId, " +
@@ -236,8 +233,6 @@ public class FinancialDAO {
         return list;
     }
 
-
-    // Get transactions for specific month and year
     public List<Object[]> getTransactionsByMonthYear(int year, int month) {
         List<Object[]> list = new ArrayList<>();
         String sql = "SELECT r.requestId, " +

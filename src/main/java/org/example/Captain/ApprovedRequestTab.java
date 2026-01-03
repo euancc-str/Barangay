@@ -1,15 +1,25 @@
 package org.example.Captain;
 
+import com.lowagie.text.Document;
+import com.lowagie.text.PageSize;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfWriter;
+import org.example.Admin.AdminSettings.AdminAssetTab;
 import org.example.Admin.SystemLogDAO;
 import org.example.Documents.DocumentRequest;
 import org.example.ResidentDAO;
 import org.example.StaffDAO;
 import org.example.UserDataManager;
 import org.example.Users.BarangayStaff;
+import org.example.utils.AutoRefresher;
 
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.print.PrinterException;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.text.MessageFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -59,8 +69,80 @@ public class ApprovedRequestTab extends JPanel {
         add(scrollPane, BorderLayout.CENTER);
 
         loadRequestData();
+        addAncestorListener(new javax.swing.event.AncestorListener() {
+            @Override
+            public void ancestorAdded(javax.swing.event.AncestorEvent event) {
 
+                if (refresher != null) {
+                    refresher.stop();
+                }
+                refresher = new AutoRefresher("Document", ApprovedRequestTab.this::loadRequestData);
+                System.out.println("Tab opened/active. Auto-refresh started.");
+            }
+
+            @Override
+            public void ancestorRemoved(javax.swing.event.AncestorEvent event) {
+
+                if (refresher != null) {
+                    refresher.stop();
+                    refresher = null;
+                }
+                System.out.println("Tab hidden/closed. Auto-refresh stopped.");
+            }
+
+            @Override
+            public void ancestorMoved(javax.swing.event.AncestorEvent event) { }
+        });
     }
+    private AutoRefresher refresher;
+    private javax.swing.Timer lightTimer;
+    private static volatile long lastGlobalUpdate = System.currentTimeMillis();
+    private void startLightPolling() {
+        lightTimer = new javax.swing.Timer(3000, e -> { // Every 3 seconds
+            if (requestTable != null && requestTable.getSelectedRow() == -1) {
+                // Just check a simple "last updated" flag
+                checkLightUpdate();
+            }
+        });
+        lightTimer.start();
+    }
+
+    private void checkLightUpdate() {
+        // Quick query - just get the latest timestamp
+        new SwingWorker<Long, Void>() {
+            @Override
+            protected Long doInBackground() throws Exception {
+                String sql = "SELECT UNIX_TIMESTAMP(MAX(GREATEST(" +
+                        "COALESCE(updatedAt, '1970-01-01'), " +
+                        "COALESCE(createdAt, '1970-01-01')" +
+                        "))) as last_ts FROM document_request";
+
+                try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+                     java.sql.Statement stmt = conn.createStatement()) {
+
+                    java.sql.ResultSet rs = stmt.executeQuery(sql);
+                    if (rs.next()) {
+                        return rs.getLong("last_ts") * 1000L; // Convert to milliseconds
+                    }
+                }
+                return 0L;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    long dbTimestamp = get();
+                    if (dbTimestamp > lastGlobalUpdate) {
+                        lastGlobalUpdate = dbTimestamp;
+                        loadRequestData();
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
     private boolean isLoading = false;
 
     public void loadRequestData() {
@@ -222,19 +304,81 @@ public class ApprovedRequestTab extends JPanel {
     }
 
     private void handlePrintTable() {
-        MessageFormat header = new MessageFormat("Document Requests Report - " + statusFilterBox.getSelectedItem());
-        MessageFormat footer = new MessageFormat("Page {0,number,integer}");
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Save Report as PDF");
+        int userSelection = fileChooser.showSaveDialog(this);
 
-        try {
-            boolean complete = requestTable.print(JTable.PrintMode.FIT_WIDTH, header, footer);
-            if (complete) {
-                JOptionPane.showMessageDialog(this, "Report Printed Successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File file = fileChooser.getSelectedFile();
+            if (!file.getAbsolutePath().endsWith(".pdf")) {
+                file = new File(file.getAbsolutePath() + ".pdf");
             }
-        } catch (PrinterException pe) {
-            JOptionPane.showMessageDialog(this, "Printing Failed: " + pe.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+
+            try {
+                // 1. Create Document (Landscape)
+                Document doc = new Document(PageSize.A4.rotate()); // ✅ Fixed: lowercase 'rotate()'
+                PdfWriter.getInstance(doc, new FileOutputStream(file));
+                doc.open();
+
+                // 2. Add Title
+                com.lowagie.text.Font titleFont = new com.lowagie.text.Font(com.lowagie.text.Font.HELVETICA, 18, com.lowagie.text.Font.BOLD);
+                Paragraph title = new Paragraph("Document Request Master List", titleFont);
+                title.setAlignment(com.lowagie.text.Element.ALIGN_CENTER);
+                title.setSpacingAfter(20);
+                doc.add(title);
+
+                // 3. Create Table
+                int colCount = requestTable.getColumnCount();
+                PdfPTable pdfTable = new PdfPTable(colCount);
+                pdfTable.setWidthPercentage(100);
+
+                // 4. Add Headers (✅ MATCHING YOUR TABLE COLORS)
+                // We use the same color: new Color(52, 152, 219)
+                java.awt.Color headerColor = new java.awt.Color(52, 152, 219);
+
+                com.lowagie.text.Font headerFont = new com.lowagie.text.Font(com.lowagie.text.Font.HELVETICA, 12, com.lowagie.text.Font.BOLD, java.awt.Color.BLACK);
+
+                for (int i = 0; i < colCount; i++) {
+                    PdfPCell cell = new PdfPCell(new Paragraph(requestTable.getColumnName(i), headerFont));
+                    cell.setBackgroundColor(headerColor); // ✅ Blue Background
+                    cell.setHorizontalAlignment(com.lowagie.text.Element.ALIGN_CENTER);
+                    cell.setVerticalAlignment(com.lowagie.text.Element.ALIGN_MIDDLE);
+                    cell.setPadding(8); // More padding like your table
+                    pdfTable.addCell(cell);
+                }
+
+                // 5. Add Rows
+                com.lowagie.text.Font rowFont = new com.lowagie.text.Font(com.lowagie.text.Font.HELVETICA, 10, com.lowagie.text.Font.NORMAL);
+
+                for (int i = 0; i < requestTable.getRowCount(); i++) {
+                    for (int j = 0; j < colCount; j++) {
+                        Object val = requestTable.getValueAt(i, j);
+                        String text = (val != null) ? val.toString() : "";
+
+                        PdfPCell cell = new PdfPCell(new Paragraph(text, rowFont));
+                        cell.setPadding(6);
+                        cell.setHorizontalAlignment(com.lowagie.text.Element.ALIGN_CENTER);
+
+                        // ✅ Zebra Striping (Light Blue tint to match theme)
+                        if (i % 2 == 1) {
+                            cell.setBackgroundColor(new java.awt.Color(235, 245, 250));
+                        }
+
+                        pdfTable.addCell(cell);
+                    }
+                }
+
+                doc.add(pdfTable);
+                doc.close();
+
+                JOptionPane.showMessageDialog(this, "Export Success!\nFile: " + file.getAbsolutePath());
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Export Error: " + e.getMessage());
+            }
         }
     }
-
     private JPanel createContentPanel() {
         JPanel contentPanel = new JPanel();
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
@@ -487,7 +631,7 @@ public class ApprovedRequestTab extends JPanel {
         JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         userPanel.setBackground(HEADER_BG);
 
-        BarangayStaff staff = new StaffDAO().findStaffByPosition("Brgy.Captain");
+        BarangayStaff staff = new StaffDAO().findStaffByPosition("Captain");
 
         JLabel lblUser = new JLabel("Hi Mr. " + staff.getFirstName());
         lblUser.setFont(new Font("Segoe UI", Font.PLAIN, 14));

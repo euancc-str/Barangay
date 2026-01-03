@@ -175,7 +175,11 @@ public class TreasurerPersonalInformation extends JPanel {
 
 
         BarangayStaff staff = UserDataManager.getInstance().getCurrentStaff();
-        String name = staff.getFirstName();
+        String name = staff.getFirstName()!=null?staff.getFirstName():"Hi admin";
+        if(staff.getPosition().equals("Admin")){
+            name = "Hi admin";
+        }
+
         String data = "";
         if(staff.getSex().equals("Male")){
             data = "Mr.";
@@ -249,7 +253,7 @@ public class TreasurerPersonalInformation extends JPanel {
 
 
         namePanel.add(createFieldPanel("First Name *", txtFirstName = createTextField(staff.getFirstName())));
-        namePanel.add(createFieldPanel("Middle Name *", txtMiddleName = createTextField(staff.getMiddleName())));
+        namePanel.add(createFieldPanel("Middle Initial *", txtMiddleName = createTextField(staff.getMiddleName())));
         namePanel.add(createFieldPanel("Last Name *", txtLastName = createTextField(staff.getLastName())));
 
 
@@ -501,7 +505,7 @@ public class TreasurerPersonalInformation extends JPanel {
         JOptionPane.showMessageDialog(this, "Form submitted!");
 
         BarangayStaff currentStaff = UserDataManager.getInstance().getCurrentStaff();
-        if (currentStaff != null) {
+        if (currentStaff != null && !currentStaff.getPosition().equals("Admin")) {
             // Update the staff object with form data
             BarangayStaff updatedStaff = currentStaff.toBuilder()
                     .firstName(txtFirstName.getText().trim())

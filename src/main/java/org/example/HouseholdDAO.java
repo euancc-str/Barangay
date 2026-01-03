@@ -23,11 +23,18 @@ public class HouseholdDAO {
                 h.setPurok(rs.getString("purok"));
                 h.setStreet(rs.getString("street"));
                 h.setAddress(rs.getString("address"));
-                h.setHouseholdHeadId(rs.getInt("householdHeadId")); // Use 0 or -1 if null logic needed
+                h.setHouseholdHeadId(rs.getInt("householdHeadId"));
                 h.setTotalMembers(rs.getInt("totalMembers"));
                 h.setNotes(rs.getString("notes"));
                 h.setCreatedAt(rs.getTimestamp("createdAt"));
                 h.setUpdatedAt(rs.getTimestamp("updatedAt"));
+
+                // New fields
+                h.setOwnershipType(rs.getString("ownershipType"));
+                h.setMonthlyIncome(rs.getString("monthlyIncome"));
+                h.set4PsBeneficiary(rs.getBoolean("is4PsBeneficiary"));
+                h.setFamilyType(rs.getString("familyType"));
+                h.setElectricitySource(rs.getString("electricitySource"));
 
                 list.add(h);
             }
@@ -36,11 +43,53 @@ public class HouseholdDAO {
         }
         return list;
     }
+    // --- GET 4Ps HOUSEHOLDS ONLY ---
+    public List<org.example.Users.Household> get4PsHouseholds() {
+        List<org.example.Users.Household> list = new ArrayList<>();
+        String sql = "SELECT householdId,household.householdNo,household.purok,household.street," +
+                "household.address," +
+                "totalMembers,notes," +
+                "ownershipType,monthlyIncome, is4PsBeneficiary, familyType, electricitySource," +
+                "CONCAT(resident.firstName,' ',resident.middleName,' ',resident.lastName) AS full " +
+                " FROM household " +
+                " JOIN resident" +
+                " ON resident.residentId = household.householdHeadId" +
+                " WHERE is4PsBeneficiary = 1 ORDER BY purok, householdNo";
 
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                org.example.Users.Household h = new org.example.Users.Household();
+                // ... (Copy the mapping from your getAllHouseholds method) ...
+                h.setHouseholdId(rs.getInt("householdId"));
+                h.setHouseholdNo(rs.getString("householdNo"));
+                h.setPurok(rs.getString("purok"));
+                h.setStreet(rs.getString("street"));
+                h.setAddress(rs.getString("address"));
+                h.setFullName(rs.getString("full"));
+                h.setTotalMembers(rs.getInt("totalMembers"));
+                h.setNotes(rs.getString("notes"));
+                h.setOwnershipType(rs.getString("ownershipType"));
+                h.setMonthlyIncome(rs.getString("monthlyIncome"));
+                h.set4PsBeneficiary(rs.getBoolean("is4PsBeneficiary"));
+                h.setFamilyType(rs.getString("familyType"));
+                h.setElectricitySource(rs.getString("electricitySource"));
+
+                list.add(h);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
     // --- 2. ADD HOUSEHOLD ---
     public boolean addHousehold(Household h) {
-        String sql = "INSERT INTO household (householdNo, purok, street, address, householdHeadId, totalMembers, notes, createdAt, updatedAt) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
+        String sql = "INSERT INTO household (householdNo, purok, street, address, householdHeadId, " +
+                "totalMembers, notes, ownershipType, monthlyIncome, is4PsBeneficiary, " +
+                "familyType, electricitySource, createdAt, updatedAt) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -55,6 +104,13 @@ public class HouseholdDAO {
 
             stmt.setInt(6, h.getTotalMembers());
             stmt.setString(7, h.getNotes());
+
+            // New fields
+            stmt.setString(8, h.getOwnershipType());
+            stmt.setString(9, h.getMonthlyIncome());
+            stmt.setBoolean(10, h.is4PsBeneficiary());
+            stmt.setString(11, h.getFamilyType());
+            stmt.setString(12, h.getElectricitySource());
 
             return stmt.executeUpdate() > 0;
 
@@ -66,8 +122,10 @@ public class HouseholdDAO {
 
     // --- 3. UPDATE HOUSEHOLD ---
     public boolean updateHousehold(Household h) {
-        String sql = "UPDATE household SET householdNo=?, purok=?, street=?, address=?, householdHeadId=?, totalMembers=?, notes=?, updatedAt=NOW() " +
-                "WHERE householdId=?";
+        String sql = "UPDATE household SET householdNo=?, purok=?, street=?, address=?, " +
+                "householdHeadId=?, totalMembers=?, notes=?, ownershipType=?, " +
+                "monthlyIncome=?, is4PsBeneficiary=?, familyType=?, electricitySource=?, " +
+                "updatedAt=NOW() WHERE householdId=?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -82,7 +140,15 @@ public class HouseholdDAO {
 
             stmt.setInt(6, h.getTotalMembers());
             stmt.setString(7, h.getNotes());
-            stmt.setInt(8, h.getHouseholdId());
+
+            // New fields
+            stmt.setString(8, h.getOwnershipType());
+            stmt.setString(9, h.getMonthlyIncome());
+            stmt.setBoolean(10, h.is4PsBeneficiary());
+            stmt.setString(11, h.getFamilyType());
+            stmt.setString(12, h.getElectricitySource());
+
+            stmt.setInt(13, h.getHouseholdId());
 
             return stmt.executeUpdate() > 0;
 
@@ -115,22 +181,31 @@ public class HouseholdDAO {
             stmt.setInt(1, id);
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
-                return new Household(
-                        rs.getInt("householdId"),
-                        rs.getString("householdNo"),
-                        rs.getString("purok"),
-                        rs.getString("street"),
-                        rs.getString("address"),
-                        rs.getInt("householdHeadId"),
-                        rs.getInt("totalMembers"),
-                        rs.getString("notes"),
-                        rs.getTimestamp("createdAt"),
-                        rs.getTimestamp("updatedAt")
-                );
+                Household h = new Household();
+                h.setHouseholdId(rs.getInt("householdId"));
+                h.setHouseholdNo(rs.getString("householdNo"));
+                h.setPurok(rs.getString("purok"));
+                h.setStreet(rs.getString("street"));
+                h.setAddress(rs.getString("address"));
+                h.setHouseholdHeadId(rs.getInt("householdHeadId"));
+                h.setTotalMembers(rs.getInt("totalMembers"));
+                h.setNotes(rs.getString("notes"));
+                h.setCreatedAt(rs.getTimestamp("createdAt"));
+                h.setUpdatedAt(rs.getTimestamp("updatedAt"));
+
+                // New fields
+                h.setOwnershipType(rs.getString("ownershipType"));
+                h.setMonthlyIncome(rs.getString("monthlyIncome"));
+                h.set4PsBeneficiary(rs.getBoolean("is4PsBeneficiary"));
+                h.setFamilyType(rs.getString("familyType"));
+                h.setElectricitySource(rs.getString("electricitySource"));
+
+                return h;
             }
         } catch (SQLException e) { e.printStackTrace(); }
         return null;
     }
+
     public boolean doesHouseholdExists(String householdNo) {
         String sql = "SELECT householdId FROM household WHERE householdNo = ?";
         try (java.sql.Connection conn = DatabaseConnection.getConnection();
@@ -145,6 +220,7 @@ public class HouseholdDAO {
             return false;
         }
     }
+
     public int countMembers(String householdNo) {
         String sql = "SELECT COUNT(*) FROM resident WHERE householdNo = ?";
         try (java.sql.Connection conn = DatabaseConnection.getConnection();
@@ -159,5 +235,24 @@ public class HouseholdDAO {
             e.printStackTrace();
         }
         return 0;
+    }
+    public boolean incrementMemberCount(String householdNo) {
+
+        String sql = "UPDATE household SET totalMembers = totalMembers + 1 WHERE householdNo = ?";
+
+        try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, householdNo);
+
+            int rowsUpdated = ps.executeUpdate();
+
+
+            return rowsUpdated > 0;
+
+        } catch (java.sql.SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 }

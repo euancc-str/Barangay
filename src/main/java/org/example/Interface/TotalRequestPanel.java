@@ -13,6 +13,9 @@ import java.text.DecimalFormat;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 public class TotalRequestPanel extends JPanel {
     private static final String DATA_FILE = "dashboard_data.csv";
@@ -33,8 +36,23 @@ public class TotalRequestPanel extends JPanel {
         add(createHeaderPanel(), BorderLayout.NORTH);
         add(createContentPanel(), BorderLayout.CENTER);
 
-        // Initial data load
-        updateStats();
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                // We can't run updateStats() directly here because it touches UI components (lblTotal.setText).
+                // Instead, we fetch the data first, then update UI in done().
+
+                // NOTE: Ideally, you should split updateStats() into "fetchData" and "updateUI".
+                // But for a quick fix, just wrapping the whole method is risky if it touches Swing components.
+                // A safer quick fix is to run it after the window opens:
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                updateStats(); // Runs on UI thread, but AFTER the window has initialized
+            }
+        }.execute();
     }
 
 
@@ -59,17 +77,8 @@ public class TotalRequestPanel extends JPanel {
         lblUser.setFont(new Font("Arial", Font.PLAIN, 15));
 
 
-        totalRequestProfilePicture = new JLabel();
-        totalRequestProfilePicture.setPreferredSize(new Dimension(60, 60));
-        totalRequestProfilePicture.setOpaque(true);
-        totalRequestProfilePicture.setBackground(Color.WHITE);
-        totalRequestProfilePicture.setBorder(new LineBorder(Color.GRAY, 1, true));
-        totalRequestProfilePicture.setHorizontalAlignment(SwingConstants.CENTER);
-        setProfilePicture(totalRequestProfilePicture);
-
 
         userPanel.add(lblUser);
-        userPanel.add(totalRequestProfilePicture);
 
 
         headerPanel.add(title, BorderLayout.WEST);
@@ -185,13 +194,16 @@ public class TotalRequestPanel extends JPanel {
                         case "Pending":
                             pendingCount++;
                             break;
-                        case "Verified":
+                        case "Confirmed Payment":
                             verifiedCount++;
                             break;
                         case "Rejected":
                             rejectedCount++;
                             break;
                         case "Approved":
+                            approvedCount++;
+                            break;
+                        case "Released":
                             approvedCount++;
                             break;
                     }
@@ -223,7 +235,7 @@ public class TotalRequestPanel extends JPanel {
 
         lblPending.setText("<html><font color='blue'>Pending Request = </font>" + df.format(pendingPercent) + "%</html>");
         lblVerified.setText("<html><font color='green'>Verified Request = </font>" + df.format(approvedPercent) + "%</html>");
-        lblRejected.setText("<html><font color='red'>Rejected Request = </font>" + df.format(rejectedPercent) + "%</html>");
+        lblRejected.setText("<html><font color='red'>Voided Request = </font>" + df.format(rejectedPercent) + "%</html>");
 
 
         if (chartPanel != null) {
@@ -231,7 +243,7 @@ public class TotalRequestPanel extends JPanel {
         }
     }
 
-
+    // Helper: Checks if a request is older than 1 Day
 
 
     // Refresh method for external calls
@@ -306,15 +318,6 @@ public class TotalRequestPanel extends JPanel {
 
 
     // ===== PROFILE PICTURE LOADING =====
-    private String loadProfilePictureFromProperties() {
-        java.util.Properties props = new java.util.Properties();
-        try  {
-            props.load(ResourceUtils.getResourceAsStream("profiles/secretary.properties"));
-            return props.getProperty("profilePicture", "");
-        } catch (IOException e) {
-            return "";
-        }
-    }
 
 
     // ===== DYNAMIC GREETING =====
@@ -343,30 +346,10 @@ public class TotalRequestPanel extends JPanel {
 
     public void refreshHeader() {
         lblUser.setText(getGreetingFromProperties());
-        setProfilePicture(totalRequestProfilePicture);
+
     }
 
 
-    private void setProfilePicture(JLabel label) {
-        String profilePictureBase64 = loadProfilePictureFromProperties();
-        if (profilePictureBase64 != null && !profilePictureBase64.isEmpty()) {
-            try {
-                byte[] imageBytes = java.util.Base64.getDecoder().decode(profilePictureBase64);
-                ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
-                java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(bais);
-                ImageIcon icon = new ImageIcon(image.getScaledInstance(60, 60, Image.SCALE_SMOOTH));
-                label.setIcon(icon);
-                label.setText("");
-            } catch (Exception e) {
-                // If error, show default icon
-                label.setText("👤");
-                label.setFont(new Font("Arial", Font.PLAIN, 20));
-            }
-        } else {
-            // Show default icon if no profile picture
-            label.setText("👤");
-            label.setFont(new Font("Arial", Font.PLAIN, 20));
-        }
-    }
+
 }
 

@@ -1,24 +1,52 @@
 package org.example.SerbisyongBarangay;
 
-import lombok.Data;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Frame;
+import java.awt.GradientPaint;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
+import java.awt.Insets;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.io.File;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JDialog;
+import javax.swing.JFileChooser;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.border.EmptyBorder;
+
 import org.example.Admin.AdminSettings.ImageUtils;
 import org.example.Admin.AdminSettings.PhotoDAO;
 import org.example.Admin.AdminSettings.SystemConfigDAO;
+import org.example.Admin.SystemLogDAO;
 import org.example.Documents.DocumentType;
 import org.example.ResidentDAO;
 import org.example.UserDataManager;
 import org.example.Users.Resident;
 
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
-import java.io.File;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
+import lombok.Data;
 
 public class BClearanceForm extends JDialog {
 
@@ -27,11 +55,10 @@ public class BClearanceForm extends JDialog {
     private JComboBox<String> cmbSex;
     private JTextField txtAge;
     private JComboBox<String> cmbBirthDate;
-    private JTextField txtCivilStatus, txtDate, txtPerYearIncome, txtCurrentAddress, txtPurpose;
+    private JTextField txtCivilStatus, txtDate, txtPerYearIncome, txtCurrentAddress;
+    private JTextArea txtPurpose;
     private JTextField txtCtcNumber;
-
     private JTextField txtCtcPlaceIssued;
-    // --- NEW FIELDS ---
     private JTextField street;
     private JComboBox<String> txtPurok;
     private JComboBox<String> cmbCtcMonth, cmbCtcDay, cmbCtcYear;
@@ -40,7 +67,6 @@ public class BClearanceForm extends JDialog {
     private BClearanceFormData formData;
 
     public BClearanceForm() {
-        // Use null owner for generic usage
         super((Frame) null, "Barangay Clearance Form", true);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setUndecorated(true);
@@ -48,8 +74,11 @@ public class BClearanceForm extends JDialog {
         currentResident = UserDataManager.getInstance().getCurrentResident();
 
         JPanel mainPanel = new JPanel(new BorderLayout());
-        mainPanel.setBackground(Color.WHITE);
-        mainPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK, 3));
+        mainPanel.setBackground(new Color(245, 248, 250));
+        mainPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(70, 130, 180), 2),
+                BorderFactory.createEmptyBorder(1, 1, 1, 1)
+        ));
 
         mainPanel.add(createHeaderPanel(), BorderLayout.NORTH);
         mainPanel.add(createFormPanel(), BorderLayout.CENTER);
@@ -59,14 +88,9 @@ public class BClearanceForm extends JDialog {
         pack();
         setLocationRelativeTo(null);
 
-
         loadResidentData();
     }
 
-
-
-
-    // --- DATA RETRIEVAL ---
     private void loadResidentData() {
         if (currentResident != null) {
             txtName.setText(currentResident.getFirstName() != null ? currentResident.getFirstName() : "");
@@ -80,15 +104,12 @@ public class BClearanceForm extends JDialog {
             txtCurrentAddress.setText(currentResident.getAddress() != null ? currentResident.getAddress() : "");
             txtDate.setText(LocalDate.now().format(DateTimeFormatter.ofPattern("MM/dd/yyyy")));
             txtPurok.setSelectedItem(currentResident.getPurok());
-            // Load CTC Info
-            txtCtcNumber.setText(currentResident.getCtcNumber() != null ? currentResident.getCtcNumber() : "CC");
+            txtCtcNumber.setText(currentResident.getCtcNumber() != null ? currentResident.getCtcNumber() : "");
 
-            // --- LOAD CTC DATE INTO DROPDOWNS ---
             try {
                 Object ctcDateObj = currentResident.getCtcDateIssued();
                 if (ctcDateObj != null) {
                     String dateStr = ctcDateObj.toString();
-                    // Check if it's not "null" string and not empty
                     if (!dateStr.equalsIgnoreCase("null") && !dateStr.trim().isEmpty()) {
                         LocalDate ctcDate;
                         if (ctcDateObj instanceof java.sql.Date) {
@@ -103,117 +124,189 @@ public class BClearanceForm extends JDialog {
                     }
                 }
             } catch (Exception e) {
-                // Ignore parsing errors, leave dropdowns as default
                 System.err.println("Error loading CTC Date: " + e.getMessage());
             }
-            // Set Date
+
             SystemConfigDAO config = new SystemConfigDAO();
             String defaultPlace = config.getConfig("defaultCtcPlace");
             txtCtcPlaceIssued.setText(defaultPlace);
             txtDate.setText(LocalDate.now().format(DateTimeFormatter.ofPattern("MM/dd/yyyy")));
+            txtAge.setEditable(false);
+            txtDate.setEditable(false);
+            cmbBirthDate.setEditable(false);
         }
     }
 
     private JPanel createFormPanel() {
         JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBackground(Color.WHITE);
-        formPanel.setBorder(new EmptyBorder(10, 20, 10, 20));
+        formPanel.setBackground(new Color(245, 248, 250));
+        formPanel.setBorder(BorderFactory.createCompoundBorder(
+                new EmptyBorder(10, 15, 10, 15),
+                BorderFactory.createLineBorder(new Color(220, 220, 220), 1)
+        ));
 
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.insets = new Insets(4, 4, 4, 4);
         gbc.anchor = GridBagConstraints.WEST;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
         int row = 0;
 
-        // 1. Name Fields
-        txtName = new JTextField(20);
-        row = addField(formPanel, gbc, "Name:", txtName, row, 1, 3);
+        Font labelFont = new Font("Segoe UI", Font.BOLD, 11);
+        Color labelColor = new Color(60, 60, 60);
 
-        txtLastName = new JTextField(20);
-        row = addField(formPanel, gbc, "Last Name:", txtLastName, row, 1, 1);
+        // Row 0: Name
+        txtName = createStyledTextField(15);
+        row = addField(formPanel, gbc, "Name:", txtName, row, 1, 3, labelFont, labelColor);
 
-        // Sex
+        // Row 1: Last Name & Sex
+        txtLastName = createStyledTextField(15);
+        row = addField(formPanel, gbc, "Last Name:", txtLastName, row, 1, 1, labelFont, labelColor);
+
         cmbSex = new JComboBox<>(new String[] { "Male", "Female" });
         customizeComboBox(cmbSex);
-        gbc.gridx = 2; gbc.gridy = 1; gbc.gridheight = 2; gbc.gridwidth = 2;
+        gbc.gridx = 2; gbc.gridy = row-1; gbc.gridheight = 2; gbc.gridwidth = 2;
         gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
         formPanel.add(cmbSex, gbc);
         gbc.gridheight = 1; gbc.gridwidth = 1;
 
-        txtMiddleName = new JTextField(20);
-        row = addField(formPanel, gbc, "Middle Name:", txtMiddleName, row, 1, 3);
+        // Row 2: Middle Name
+        txtMiddleName = createStyledTextField(15);
+        row = addField(formPanel, gbc, "Middle Initial:", txtMiddleName, row, 1, 3, labelFont, labelColor);
 
-        txtSuffix = new JTextField(20);
-        row = addField(formPanel, gbc, "Suffix:", txtSuffix, row, 1, 3);
+        // Row 3: Suffix
+        txtSuffix = createStyledTextField(15);
+        row = addField(formPanel, gbc, "Suffix:", txtSuffix, row, 1, 3, labelFont, labelColor);
 
-        // Age & Birthdate
-        txtAge = new JTextField(10);
+        // Row 4: Age & Birthdate
+        txtAge = createStyledTextField(6);
         String dob = (currentResident != null && currentResident.getDob() != null) ? currentResident.getDob().toString() : "";
         cmbBirthDate = new JComboBox<>(new String[] { dob });
         customizeComboBox(cmbBirthDate);
 
+        JLabel ageLabel = new JLabel("Age:");
+        ageLabel.setFont(labelFont);
+        ageLabel.setForeground(labelColor);
         gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 1; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE;
-        formPanel.add(new JLabel("Age:"), gbc);
+        formPanel.add(ageLabel, gbc);
         gbc.gridx = 1; gbc.weightx = 0.3; gbc.fill = GridBagConstraints.HORIZONTAL;
         formPanel.add(txtAge, gbc);
+
+        JLabel birthDateLabel = new JLabel("Birth Date:");
+        birthDateLabel.setFont(labelFont);
+        birthDateLabel.setForeground(labelColor);
         gbc.gridx = 2; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE;
-        formPanel.add(new JLabel("Birth Date:"), gbc);
+        formPanel.add(birthDateLabel, gbc);
         gbc.gridx = 3; gbc.weightx = 0.7; gbc.fill = GridBagConstraints.HORIZONTAL;
         formPanel.add(cmbBirthDate, gbc);
         row++;
 
-        // Civil Status & Date
-        txtCivilStatus = new JTextField(10);
-        txtDate = new JTextField(10);
+        // Row 5: Civil Status & Date
+        txtCivilStatus = createStyledTextField(8);
+        txtDate = createStyledTextField(8);
+
+        JLabel civilLabel = new JLabel("Civil Status:");
+        civilLabel.setFont(labelFont);
+        civilLabel.setForeground(labelColor);
         gbc.gridx = 0; gbc.gridy = row; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE;
-        formPanel.add(new JLabel("Civil Status:"), gbc);
+        formPanel.add(civilLabel, gbc);
         gbc.gridx = 1; gbc.weightx = 0.5; gbc.fill = GridBagConstraints.HORIZONTAL;
         formPanel.add(txtCivilStatus, gbc);
+
+        JLabel dateLabel = new JLabel("Date:");
+        dateLabel.setFont(labelFont);
+        dateLabel.setForeground(labelColor);
         gbc.gridx = 2; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE;
-        formPanel.add(new JLabel("Date:"), gbc);
+        formPanel.add(dateLabel, gbc);
         gbc.gridx = 3; gbc.weightx = 0.5; gbc.fill = GridBagConstraints.HORIZONTAL;
         formPanel.add(txtDate, gbc);
         row++;
 
-        // --- NEW FIELDS: STREET & PUROK ---
-        street = new JTextField(20);
-        row = addField(formPanel, gbc, "Street:", street, row, 1, 3);
+        // Row 6: Street
+        street = createStyledTextField(15);
+        row = addField(formPanel, gbc, "Street:", street, row, 1, 3, labelFont, labelColor);
 
+        // Row 7: Purok
         String[] puroks = new SystemConfigDAO().getOptionsNature("purok");
         txtPurok = new JComboBox<>(puroks);
         customizeComboBox(txtPurok);
+
+        JLabel purokLabel = new JLabel("Purok:");
+        purokLabel.setFont(labelFont);
+        purokLabel.setForeground(labelColor);
         gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 1; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE;
-        formPanel.add(new JLabel("Purok:"), gbc);
+        formPanel.add(purokLabel, gbc);
         gbc.gridx = 1; gbc.gridwidth = 3; gbc.weightx = 1.0; gbc.fill = GridBagConstraints.HORIZONTAL;
         formPanel.add(txtPurok, gbc);
         row++;
 
-        // Address & Purpose
-        txtCurrentAddress = new JTextField(20);
-        row = addField(formPanel, gbc, "Current Address:", txtCurrentAddress, row, 1, 3);
+        // Row 8: Current Address
+        txtCurrentAddress = createStyledTextField(15);
+        row = addField(formPanel, gbc, "Current Address:", txtCurrentAddress, row, 1, 3, labelFont, labelColor);
 
-        txtPurpose = new JTextField(20);
-        row = addField(formPanel, gbc, "Purpose:", txtPurpose, row, 1, 3);
+        // Row 9: Purpose
+        JLabel purposeLabel = new JLabel("Purpose:");
+        purposeLabel.setFont(labelFont);
+        purposeLabel.setForeground(labelColor);
+        gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 1; gbc.weightx = 0;
+        gbc.fill = GridBagConstraints.NONE; gbc.anchor = GridBagConstraints.NORTHWEST;
+        formPanel.add(purposeLabel, gbc);
 
-        // Filler
-        gbc.gridx = 0; gbc.gridy = row; gbc.weighty = 1.0; gbc.fill = GridBagConstraints.VERTICAL;
-        formPanel.add(Box.createVerticalGlue(), gbc);
+        txtPurpose = new JTextArea(2, 15);
+        txtPurpose.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        txtPurpose.setLineWrap(true);
+        txtPurpose.setWrapStyleWord(true);
+        txtPurpose.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(180, 200, 220), 1),
+                BorderFactory.createEmptyBorder(5, 5, 5, 5)
+        ));
+        txtPurpose.setBackground(Color.WHITE);
 
-        // --- CEDULA SECTION (UPDATED) ---
-        gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 4;
-        formPanel.add(new JSeparator(), gbc);
+        JScrollPane purposeScrollPane = new JScrollPane(txtPurpose);
+        purposeScrollPane.setBorder(null);
+        purposeScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        purposeScrollPane.setPreferredSize(new Dimension(0, 45));
+
+        gbc.gridx = 1; gbc.gridwidth = 3; gbc.weightx = 1.0;
+        gbc.weighty = 0.1; gbc.fill = GridBagConstraints.BOTH;
+        formPanel.add(purposeScrollPane, gbc);
+        gbc.weighty = 0.0;
         row++;
 
+        // Row 10: CTC Separator
+        gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 4; gbc.weighty = 0;
+        JSeparator separator = new JSeparator();
+        separator.setForeground(new Color(70, 130, 180));
+        formPanel.add(separator, gbc);
+        row++;
+
+        // Row 11: CTC Title
         JLabel lblCtc = new JLabel("Community Tax Certificate (Cedula) Details");
-        lblCtc.setFont(new Font("Arial", Font.BOLD, 12));
+        lblCtc.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblCtc.setForeground(new Color(70, 130, 180));
         gbc.gridy = row;
         formPanel.add(lblCtc, gbc);
         row++;
 
-        txtCtcNumber = new JTextField(20);
-        row = addField(formPanel, gbc, "CTC Number:", txtCtcNumber, row, 1, 3);
-        txtCtcNumber.setText("CC");
-        // --- DATE DROPDOWNS ---
-        String[] months = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
+        // Row 12: CTC Number
+        txtCtcNumber = createStyledTextField(15);
+        row = addField(formPanel, gbc, "CTC Number:", txtCtcNumber, row, 1, 3, labelFont, labelColor);
+
+        txtCtcNumber.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyTyped(java.awt.event.KeyEvent e) {
+                char c = e.getKeyChar();
+
+                if (!Character.isDigit(c) && c != ' ') {
+                    e.consume();
+                }
+
+                // 2. LIMIT LENGTH (Max 15 characters)
+                if (txtCtcNumber.getText().length() >= 15) {
+                    e.consume();
+                }
+            }
+        });
+        // Row 13: CTC Date
+        String[] months = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
         cmbCtcMonth = new JComboBox<>(months);
 
         String[] days = new String[31];
@@ -221,54 +314,88 @@ public class BClearanceForm extends JDialog {
         cmbCtcDay = new JComboBox<>(days);
 
         int currentYear = LocalDate.now().getYear();
-        String[] years = new String[10];
-        for (int i = 0; i < 10; i++) years[i] = String.valueOf(currentYear - i);
+        String[] years = new String[5];
+        for (int i = 0; i < 5; i++) years[i] = String.valueOf(currentYear - i);
         cmbCtcYear = new JComboBox<>(years);
 
         customizeComboBox(cmbCtcMonth);
         customizeComboBox(cmbCtcDay);
         customizeComboBox(cmbCtcYear);
 
-        JPanel ctcDatePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        ctcDatePanel.setBackground(Color.WHITE);
+        JPanel ctcDatePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
+        ctcDatePanel.setBackground(new Color(245, 248, 250));
         ctcDatePanel.add(cmbCtcMonth);
         ctcDatePanel.add(cmbCtcDay);
         ctcDatePanel.add(cmbCtcYear);
 
+        JLabel ctcDateLabel = new JLabel("Date Issued:");
+        ctcDateLabel.setFont(labelFont);
+        ctcDateLabel.setForeground(labelColor);
         gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 1;
-        formPanel.add(new JLabel("Date Issued:"), gbc);
+        formPanel.add(ctcDateLabel, gbc);
         gbc.gridx = 1; gbc.gridwidth = 3; gbc.fill = GridBagConstraints.HORIZONTAL;
         formPanel.add(ctcDatePanel, gbc);
         row++;
 
-        txtCtcPlaceIssued = new JTextField(20);
-        row = addField(formPanel, gbc, "Place Issued:", txtCtcPlaceIssued, row, 1, 3);
+        // Row 14: Place Issued
+        txtCtcPlaceIssued = createStyledTextField(15);
+        row = addField(formPanel, gbc, "Place Issued:", txtCtcPlaceIssued, row, 1, 3, labelFont, labelColor);
 
-        // --- PHOTO SECTION ---
+        // Row 15: Photo Section
         addPhotoSection(formPanel, gbc, row);
 
         return formPanel;
     }
 
+    private JTextField createStyledTextField(int columns) {
+        JTextField textField = new JTextField(columns);
+        textField.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        textField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(180, 200, 220), 1),
+                BorderFactory.createEmptyBorder(4, 6, 4, 6)
+        ));
+        textField.setBackground(Color.WHITE);
+        return textField;
+    }
+
     private void addPhotoSection(JPanel formPanel, GridBagConstraints gbc, int row) {
         JPanel stackPanel = new JPanel();
         stackPanel.setLayout(new BoxLayout(stackPanel, BoxLayout.Y_AXIS));
-        stackPanel.setBackground(Color.WHITE);
+        stackPanel.setBackground(new Color(245, 248, 250));
 
         JLabel lblPhoto = new JLabel();
-        lblPhoto.setPreferredSize(new Dimension(100, 100));
-        lblPhoto.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+        lblPhoto.setPreferredSize(new Dimension(80, 80));
+        lblPhoto.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(70, 130, 180), 1),
+                BorderFactory.createLineBorder(Color.WHITE, 1)
+        ));
         lblPhoto.setCursor(new Cursor(Cursor.HAND_CURSOR));
         lblPhoto.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         PhotoDAO resDao = new PhotoDAO();
         int residentId = currentResident.getResidentId();
         String currentPhotoPath = resDao.getPhotoPath(residentId);
-        ImageUtils.displayImage(lblPhoto, currentPhotoPath, 100, 100);
+        ImageUtils.displayImage(lblPhoto, currentPhotoPath, 80, 80);
 
-        JButton btnUpload = new JButton("Add / Edit Photo");
-        btnUpload.setFont(new Font("Arial", Font.PLAIN, 11));
+        JButton btnUpload = new JButton("Add/Edit Photo");
+        btnUpload.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        btnUpload.setBackground(new Color(70, 130, 180));
+        btnUpload.setForeground(Color.WHITE);
+        btnUpload.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(50, 110, 160), 1),
+                BorderFactory.createEmptyBorder(3, 8, 3, 8)
+        ));
+        btnUpload.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnUpload.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        btnUpload.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) {
+                btnUpload.setBackground(new Color(90, 150, 200));
+            }
+            public void mouseExited(MouseEvent e) {
+                btnUpload.setBackground(new Color(70, 130, 180));
+            }
+        });
 
         Runnable uploadAction = () -> {
             JFileChooser chooser = new JFileChooser();
@@ -277,63 +404,125 @@ public class BClearanceForm extends JDialog {
                 File selectedFile = chooser.getSelectedFile();
                 String newFileName = ImageUtils.saveImage(selectedFile, String.valueOf(residentId));
                 resDao.updateResidentPhoto(residentId, newFileName);
-                ImageUtils.displayImage(lblPhoto, newFileName, 100, 100);
+                ImageUtils.displayImage(lblPhoto, newFileName, 80, 80);
                 JOptionPane.showMessageDialog(formPanel, "Photo Updated!");
             }
         };
 
-        lblPhoto.addMouseListener(new MouseAdapter() { public void mouseClicked(MouseEvent e) { uploadAction.run(); } });
+        lblPhoto.addMouseListener(new MouseAdapter() {
+            public void mouseClicked(MouseEvent e) { uploadAction.run(); }
+        });
         btnUpload.addActionListener(e -> uploadAction.run());
 
         stackPanel.add(lblPhoto);
-        stackPanel.add(Box.createVerticalStrut(5));
+        stackPanel.add(Box.createVerticalStrut(4));
         stackPanel.add(btnUpload);
 
-        JPanel photoWrapper = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        photoWrapper.setBackground(Color.WHITE);
+        JPanel photoWrapper = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        photoWrapper.setBackground(new Color(245, 248, 250));
         photoWrapper.add(stackPanel);
 
         gbc.gridx = 1; gbc.gridy = row; gbc.gridwidth = 3; gbc.fill = GridBagConstraints.HORIZONTAL;
         formPanel.add(photoWrapper, gbc);
     }
 
-    private SystemConfigDAO dao;
     private JPanel createButtonPanel() {
-        JPanel buttonPanel = new JPanel(new GridLayout(1, 2, 10, 0));
-        buttonPanel.setBackground(Color.WHITE);
-        buttonPanel.setBorder(new EmptyBorder(10, 20, 20, 20));
+        JPanel buttonPanel = new JPanel(new GridLayout(1, 2, 8, 0));
+        buttonPanel.setBackground(new Color(245, 248, 250));
+        buttonPanel.setBorder(new EmptyBorder(8, 15, 10, 15));
 
         JButton cancelButton = new JButton("CANCEL");
-        cancelButton.setBackground(new Color(220, 50, 50));
+        cancelButton.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        cancelButton.setBackground(new Color(220, 80, 80));
         cancelButton.setForeground(Color.WHITE);
+        cancelButton.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(200, 60, 60), 1),
+                BorderFactory.createEmptyBorder(6, 0, 6, 0)
+        ));
+        cancelButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
         cancelButton.addActionListener(e -> dispose());
 
+        cancelButton.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) {
+                cancelButton.setBackground(new Color(230, 100, 100));
+            }
+            public void mouseExited(MouseEvent e) {
+                cancelButton.setBackground(new Color(220, 80, 80));
+            }
+        });
+
         JButton proceedButton = new JButton("PROCEED");
-        proceedButton.setBackground(new Color(90, 180, 90));
+        proceedButton.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        proceedButton.setBackground(new Color(70, 130, 180));
         proceedButton.setForeground(Color.WHITE);
+        proceedButton.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(50, 110, 160), 1),
+                BorderFactory.createEmptyBorder(6, 0, 6, 0)
+        ));
+
+        proceedButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
         proceedButton.addActionListener(e -> {
-            if (validateForm()) {
-                collectFormData();
-                String ctcNum = txtCtcNumber.getText().trim();
-                String ctcDate = null;
-                if (cmbCtcMonth.isEnabled() && !ctcNum.isEmpty()) {
-                    try {
-                        String mStr = (String) cmbCtcMonth.getSelectedItem();
-                        int m = java.time.Month.valueOf(mStr.toUpperCase()).getValue();
-                        String d = (String) cmbCtcDay.getSelectedItem();
-                        String y = (String) cmbCtcYear.getSelectedItem();
-                        ctcDate = y + "-" + String.format("%02d", m) + "-" + String.format("%02d", Integer.parseInt(d));
-                    } catch (Exception ex) {
-                        ctcDate = null; // Fallback if date parsing fails
-                    }
+            if (!validateForm()) {
+                return;
+            }
+
+            if (txtPurpose.getText().trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Please enter a purpose.");
+                return;
+            }
+            if(txtPurpose.getText().length() > 250){
+                JOptionPane.showMessageDialog(this, "Error! Purpose is too long amd should not exceed 250 \nPurpose length:"+ txtPurpose.getText().length());
+                return;
+            }
+
+            collectFormData();
+            String ctcNum = txtCtcNumber.getText().trim();
+            String ctcDate = null;
+
+            if (cmbCtcMonth.isEnabled() && !ctcNum.isEmpty()) {
+                try {
+                    String mStr = (String) cmbCtcMonth.getSelectedItem();
+                    int m = java.time.Month.valueOf(mStr.toUpperCase()).getValue();
+                    String d = (String) cmbCtcDay.getSelectedItem();
+                    String y = (String) cmbCtcYear.getSelectedItem();
+                    ctcDate = y + "-" + String.format("%02d", m) + "-" + String.format("%02d", Integer.parseInt(d));
+                } catch (Exception ex) {
+                    ctcDate = null;
                 }
+            }
+
+            try {
                 ResidentDAO dao = new ResidentDAO();
                 String fullDetails = txtPurpose.getText();
-                dao.updateResidentCedula(currentResident.getResidentId(), ctcNum.isEmpty() ? null : ctcNum, ctcDate);
-                DocumentType docType = UserDataManager.getInstance().getDocumentTypeByName("Barangay Clearance");UserDataManager.getInstance().residentRequestsDocument(currentResident, null, docType, fullDetails);
 
+                dao.updateResidentCedula(currentResident.getResidentId(), ctcNum.isEmpty() ? null : "CC"+ctcNum, ctcDate);
+
+                DocumentType docType = UserDataManager.getInstance().getDocumentTypeByName("Barangay Clearance");
+
+                if (docType == null) {
+                    JOptionPane.showMessageDialog(this, "Error: Document Type 'Barangay Clearance' not found in database settings.");
+                    return;
+                }
+
+                UserDataManager.getInstance().residentRequestsDocument(currentResident, null, docType, fullDetails);
+                String name = currentResident.getFirstName() + " " + currentResident.getLastName();
+                int staffId = Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId());
+                new SystemLogDAO().addLog("Request Document",name,staffId);
                 JOptionPane.showMessageDialog(this, "Barangay Clearance request submitted!");
-                dispose();
+                this.dispose();
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "An error occurred: " + ex.getMessage());
+            }
+        });
+
+        proceedButton.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) {
+                proceedButton.setBackground(new Color(90, 150, 200));
+            }
+            public void mouseExited(MouseEvent e) {
+                proceedButton.setBackground(new Color(70, 130, 180));
             }
         });
 
@@ -354,28 +543,63 @@ public class BClearanceForm extends JDialog {
         formData = new BClearanceFormData();
         formData.setStreet(street.getText().trim());
         formData.setPurok(txtPurok.getSelectedItem().toString());
-        // ... collect other data if needed for local storage
     }
 
-    // Helpers
-    private int addField(JPanel p, GridBagConstraints c, String l, JTextField t, int r, int w, int e) {
-        c.gridx = 0; c.gridy = r; c.gridwidth = 1; c.weightx = 0; p.add(new JLabel(l), c);
-        c.gridx = 1; c.gridwidth = w; c.weightx = 1.0; p.add(t, c);
-        c.gridx = 1 + w; c.gridwidth = e; c.weightx = 0; p.add(Box.createHorizontalGlue(), c);
+    private int addField(JPanel p, GridBagConstraints c, String labelText, JTextField t, int r, int w, int e, Font labelFont, Color labelColor) {
+        JLabel label = new JLabel(labelText);
+        label.setFont(labelFont);
+        label.setForeground(labelColor);
+        c.gridx = 0; c.gridy = r; c.gridwidth = 1; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+        p.add(label, c);
+        c.gridx = 1; c.gridwidth = w; c.weightx = 1.0; c.fill = GridBagConstraints.HORIZONTAL;
+        p.add(t, c);
+        c.gridx = 1 + w; c.gridwidth = e; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+        p.add(Box.createHorizontalGlue(), c);
         return ++r;
     }
 
     private void customizeComboBox(JComboBox<?> cb) {
+        cb.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         cb.setBackground(Color.WHITE);
-        cb.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
+        cb.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(180, 200, 220), 1),
+                BorderFactory.createEmptyBorder(3, 5, 3, 5)
+        ));
+        cb.setCursor(new Cursor(Cursor.HAND_CURSOR));
     }
 
     private JPanel createHeaderPanel() {
-        JPanel h = new JPanel(new BorderLayout()); h.setBackground(Color.WHITE); h.setBorder(new EmptyBorder(10,15,10,15));
-        JLabel l = new JLabel("<html><center><b>Barangay Clearance Form</b></center></html>");
-        l.setFont(new Font("Arial", Font.BOLD, 18)); l.setHorizontalAlignment(JLabel.CENTER);
-        h.add(l, BorderLayout.CENTER);
-        return h;
+        JPanel header = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                GradientPaint gradient = new GradientPaint(
+                        0, 0, new Color(70, 130, 180),
+                        0, getHeight(), new Color(90, 150, 200)
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+
+        header.setBorder(BorderFactory.createEmptyBorder(12, 15, 12, 15));
+        header.setPreferredSize(new Dimension(0, 45));
+
+        JLabel title = new JLabel("<html><center><b>BARANGAY CLEARANCE FORM</b><br>" +
+                "<span style='font-size:9px; font-weight:normal;'>Official Document Request</span></center></html>");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        title.setForeground(Color.WHITE);
+        title.setHorizontalAlignment(JLabel.CENTER);
+
+        header.add(title, BorderLayout.CENTER);
+
+        header.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(50, 110, 160)),
+                BorderFactory.createEmptyBorder(0, 0, 1, 0)
+        ));
+
+        return header;
     }
 }
 

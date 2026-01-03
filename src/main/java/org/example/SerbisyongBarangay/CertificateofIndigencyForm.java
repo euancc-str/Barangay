@@ -102,7 +102,7 @@ public class CertificateofIndigencyForm {
         namePanel.setBackground(Color.WHITE);
         
         // Replicate the name fields structure
-        String[] nameLabels = {"Name:", "Last Name:", "Middle Name:", "Suffix:", "Age:"};
+        String[] nameLabels = {"Name:", "Last Name:", "Middle Initial:", "Suffix:", "Age:"};
         for (String labelText : nameLabels) {
             namePanel.add(createLabeledTextField(labelText, 0)); // No horizontal field padding
         }

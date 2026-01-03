@@ -1,7 +1,11 @@
 package org.example.Interface;
 
 
+import org.example.Admin.AdminAdministrationTab;
+import org.example.Admin.AdminBlotterTab;
+import org.example.Admin.AdminBusinessTab;
 import org.example.Admin.AdminHouseholdTab;
+import org.example.Admin.AdminSettings.AdminAssetBorrowingTab;
 import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.Captain.PersonalInformation;
 import org.example.UserDataManager;
@@ -30,7 +34,9 @@ import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.*;
@@ -45,13 +51,16 @@ public class secretary extends JFrame {
     private JPanel contentContainer;
     private CardLayout cardLayout;
     private JPanel sidebar;
+    private Map<String, JPanel> sidebarMenuItems = new ConcurrentHashMap<>();
+    private Map<String, Boolean> notificationBadges = new ConcurrentHashMap<>();
+    private javax.swing.Timer notificationTimer;
+    private int lastPaidCount = -1;
 
-
-    // ===== ADD THESE FOR PROFILE PICTURE =====
-    private JLabel profilePictureLabel; // For personal panel form
-    private JLabel headerProfilePicture; // For header in all panels
+    private JLabel profilePictureLabel;
+    private JLabel headerProfilePicture;
     private String profilePictureBase64 = "";
     private AdminHouseholdTab tab;
+    private AdminBlotterTab adminBlotterTab;
 
     // ===== AUTO-SAVE FIELDS =====
     private Properties profileProperties = new Properties();
@@ -69,149 +78,461 @@ public class secretary extends JFrame {
     private TotalRequestPanel totalRequestPanel;
     private SecretaryPerformSearch secretaryPerformSearch;
     private JLabel personalInfoGreetingLabel; // Add this field
-
+    private AdminAssetBorrowingTab borrowingTab;
+    private final Color CONTENT_BG = new Color(245, 247, 250); // Clean light gray background
 
     private SecretaryPrintDocument secretaryPrintDocument;
+    private AdminBusinessTab adminBusinessTab;
+
+    private JPanel createLoadingPanel(String message) {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBackground(Color.WHITE);
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.insets = new Insets(10, 10, 10, 10);
+
+        // Loading spinner
+        JLabel spinner = new JLabel("⟳");
+        spinner.setFont(new Font("Arial", Font.BOLD, 48));
+        spinner.setForeground(new Color(100, 149, 237));
+        panel.add(spinner, gbc);
+
+        // Loading message
+        gbc.gridy = 1;
+        JLabel loading = new JLabel(message);
+        loading.setFont(new Font("Arial", Font.PLAIN, 16));
+        loading.setForeground(Color.GRAY);
+        panel.add(loading, gbc);
+
+        // Animate spinner
+        javax.swing.Timer timer = new javax.swing.Timer(100, e -> {
+            spinner.setText(spinner.getText().equals("⟳") ? "⟲" : "⟳");
+        });
+        timer.start();
+
+        return panel;
+    }
+    private void lazyLoadPanel(String panelName) {
+        // Check if already loaded
+        switch (panelName) {
+            case "total":
+                if (!totalRequestLoaded) {
+                    loadTotalRequestPanel();
+                }
+                break;
+            case "secretary":
+                if (!secretarySearchLoaded) {
+                    loadSecretarySearchPanel();
+                }
+                break;
+            case "document":
+                if (!printDocumentLoaded) {
+                    loadPrintDocumentPanel();
+                }
+                break;
+            case "tab":
+                if (!householdTabLoaded) {
+                    loadHouseholdPanel();
+                }
+                break;
+            case "blotter":
+                if (!blotterTabLoaded) {
+                    loadBlotterPanel();
+                }
+                break;
+            case "business":
+                if (!businessTabLoaded) {
+                    loadBusinessPanel();
+                }
+                break;
+            case "borrowingTab":
+                if (!borrowingTabLoaded) {
+                    loadBorrowingPanel();
+                }
+                break;
+        }
+    }
+    private void loadTotalRequestPanel() {
+        new SwingWorker<TotalRequestPanel, Void>() {
+            @Override
+            protected TotalRequestPanel doInBackground() {
+                return new TotalRequestPanel();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    totalRequestPanel = get();
+                    contentContainer.remove(getComponentByName("total"));
+                    contentContainer.add(totalRequestPanel, "total");
+                    cardLayout.show(contentContainer, "total");
+                    totalRequestLoaded = true;
+                    System.out.println("✅ Total Request Panel loaded");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+    private void loadDashboardPanel() {
+        new SwingWorker<DashboardPanel, Void>() {
+            @Override
+            protected DashboardPanel doInBackground() {
+                return new DashboardPanel();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    dashboardPanel = get();
+                    contentContainer.remove(getComponentByName("dashboard"));
+                    contentContainer.add(dashboardPanel, "dashboard");
+                    cardLayout.show(contentContainer, "dashboard");
+                    dashboardLoaded = true;
+                    System.out.println("✅ Secretary Dashboard Panel loaded");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
+
+
+    private void loadSecretarySearchPanel() {
+        new SwingWorker<SecretaryPerformSearch, Void>() {
+            @Override
+            protected SecretaryPerformSearch doInBackground() {
+                return new SecretaryPerformSearch();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    secretaryPerformSearch = get();
+                    contentContainer.remove(getComponentByName("secretary"));
+                    contentContainer.add(secretaryPerformSearch, "secretary");
+                    cardLayout.show(contentContainer, "secretary");
+                    secretarySearchLoaded = true;
+                    System.out.println("✅ Secretary Search Panel loaded");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
+    private void loadPrintDocumentPanel() {
+        new SwingWorker<SecretaryPrintDocument, Void>() {
+            @Override
+            protected SecretaryPrintDocument doInBackground() {
+                return new SecretaryPrintDocument();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    secretaryPrintDocument = get();
+                    contentContainer.remove(getComponentByName("document"));
+                    contentContainer.add(secretaryPrintDocument, "document");
+                    cardLayout.show(contentContainer, "document");
+                    printDocumentLoaded = true;
+                    System.out.println("✅ Print Document Panel loaded");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
+    private void loadHouseholdPanel() {
+        new SwingWorker<AdminHouseholdTab, Void>() {
+            @Override
+            protected AdminHouseholdTab doInBackground() {
+                return new AdminHouseholdTab();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    tab = get();
+                    contentContainer.remove(getComponentByName("tab"));
+                    contentContainer.add(tab, "tab");
+                    cardLayout.show(contentContainer, "tab");
+                    householdTabLoaded = true;
+                    System.out.println("✅ Household Panel loaded");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
+    private void loadBlotterPanel() {
+        new SwingWorker<AdminBlotterTab, Void>() {
+            @Override
+            protected AdminBlotterTab doInBackground() {
+                return new AdminBlotterTab();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    blotter = get();
+                    contentContainer.remove(getComponentByName("blotter"));
+                    contentContainer.add(blotter, "blotter");
+                    cardLayout.show(contentContainer, "blotter");
+                    blotterTabLoaded = true;
+                    System.out.println("✅ Blotter Panel loaded");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
+    private void loadBusinessPanel() {
+        new SwingWorker<AdminBusinessTab, Void>() {
+            @Override
+            protected AdminBusinessTab doInBackground() {
+                return new AdminBusinessTab();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    adminBusinessTab = get();
+                    contentContainer.remove(getComponentByName("business"));
+                    contentContainer.add(adminBusinessTab, "business");
+                    cardLayout.show(contentContainer, "business");
+                    businessTabLoaded = true;
+                    System.out.println("✅ Business Panel loaded");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
+    private void loadBorrowingPanel() {
+        new SwingWorker<AdminAssetBorrowingTab, Void>() {
+            @Override
+            protected AdminAssetBorrowingTab doInBackground() {
+                return new AdminAssetBorrowingTab();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    borrowingTab = get();
+                    contentContainer.remove(getComponentByName("borrowingTab"));
+                    contentContainer.add(borrowingTab, "borrowingTab");
+                    cardLayout.show(contentContainer, "borrowingTab");
+                    borrowingTabLoaded = true;
+                    System.out.println("✅ Borrowing Panel loaded");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+    private Component getComponentByName(String name) {
+        for (Component comp : contentContainer.getComponents()) {
+            if (comp.getName() != null && comp.getName().equals(name)) {
+                return comp;
+            }
+        }
+        return contentContainer.getComponent(0); // Fallback
+    }
     public secretary() {
-
-
-        // Load properties on startup
-        loadProperties();
-        loadProfilePicture();
-
-
         setTitle("Serbisyong Barangay - Secretary Dashboard");
+        setUndecorated(true);
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        setSize(1400, 900);
-        setLocationRelativeTo(null);
+        getContentPane().setBackground(CONTENT_BG);
 
-
-        // Main container
+        // 1. Setup Layout & Sidebar (Fast)
         JPanel mainPanel = new JPanel(new BorderLayout(0, 0));
-        mainPanel.setBackground(Color.BLACK);
-
-
-        // Sidebar
+        mainPanel.setBackground(CONTENT_BG);
         sidebar = createSidebar();
         mainPanel.add(sidebar, BorderLayout.WEST);
 
-
-        // Content area with CardLayout
         JPanel contentArea = new JPanel(new BorderLayout(0, 0));
         contentArea.setBackground(new Color(229, 231, 235));
         contentArea.setBorder(new EmptyBorder(15, 15, 15, 15));
-
 
         cardLayout = new CardLayout();
         contentContainer = new JPanel(cardLayout);
         contentContainer.setBackground(new Color(229, 231, 235));
 
+        // ✅ FIX: Remove wrapper - add dashboard directly
+        JPanel dashboardLoading = createLoadingPanel("Loading dashboard...");
+        dashboardLoading.setName("dashboard");
+        contentContainer.add(dashboardLoading, "dashboard");
 
-        // Add different panels
-        dashboardPanel = new DashboardPanel();
-        totalRequestPanel = new TotalRequestPanel();
-        secretaryPerformSearch = new SecretaryPerformSearch();
-        secretaryPrintDocument = new SecretaryPrintDocument();
-        tab = new AdminHouseholdTab();
-        contentContainer.add(createPersonalPanel(), "personal_info");
+        // Add personal info
 
+        // ✅ Add placeholder panels for heavy content with names (7 loading panels + 2 immediate panels = 9 total)
+        JPanel totalLoading = createLoadingPanel("Loading Total Requests...");
+        totalLoading.setName("total");
+        contentContainer.add(totalLoading, "total");
 
-        JPanel dashboardWrapper = new JPanel(new BorderLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2d = (Graphics2D) g;
-                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-                int w = getWidth();
-                int h = getHeight();
-                Color color1 = new Color(0, 123, 167); // Cerulean
-                Color color2 = new Color(173, 216, 230); // Light Blue
-                GradientPaint gp = new GradientPaint(0, 0, color1, 0, h, color2);
-                g2d.setPaint(gp);
-                g2d.fillRect(0, 0, w, h);
-            }
-        };
-        dashboardWrapper.setOpaque(false);
-        dashboardWrapper.add(dashboardPanel, BorderLayout.CENTER);
-        contentContainer.add(dashboardWrapper, "dashboard");
+        JPanel secretaryLoading = createLoadingPanel("Loading Search...");
+        secretaryLoading.setName("secretary");
+        contentContainer.add(secretaryLoading, "secretary");
 
+        JPanel documentLoading = createLoadingPanel("Loading Print...");
+        documentLoading.setName("document");
+        contentContainer.add(documentLoading, "document");
 
-        contentContainer.add(totalRequestPanel, "total");
-        contentContainer.add(secretaryPerformSearch, "secretary");
-        contentContainer.add(secretaryPrintDocument,"document");
-        contentContainer.add(tab,"tab");
+        JPanel tabLoading = createLoadingPanel("Loading Households...");
+        tabLoading.setName("tab");
+        contentContainer.add(tabLoading, "tab");
 
+        JPanel blotterLoading = createLoadingPanel("Loading Blotter...");
+        blotterLoading.setName("blotter");
+        contentContainer.add(blotterLoading, "blotter");
 
+        JPanel businessLoading = createLoadingPanel("Loading Business...");
+        businessLoading.setName("business");
+        contentContainer.add(businessLoading, "business");
 
-        //contentContainer.add(createPlaceholderPanel("Barangay Official Profile"), "profile");
-
+        JPanel borrowingLoading = createLoadingPanel("Loading Borrowing...");
+        borrowingLoading.setName("borrowingTab");
+        contentContainer.add(borrowingLoading, "borrowingTab");
 
         contentArea.add(contentContainer, BorderLayout.CENTER);
         mainPanel.add(contentArea, BorderLayout.CENTER);
-
-
         add(mainPanel);
 
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+        setLocationRelativeTo(null);
+        setVisible(true);
+        startBackgroundLoading();
+        startNotificationService();
+        // ✅ Load user data immediately (lightweight)
 
-        // Show personal info by default
-        cardLayout.show(contentContainer, "dashboard");
-        SwingUtilities.invokeLater(() -> {
-            loadUserDataIntoForm();
-        });
+
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
                 confirmExit();
             }
         });
-
-
-        // Save properties when window closes
-        addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosing(WindowEvent e) {
-                saveProperties();
-            }
-        });
     }
-    private void printPanel(JPanel panelToPrint) {
-        PrinterJob job = PrinterJob.getPrinterJob();
-        job.setJobName("Barangay Document Print");
+    // === NEW METHOD: Create a simple loading placeholder ===
+    private JPanel createLoadingPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(Color.WHITE);
+        JLabel loading = new JLabel("Loading data, please wait...", SwingConstants.CENTER);
+        loading.setFont(new Font("Arial", Font.PLAIN, 16));
+        loading.setForeground(Color.GRAY);
+        panel.add(loading, BorderLayout.CENTER);
+        return panel;
+    }
+    private boolean dashboardLoaded = false;
+    private boolean totalRequestLoaded = false;
+    private boolean secretarySearchLoaded = false;
+    private boolean printDocumentLoaded = false;
+    private boolean householdTabLoaded = false;
+    private boolean blotterTabLoaded = false;
+    private boolean businessTabLoaded = false;
+    private boolean borrowingTabLoaded = false;
 
-
-        job.setPrintable(new Printable() {
+    private AdminBlotterTab blotter;
+    private void startBackgroundLoading() {
+        // Load Dashboard FIRST (highest priority)
+        new SwingWorker<DashboardPanel, Void>() {
             @Override
-            public int print(Graphics pg, PageFormat pf, int pageNum) {
-                if (pageNum > 0) return Printable.NO_SUCH_PAGE;
-
-
-                Graphics2D g2 = (Graphics2D) pg;
-                g2.translate(pf.getImageableX(), pf.getImageableY());
-
-
-                // Scale the panel to fit the page
-                double scaleX = pf.getImageableWidth() / panelToPrint.getWidth();
-                double scaleY = pf.getImageableHeight() / panelToPrint.getHeight();
-                double scale = Math.min(scaleX, scaleY); // Maintain aspect ratio
-                g2.scale(scale, scale);
-
-
-                panelToPrint.printAll(g2); // Print the component
-                return Printable.PAGE_EXISTS;
+            protected DashboardPanel doInBackground() {
+                return new DashboardPanel();
             }
-        });
 
-
-        boolean doPrint = job.printDialog();
-        if (doPrint) {
-            try {
-                job.print();
-            } catch (PrinterException e) {
-                JOptionPane.showMessageDialog(this, "Printing Failed: " + e.getMessage());
+            @Override
+            protected void done() {
+                try {
+                    DashboardPanel loadedDashboard = get();
+                    Component loadingPanel = getComponentByName("dashboard");
+                    if (loadingPanel != null) {
+                        contentContainer.remove(loadingPanel);
+                    }
+                    loadedDashboard.setName("dashboard");
+                    contentContainer.add(loadedDashboard, "dashboard");
+                    dashboardPanel = loadedDashboard;
+                    dashboardLoaded = true;
+                    cardLayout.show(contentContainer, "dashboard");
+                    System.out.println("✅ Dashboard loaded");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
-        }
+        }.execute();
+
+
+        loadPanelAsync("total", () -> new TotalRequestPanel());
+        loadPanelAsync("secretary", () -> new SecretaryPerformSearch());
+        loadPanelAsync("document", () -> new SecretaryPrintDocument());
+        loadPanelAsync("tab", () -> new AdminHouseholdTab());
+        loadPanelAsync("blotter", () -> new AdminBlotterTab());
+        loadPanelAsync("business", () -> new AdminBusinessTab());
+        loadPanelAsync("borrowingTab", () -> new AdminAssetBorrowingTab());
+    }
+
+    // Generic async loader
+    private <T extends JPanel> void loadPanelAsync(String name, java.util.function.Supplier<T> panelSupplier) {
+        new SwingWorker<T, Void>() {
+            @Override
+            protected T doInBackground() {
+                return panelSupplier.get();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    T panel = get();
+                    contentContainer.add(panel, name);
+
+                    // Update loaded flags
+                    switch(name) {
+                        case "total":
+                            totalRequestPanel = (TotalRequestPanel) panel;
+                            totalRequestLoaded = true;
+                            break;
+                        case "secretary":
+                            secretaryPerformSearch = (SecretaryPerformSearch) panel;
+                            secretarySearchLoaded = true;
+                            break;
+                        case "document":
+                            secretaryPrintDocument = (SecretaryPrintDocument) panel;
+                            printDocumentLoaded = true;
+                            break;
+                        case "tab":
+                            tab = (AdminHouseholdTab) panel;
+                            householdTabLoaded = true;
+                            break;
+                        case "blotter":
+                            blotter = (AdminBlotterTab) panel;
+                            blotterTabLoaded = true;
+                            break;
+                        case "business":
+                            adminBusinessTab = (AdminBusinessTab) panel;
+                            businessTabLoaded = true;
+                            break;
+                        case "borrowingTab":
+                            borrowingTab = (AdminAssetBorrowingTab) panel;
+                            borrowingTabLoaded = true;
+                            break;
+                    }
+                    System.out.println("✅ " + name + " loaded");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
     }
     private static SystemConfigDAO dao;
+    private Image logoImage;
     private JPanel createSidebar() {
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
@@ -219,18 +540,48 @@ public class secretary extends JFrame {
         sidebar.setPreferredSize(new Dimension(260, 0));
         sidebar.setBorder(new EmptyBorder(0, 0, 0, 0));
 
-
         // Logo and Title
         JPanel logoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 25));
         logoPanel.setBackground(Color.BLACK);
         logoPanel.setMaximumSize(new Dimension(260, 90));
-        dao = new SystemConfigDAO();
-        String logoPath = dao.getConfig("logoPath");
+
+        // =================================================================================
+        // ✅ NEW: Background Image Loader (Replaces the blocking 'dao' lines)
+        // =================================================================================
         JPanel logoCircle = new JPanel() {
+            private Image logoImage = null;
+            private boolean isLoading = true;
 
+            // This block runs AUTOMATICALLY when the panel is created
+            {
+                new SwingWorker<Image, Void>() {
+                    @Override
+                    protected Image doInBackground() throws Exception {
+                        // 1. WE CONNECT TO DATABASE HERE (So the main app doesn't freeze)
+                        SystemConfigDAO bgDao = new SystemConfigDAO();
+                        String path = bgDao.getLogoPath(); // We get the path here safely!
 
-            private Image logoImage = new ImageIcon(System.getProperty("asset.image.base-path")+logoPath).getImage(); // 🔹 path to your logo image
+                        // 2. Load the image
+                        ImageIcon originalIcon = new ImageIcon(path);
+                        if (originalIcon.getIconWidth() > 0) {
+                            return originalIcon.getImage().getScaledInstance(45, 45, Image.SCALE_SMOOTH);
+                        }
+                        return null;
+                    }
 
+                    @Override
+                    protected void done() {
+                        try {
+                            logoImage = get(); // Get the finished image
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        } finally {
+                            isLoading = false;
+                            repaint(); // Show the image now that it's ready
+                        }
+                    }
+                }.execute();
+            }
 
             @Override
             protected void paintComponent(Graphics g) {
@@ -238,28 +589,34 @@ public class secretary extends JFrame {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-
                 int diameter = Math.min(getWidth(), getHeight());
-
-
-                // 🟢 Draw circular clipping area
                 g2.setClip(new Ellipse2D.Float(0, 0, diameter, diameter));
 
+                if (logoImage != null) {
+                    // Draw the image we loaded in the background
+                    g2.drawImage(logoImage, 0, 0, diameter, diameter, this);
+                } else {
+                    // Draw placeholder while waiting
+                    g2.setColor(new Color(50, 50, 50));
+                    g2.fillRect(0, 0, diameter, diameter);
 
-                // 🖼️ Draw the logo image scaled to the panel size
-                g2.drawImage(logoImage, 0, 0, diameter, diameter, this);
+                    if (isLoading) {
+                        g2.setColor(Color.GRAY);
+                        g2.setFont(new Font("Arial", Font.BOLD, 10));
+                        g2.drawString("...", diameter/2 - 5, diameter/2 + 5);
+                    } else {
+                        g2.setColor(Color.WHITE);
+                        g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 20));
+                        g2.drawString("👤", 10, 30);
+                    }
+                }
 
-
-                // ⚪ Optional: Add a white circular border
                 g2.setClip(null);
                 g2.setColor(Color.WHITE);
                 g2.setStroke(new BasicStroke(2f));
                 g2.drawOval(0, 0, diameter - 1, diameter - 1);
-
-
                 g2.dispose();
             }
-
 
             @Override
             public Dimension getPreferredSize() {
@@ -267,118 +624,92 @@ public class secretary extends JFrame {
             }
         };
         logoCircle.setOpaque(false);
-
-
-
+        // =================================================================================
 
         JLabel titleLabel = new JLabel("Serbisyong Barangay");
         titleLabel.setForeground(Color.WHITE);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 15));
 
-
         logoPanel.add(logoCircle);
         logoPanel.add(titleLabel);
-
 
         sidebar.add(logoPanel);
         sidebar.add(Box.createVerticalStrut(10));
 
-
         // Menu Items
-        sidebar.add(createMenuItem("personal_info", "Personal Information", false));
         sidebar.add(createMenuItem("dashboard", "Dashboard", true));
         sidebar.add(createMenuItem("total", "Total Request", false));
-        sidebar.add(createMenuItem("profile", "Barangay Official Profile", false));
         sidebar.add(createMenuItem("tab","Household Management",false));
         sidebar.add(createMenuItem("secretary","Search/Document Request",false));
         sidebar.add(createMenuItem("document","Print",false));
+        sidebar.add(createMenuItem("blotter","Blotter tab",false));
+        sidebar.add(createMenuItem("business","Business Establishments",false));
+        sidebar.add(createMenuItem("borrowingTab","Property & equipment",false));
 
+        // ✅ SAFE ADMIN CHECK (Replaces the blocking check)
+        SwingUtilities.invokeLater(() -> {
+            BarangayStaff currentStaff = UserDataManager.getInstance().getCurrentStaff();
+            if (currentStaff != null && "Admin".equals(currentStaff.getPosition())) {
+                sidebar.add(createMenuItem("admin_view", "Admin Dashboard", false));
+                sidebar.revalidate(); // Refresh sidebar to show the new button
+                sidebar.repaint();
+            }
+        });
 
         sidebar.add(Box.createVerticalGlue());
-
 
         // Logout button
         JPanel logoutPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 25));
         logoutPanel.setBackground(Color.BLACK);
         logoutPanel.setMaximumSize(new Dimension(260, 70));
 
-
         JPanel logoutButton = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8));
         logoutButton.setBackground(Color.BLACK);
         logoutButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
 
         JLabel logoutIcon = new JLabel("⊗");
         logoutIcon.setForeground(Color.WHITE);
         logoutIcon.setFont(new Font("Arial", Font.BOLD, 18));
 
-
         JLabel logoutText = new JLabel("LOG OUT");
         logoutText.setForeground(Color.WHITE);
         logoutText.setFont(new Font("Arial", Font.BOLD, 13));
 
-
         logoutButton.add(logoutIcon);
         logoutButton.add(logoutText);
 
-
-        // Hover effect + confirmation dialog
         logoutButton.addMouseListener(new MouseAdapter() {
             Color originalColor = Color.BLACK;
-            Color hoverColor = new Color(200, 0, 0); // red on hover
-
+            Color hoverColor = new Color(200, 0, 0);
 
             @Override
             public void mouseEntered(MouseEvent e) {
                 logoutButton.setBackground(hoverColor);
             }
-
-
             @Override
             public void mouseExited(MouseEvent e) {
                 logoutButton.setBackground(originalColor);
             }
-
-
             @Override
             public void mouseClicked(MouseEvent e) {
-                // Show confirmation dialog centered on screen
                 int choice = JOptionPane.showConfirmDialog(
-                        secretary.this,  // Reference to the current frame
+                        secretary.this,
                         "Are you sure you want to log out?",
                         "Confirm Logout",
                         JOptionPane.YES_NO_OPTION,
                         JOptionPane.WARNING_MESSAGE
                 );
 
-
                 if (choice == JOptionPane.YES_OPTION) {
-                    // Save data before logout
-                    saveProperties();
-
-
-                    // Clear current user session
                     UserDataManager.getInstance().logout();
-
-
-                    // Close secretary window
-                    dispose();
-
-
-                    // Open login window
                     openMainWindow(secretary.this);
+                    dispose();
                 }
             }
         });
 
-
         logoutPanel.add(logoutButton);
         sidebar.add(logoutPanel);
-
-
-
-
-
 
         return sidebar;
     }
@@ -399,19 +730,22 @@ public class secretary extends JFrame {
         }
     }
 
-
+    private void maximizeFrame() {
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+    }
     private JPanel createMenuItem(String type, String text, boolean selected) {
         JPanel menuItem = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 18));
         menuItem.setMaximumSize(new Dimension(260, 65));
         menuItem.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
+        // Save reference for repainting later
+        sidebarMenuItems.put(type, menuItem);
 
         if (selected) {
             menuItem.setBackground(new Color(55, 55, 55));
         } else {
             menuItem.setBackground(Color.BLACK);
         }
-
 
         // Icon panel
         JPanel iconPanel = new JPanel() {
@@ -423,7 +757,7 @@ public class secretary extends JFrame {
                 g2.setColor(Color.WHITE);
 
 
-                switch(type) {
+                switch (type) {
                     case "personal_info":
                         g2.fillOval(10, 5, 20, 20);
                         g2.fillArc(2, 22, 36, 25, 0, 180);
@@ -442,43 +776,103 @@ public class secretary extends JFrame {
                         g2.setColor(Color.WHITE);
                         g2.fillRect(12, 5, 24, 20);
                         break;
-                    case "profile":
+                    case "tab": // Household Management (House Icon)
+                        int[] xPoints = { 20, 5, 35 };
+                        int[] yPoints = { 5, 20, 20 };
+                        g2.fillPolygon(xPoints, yPoints, 3);
+                        g2.fillRect(10, 20, 20, 15);
+                        g2.setColor(Color.BLACK);
+                        g2.fillRect(17, 26, 6, 9);
+                        break;
+                    case "secretary": // Search/Document Request (Search Icon)
+                        g2.setStroke(new BasicStroke(2));
+                        g2.drawOval(8, 8, 15, 15);
+                        g2.drawLine(20, 20, 30, 30);
+                        break;
+                    case "document": // Print (Printer Icon)
+                        g2.fillRect(10, 20, 20, 12); // Printer body
+                        g2.fillRect(14, 12, 12, 8); // Top paper
+                        g2.setColor(new Color(200, 200, 200));
+                        g2.fillRect(14, 28, 12, 8); // Bottom paper output
+                        break;
+                    case "blotter": // Blotter Tab (Scale/Law Icon)
+                        g2.setStroke(new BasicStroke(2));
+                        g2.drawLine(20, 10, 20, 30); // Center pillar
+                        g2.drawLine(10, 15, 30, 15); // Balance beam
+                        g2.drawArc(8, 15, 4, 10, 0, -180); // Left scale
+                        g2.drawArc(28, 15, 4, 10, 0, -180); // Right scale
+                        break;
+                    case "business": // Business Establishments (Shop/Store Icon)
+                        g2.fillRect(8, 18, 24, 14); // Storefront
+                        g2.fillRect(10, 10, 20, 8); // Roof/Awning
+                        g2.setColor(Color.BLACK);
+                        g2.fillRect(17, 24, 6, 8); // Door
+                        break;
+                    case "borrowingTab": // Property & Equipment (Wrench/Tools Icon)
                         g2.setStroke(new BasicStroke(3));
-                        g2.drawPolyline(new int[]{5, 15, 35}, new int[]{20, 30, 10}, 3);
+                        g2.drawOval(10, 10, 12, 12); // Wrench head
+                        g2.setColor(Color.BLACK);
+                        g2.fillRect(14, 14, 6, 4); // Notch in head
+                        g2.setColor(Color.WHITE);
+                        g2.drawLine(20, 20, 32, 32); // Handle
                         break;
                 }
+                if (notificationBadges.getOrDefault(type, false)) {
+                    g2.setColor(new Color(255, 50, 50)); // Bright Red
+                    g2.fillOval(30, 0, 12, 12); // Draw circle at top-right of icon
+
+                    g2.setColor(Color.WHITE);
+                    g2.setStroke(new BasicStroke(1f));
+                    g2.drawOval(30, 0, 12, 12); // White border to make it pop
+                }
+
             }
             @Override
             public Dimension getPreferredSize() {
-                return new Dimension(40, 40);
+                return new Dimension(45, 40);
             }
         };
         iconPanel.setOpaque(false);
-
 
         JLabel textLabel = new JLabel(text);
         textLabel.setForeground(Color.WHITE);
         textLabel.setFont(new Font("Arial", Font.PLAIN, 14));
 
-
         menuItem.add(iconPanel);
         menuItem.add(textLabel);
-
 
         // Click handler to switch tabs
         menuItem.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
-                cardLayout.show(contentContainer, type);
-                updateSelectedMenuItem(menuItem);
-            }
+                if (type.equals("admin_view")) {
+                    JFrame currentFrame = (JFrame) SwingUtilities.getWindowAncestor(menuItem);
+                    new Main().openAdminDashboard(UserDataManager.getInstance().getCurrentStaff());
+                    if (currentFrame != null) {
+                        currentFrame.dispose();
+                    }
+                    return;
+                }
 
+
+                lazyLoadPanel(type);
+
+
+                if (isPanelLoaded(type)) {
+                    cardLayout.show(contentContainer, type);
+                }
+
+                updateSelectedMenuItem(menuItem);
+                if (notificationBadges.getOrDefault(type, false)) {
+                    notificationBadges.put(type, false); // Clear notification
+                    menuItem.repaint();
+                }
+            }
 
             public void mouseEntered(MouseEvent e) {
                 if (menuItem.getBackground().equals(Color.BLACK)) {
                     menuItem.setBackground(new Color(35, 35, 35));
                 }
             }
-
 
             public void mouseExited(MouseEvent e) {
                 if (!menuItem.getBackground().equals(new Color(55, 55, 55))) {
@@ -487,8 +881,117 @@ public class secretary extends JFrame {
             }
         });
 
-
         return menuItem;
+    }
+    private void startNotificationService() {
+        // Run every 5 seconds (5000 ms)
+        notificationTimer = new javax.swing.Timer(5000, e -> checkForUpdates());
+        notificationTimer.start();
+    }
+
+    private void checkForUpdates() {
+        new SwingWorker<Integer, Void>() {
+            @Override
+            protected Integer doInBackground() throws Exception {
+                String sql = "SELECT COUNT(*) FROM system_logs WHERE actionType = 'Verified Document'";
+
+                try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
+                     java.sql.PreparedStatement ps = conn.prepareStatement(sql);
+                     java.sql.ResultSet rs = ps.executeQuery()) {
+
+                    if (rs.next()) {
+                        return rs.getInt(1);
+                    }
+                }
+                return 0;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    int currentCount = get();
+
+                    if (lastPaidCount == -1) {
+                        lastPaidCount = currentCount;
+                        return;
+                    }
+
+                    // If the number of "Verified Document" logs increased, it means a NEW one just happened
+                    if (currentCount > lastPaidCount) {
+
+
+                        triggerBadge("document");
+
+                        // 2. Show Toast Notification
+                        showToastNotification("New Payment/Request Update!");
+
+                        // 3. Play a sound (Optional, helpful for attention)
+                        java.awt.Toolkit.getDefaultToolkit().beep();
+
+                        // Update tracker so we catch the next one
+                        lastPaidCount = currentCount;
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+    private void showToastNotification(String message) {
+        JWindow toast = new JWindow();
+        toast.setBackground(new Color(0, 0, 0, 0)); // Transparent
+
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(new Color(40, 40, 40, 220)); // Semi-transparent black
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+
+        JLabel lbl = new JLabel("🔔 " + message);
+        lbl.setForeground(Color.WHITE);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
+        panel.add(lbl);
+        toast.add(panel);
+        toast.pack();
+
+        // Position at bottom right of screen
+        Dimension scr = Toolkit.getDefaultToolkit().getScreenSize();
+        int x = scr.width - toast.getWidth() - 20;
+        int y = scr.height - toast.getHeight() - 50; // Above taskbar
+        toast.setLocation(x, y);
+        panel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                toast.dispose();
+            }
+        });
+        toast.setVisible(true);
+        toast.setAlwaysOnTop(true);
+        new javax.swing.Timer(10000, e -> {
+            toast.dispose();
+            ((javax.swing.Timer)e.getSource()).stop();
+        }).start();
+    }
+    private void triggerBadge(String menuName) {
+        notificationBadges.put(menuName, true);
+        if (sidebarMenuItems.containsKey(menuName)) {
+            sidebarMenuItems.get(menuName).repaint(); // Redraws to show red dot
+        }
+    }
+    private boolean isPanelLoaded(String type) {
+        switch (type) {
+            case "total": return totalRequestLoaded;
+            case "secretary": return secretarySearchLoaded;
+            case "document": return printDocumentLoaded;
+
+            case "tab": return householdTabLoaded;
+            case "blotter": return blotterTabLoaded;
+            case "business": return businessTabLoaded;
+            case "borrowingTab": return borrowingTabLoaded;
+            case "dashboard": return dashboardLoaded;
+            case "personal_info":
+                return true; // Always loaded
+            default: return false;
+        }
     }
 
 
@@ -537,36 +1040,10 @@ public class secretary extends JFrame {
 
 
         // Create profile picture label for header
-        headerProfilePicture = new JLabel();
-        headerProfilePicture.setPreferredSize(new Dimension( 60, 60));
-        headerProfilePicture.setOpaque(true);
-        headerProfilePicture.setBackground(Color.WHITE);
-        headerProfilePicture.setBorder(new LineBorder(Color.GRAY, 1, true));
-        headerProfilePicture.setHorizontalAlignment(SwingConstants.CENTER);
 
-
-        // Load existing profile picture if available
-        if (!profilePictureBase64.isEmpty()) {
-            try {
-                byte[] imageBytes = Base64.getDecoder().decode(profilePictureBase64);
-                ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
-                BufferedImage image = ImageIO.read(bais);
-                ImageIcon icon = new ImageIcon(image.getScaledInstance(60, 60, Image.SCALE_SMOOTH));
-                headerProfilePicture.setIcon(icon);
-            } catch (IOException e) {
-                // If there's an error loading, show default icon
-                headerProfilePicture.setText("👤");
-                headerProfilePicture.setFont(new Font("Arial", Font.PLAIN, 20));
-            }
-        } else {
-            // Show default icon if no profile picture
-            headerProfilePicture.setText("👤");
-            headerProfilePicture.setFont(new Font("Arial", Font.PLAIN, 20));
-        }
 
 
         userPanel.add(personalInfoGreetingLabel); // Use field here
-        userPanel.add(headerProfilePicture);
 
 
         headerPanel.add(lblHeader, BorderLayout.WEST);
@@ -633,15 +1110,6 @@ public class secretary extends JFrame {
     }
 
 
-    private void saveProperties() {
-        try {
-            profileProperties.store(ResourceUtils.getResourceAsOutputStream(PROPERTIES_FILE), "User Profile Data Saved on " + new Date());
-            System.out.println("Profile data saved successfully.");
-        } catch (IOException ex) {
-            JOptionPane.showMessageDialog(this, "Error saving profile data: " + ex.getMessage(),
-                    "Save Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
 
 
     private String getSavedValue(String key) {
@@ -684,7 +1152,7 @@ public class secretary extends JFrame {
 
                 private void saveField() {
                     profileProperties.setProperty(propertyKey, field.getText());
-                    saveProperties();
+
                 }
             });
         }
@@ -696,7 +1164,7 @@ public class secretary extends JFrame {
             comboBox.addActionListener(e -> {
                 if (comboBox.getSelectedItem() != null) {
                     profileProperties.setProperty(propertyKey, comboBox.getSelectedItem().toString());
-                    saveProperties();
+
                 }
             });
         }
@@ -719,474 +1187,7 @@ public class secretary extends JFrame {
 
 
     // Personal Information Panel (example layout)
-    private JPanel createPersonalPanel() {
-        JPanel containerPanel = new JPanel(new BorderLayout(0, 0));
-        containerPanel.setBackground(new Color(229, 231, 235));
 
-
-        JPanel headerPanel = createHeaderPanel();
-        containerPanel.add(headerPanel, BorderLayout.NORTH);
-
-
-        // Create form panel with gradient background
-        JPanel formPanel = new JPanel(new GridBagLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2d = (Graphics2D) g;
-                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-                int w = getWidth();
-                int h = getHeight();
-                Color color1 = new Color(0, 123, 167); // Cerulean
-                Color color2 = new Color(173, 216, 230); // Light Blue
-                GradientPaint gp = new GradientPaint(0, 0, color1, 0, h, color2);
-                g2d.setPaint(gp);
-                g2d.fillRect(0, 0, w, h);
-            }
-        };
-        formPanel.setOpaque(false); // Make it transparent so gradient shows
-        formPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 10, 10, 10);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-
-
-        Font labelFont = new Font("Arial", Font.BOLD, 16);
-        Font fieldFont = new Font("Arial", Font.PLAIN, 15);
-
-
-        // First Name
-        gbc.gridx = 0; gbc.gridy = 0;
-        JLabel lblFirstName = new JLabel("First Name");
-        lblFirstName.setFont(labelFont);
-        lblFirstName.setForeground(Color.WHITE);
-        formPanel.add(lblFirstName, gbc);
-        gbc.gridx = 1;
-        txtFirstName = new JTextField(getSavedValue("firstName"), 12);
-        txtFirstName.setFont(fieldFont);
-        txtFirstName.setPreferredSize(new Dimension(160, 28));
-        formPanel.add(txtFirstName, gbc);
-
-
-        // Middle Name
-        gbc.gridx = 2;
-        JLabel lblMiddleName = new JLabel("Middle Name");
-        lblMiddleName.setFont(labelFont);
-        lblMiddleName.setForeground(Color.WHITE);
-        formPanel.add(lblMiddleName, gbc);
-        gbc.gridx = 3;
-        txtMiddleName = new JTextField(getSavedValue("middleName"), 12);
-        txtMiddleName.setFont(fieldFont);
-        txtMiddleName.setPreferredSize(new Dimension(160, 28));
-        formPanel.add(txtMiddleName, gbc);
-
-
-        // Last Name
-        gbc.gridx = 0; gbc.gridy = 1;
-        JLabel lblLastName = new JLabel("Last Name");
-        lblLastName.setFont(labelFont);
-        lblLastName.setForeground(Color.WHITE);
-        formPanel.add(lblLastName, gbc);
-        gbc.gridx = 1;
-        txtLastName = new JTextField(getSavedValue("lastName"), 12);
-        txtLastName.setFont(fieldFont);
-        txtLastName.setPreferredSize(new Dimension(160, 28));
-        formPanel.add(txtLastName, gbc);
-
-
-        // Suffix
-        gbc.gridx = 2;
-        JLabel lblSuffix = new JLabel("Suffix");
-        lblSuffix.setFont(labelFont);
-        lblSuffix.setForeground(Color.WHITE);
-        formPanel.add(lblSuffix, gbc);
-        gbc.gridx = 3;
-        txtSuffix = new JTextField(getSavedValue("suffix"), 8);
-        txtSuffix.setFont(fieldFont);
-        txtSuffix.setPreferredSize(new Dimension(80, 28));
-        formPanel.add(txtSuffix, gbc);
-
-
-        // Sex
-        gbc.gridx = 0; gbc.gridy = 2;
-        JLabel lblSex = new JLabel("Sex");
-        lblSex.setFont(labelFont);
-        lblSex.setForeground(Color.WHITE);
-        formPanel.add(lblSex, gbc);
-        gbc.gridx = 1;
-        String [ ] arr = new SystemConfigDAO().getOptionsNature("civilStatus");
-        String [] arr1 = new SystemConfigDAO().getOptionsNature("sex");
-        cmbSex = new JComboBox<>(arr1);
-        setComboBoxValue(cmbSex, getSavedValue("sex"));
-
-
-        cmbSex.setFont(fieldFont);
-        cmbSex.setPreferredSize(new Dimension(100, 28));
-        cmbSex.setEditable(false); // interactable dropdown
-        formPanel.add(cmbSex, gbc);
-
-
-        // Civil Status
-        gbc.gridx = 2;
-        JLabel lblStatus = new JLabel("Civil Status");
-        lblStatus.setFont(labelFont);
-        lblStatus.setForeground(Color.WHITE);
-        formPanel.add(lblStatus, gbc);
-        gbc.gridx = 3;
-        cmbStatus = new JComboBox<>(arr);
-        setComboBoxValue(cmbStatus, getSavedValue("status"));
-        cmbStatus.setFont(fieldFont);
-        cmbStatus.setPreferredSize(new Dimension(100, 28));
-        cmbStatus.setEditable(false); // interactable dropdown
-        formPanel.add(cmbStatus, gbc);
-
-
-        // Citizenship
-        gbc.gridx = 0; gbc.gridy = 3;
-        JLabel lblCitizenship = new JLabel("Citizenship");
-        lblCitizenship.setFont(labelFont);
-        lblCitizenship.setForeground(Color.WHITE);
-        formPanel.add(lblCitizenship, gbc);
-        gbc.gridx = 1;
-        txtCitizenship = new JTextField(getSavedValue("citizenship"), 10);
-        txtCitizenship.setFont(fieldFont);
-        txtCitizenship.setPreferredSize(new Dimension(100, 28));
-        formPanel.add(txtCitizenship, gbc);
-
-
-        // Birth Date
-        gbc.gridx = 2;
-        JLabel lblBirthDate = new JLabel("Birth Date");
-        lblBirthDate.setFont(labelFont);
-        lblBirthDate.setForeground(Color.WHITE);
-        formPanel.add(lblBirthDate, gbc);
-        gbc.gridx = 3;
-        JPanel birthPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        birthPanel.setOpaque(false); // Make transparent to show gradient
-        monthBox = new JComboBox<>(new String[]{
-                "January", "February", "March", "April", "May", "June",
-                "July", "August", "September", "October", "November", "December"
-        });
-        monthBox.setFont(fieldFont);
-        monthBox.setEditable(false); // interactable dropdown
-        setComboBoxValue(monthBox, getSavedValue("birthMonth"));
-
-
-        dayField = new JTextField(getSavedValue("birthDay"), 2);
-        dayField = new JTextField(2);
-        dayField.setFont(fieldFont);
-        dayField.setPreferredSize(new Dimension(32, 28));
-        yearField = new JTextField(getSavedValue("birthYear"), 4);
-        yearField = new JTextField(4);
-        yearField.setFont(fieldFont);
-        yearField.setPreferredSize(new Dimension(60, 28));
-        birthPanel.add(monthBox);
-        birthPanel.add(Box.createHorizontalStrut(6));
-        birthPanel.add(dayField);
-        birthPanel.add(Box.createHorizontalStrut(6));
-        birthPanel.add(yearField);
-        birthPanel.setBackground(Color.WHITE);
-        formPanel.add(birthPanel, gbc);
-
-
-        // Age
-        gbc.gridx = 0; gbc.gridy = 4;
-        JLabel lblAge = new JLabel("Age");
-        lblAge.setFont(labelFont);
-        lblAge.setForeground(Color.WHITE);
-        formPanel.add(lblAge, gbc);
-        gbc.gridx = 1;
-        txtAge = new JTextField(getSavedValue("age"), 3);
-        txtAge.setFont(fieldFont);
-        txtAge.setPreferredSize(new Dimension(60, 28));
-        formPanel.add(txtAge, gbc);
-
-
-        // Position
-        gbc.gridx = 2;
-        JLabel lblPosition = new JLabel("Position");
-        lblPosition.setFont(labelFont);
-        lblPosition.setForeground(Color.WHITE);
-        formPanel.add(lblPosition, gbc);
-        gbc.gridx = 3;
-        txtPosition = new JTextField(getSavedValue("position"), 12);
-        txtPosition.setFont(fieldFont);
-        txtPosition.setPreferredSize(new Dimension(160, 28));
-        formPanel.add(txtPosition, gbc);
-
-
-        // Profile Picture
-        gbc.gridx = 0; gbc.gridy = 5;
-        JLabel lblProfilePic = new JLabel("Profile Picture");
-        lblProfilePic.setFont(new Font("Arial", Font.BOLD, 16));
-        lblProfilePic.setForeground(Color.WHITE);
-        formPanel.add(lblProfilePic, gbc);
-        gbc.gridx = 1;
-        profilePictureLabel = new JLabel("Add a profile picture", SwingConstants.CENTER);
-        profilePictureLabel.setOpaque(true);
-        profilePictureLabel.setBackground(new Color(230, 230, 230));
-        profilePictureLabel.setBorder(new LineBorder(Color.GRAY, 1, true));
-        profilePictureLabel.setPreferredSize(new Dimension(60, 60));
-        profilePictureLabel.setFont(fieldFont);
-
-
-        // Load existing profile picture if available
-        if (!profilePictureBase64.isEmpty()) {
-            try {
-                byte[] imageBytes = Base64.getDecoder().decode(profilePictureBase64);
-                ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
-                BufferedImage image = ImageIO.read(bais);
-                ImageIcon icon = new ImageIcon(image.getScaledInstance(60, 60, Image.SCALE_SMOOTH));
-                profilePictureLabel.setIcon(icon);
-                profilePictureLabel.setText("");
-            } catch (IOException e) {
-                // Keep the default text if error loading
-            }
-        }
-
-
-
-
-
-
-        gbc.gridx = 1;
-        JButton btnAddPhoto = new JButton("Add a profile picture");
-        btnAddPhoto.setFont(fieldFont);
-        btnAddPhoto.setFocusPainted(false);
-        btnAddPhoto.setPreferredSize(new Dimension(140, 28));
-        btnAddPhoto.addActionListener(e -> {
-            JFileChooser chooser = new JFileChooser();
-            chooser.setDialogTitle("Select a Profile Photo");
-            chooser.setFileFilter(new FileNameExtensionFilter("Image files", "jpg", "png", "jpeg"));
-            int result = chooser.showOpenDialog(this);
-            if (result == JFileChooser.APPROVE_OPTION) {
-                File selectedFile = chooser.getSelectedFile();
-                saveProfilePicture(selectedFile);
-            }
-        });
-        formPanel.add(btnAddPhoto, gbc);
-
-        txtPosition.setEditable(false);
-        // Contact Info Section
-        gbc.gridx = 0; gbc.gridy = 6; gbc.gridwidth = 4;
-        JSeparator separator = new JSeparator();
-        separator.setForeground(Color.WHITE);
-        formPanel.add(separator, gbc);
-
-
-        // Address
-        gbc.gridy = 7; gbc.gridwidth = 1;
-        JLabel lblAddress = new JLabel("Address");
-        lblAddress.setFont(labelFont);
-        lblAddress.setForeground(Color.WHITE);
-        formPanel.add(lblAddress, gbc);
-        gbc.gridx = 1;
-        txtAddress = new JTextField(getSavedValue("address"), 18);
-        txtAddress.setFont(fieldFont);
-        txtAddress.setPreferredSize(new Dimension(220, 28));
-        formPanel.add(txtAddress, gbc);
-
-
-        // Phone Number
-        gbc.gridx = 2;
-        JLabel lblPhone = new JLabel("Phone Number");
-        lblPhone.setFont(labelFont);
-        lblPhone.setForeground(Color.WHITE);
-        formPanel.add(lblPhone, gbc);
-        gbc.gridx = 3;
-        txtPhone = new JTextField(getSavedValue("phone"), 10);
-        txtPhone.setFont(fieldFont);
-        txtPhone.setPreferredSize(new Dimension(120, 28));
-        formPanel.add(txtPhone, gbc);
-
-
-        // Email Address
-        gbc.gridx = 0; gbc.gridy = 8;
-        JLabel lblEmail = new JLabel("Email Address");
-        lblEmail.setFont(labelFont);
-        lblEmail.setForeground(Color.WHITE);
-        formPanel.add(lblEmail, gbc);
-        gbc.gridx = 1;
-        txtEmail = new JTextField(getSavedValue("email"), 14);
-        txtEmail.setFont(fieldFont);
-        txtEmail.setPreferredSize(new Dimension(160, 28));
-        formPanel.add(txtEmail, gbc);
-
-
-        // Unique ID NO.
-        gbc.gridx = 2;
-        JLabel lblUniqueId = new JLabel("Unique ID NO.");
-        lblUniqueId.setFont(labelFont);
-        lblUniqueId.setForeground(Color.WHITE);
-        formPanel.add(lblUniqueId, gbc);
-        gbc.gridx = 3;
-        txtUniqueId = new JTextField(getSavedValue("uniqueId"), 12);
-        txtUniqueId.setFont(fieldFont);
-        txtUniqueId.setPreferredSize(new Dimension(160, 28));
-        formPanel.add(txtUniqueId, gbc);
-
-
-        // ID TYPE
-        gbc.gridx = 0; gbc.gridy = 9;
-        JLabel lblIdType = new JLabel("ID TYPE");
-        lblIdType.setFont(labelFont);
-        lblIdType.setForeground(Color.WHITE);
-        formPanel.add(lblIdType, gbc);
-        gbc.gridx = 1;
-        txtIdType = new JTextField(getSavedValue("idType"), 10);
-        txtIdType.setFont(fieldFont);
-        txtIdType.setPreferredSize(new Dimension(120, 28));
-        formPanel.add(txtIdType, gbc);
-
-
-        // Photo ID
-        gbc.gridx = 2;
-        JLabel lblPhotoId = new JLabel("Photo ID");
-        lblPhotoId.setFont(labelFont);
-        lblPhotoId.setForeground(Color.WHITE);
-        formPanel.add(lblPhotoId, gbc);
-        gbc.gridx = 3;
-        JLabel photoIdPic = new JLabel("Upload ID photo", SwingConstants.CENTER);
-        photoIdPic.setOpaque(true);
-        photoIdPic.setBackground(new Color(230, 230, 230));
-        photoIdPic.setBorder(new LineBorder(Color.GRAY, 1, true));
-        photoIdPic.setPreferredSize(new Dimension(60, 60)); // Square
-        photoIdPic.setFont(fieldFont);
-        formPanel.add(photoIdPic, gbc);
-
-
-        gbc.gridx = 2;
-        gbc.gridy = 10;
-        JButton btnAddPhotoId = new JButton("Upload ID photo");
-        btnAddPhotoId.setFont(fieldFont);
-        btnAddPhotoId.setFocusPainted(false);
-        btnAddPhotoId.setPreferredSize(new Dimension(140, 28));
-        btnAddPhotoId.addActionListener(e -> {
-            JFileChooser chooser = new JFileChooser();
-            chooser.setDialogTitle("Select an ID Photo");
-            chooser.setFileFilter(new FileNameExtensionFilter("Image files", "jpg", "png", "jpeg"));
-            int result = chooser.showOpenDialog(this);
-            if (result == JFileChooser.APPROVE_OPTION) {
-                File selectedFile = chooser.getSelectedFile();
-                try {
-                    Image img = ImageIO.read(selectedFile);
-                    if (img != null) {
-                        ImageIcon icon = new ImageIcon(img.getScaledInstance(60, 60, Image.SCALE_SMOOTH)); // Square
-                        photoIdPic.setText("");
-                        photoIdPic.setIcon(icon);
-                    }
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, "Error loading image: " + ex.getMessage(),
-                            "Error", JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        });
-        formPanel.add(btnAddPhotoId, gbc);
-
-
-        // Done Button
-        txtAge.setEditable(false);
-        dayField.setEditable(false);
-
-        monthBox.setEnabled(false);
-        cmbSex.setEnabled(false);
-        yearField.setEditable(false);
-        gbc.gridx = 3; gbc.gridy = 11; gbc.anchor = GridBagConstraints.EAST;
-        JButton btnDone = new JButton("Done");
-        btnDone.setFont(new Font("Arial", Font.BOLD, 18));
-        btnDone.setForeground(Color.BLACK);
-        btnDone.setBackground(new Color(0, 102, 255));
-        btnDone.setFocusPainted(false);
-        btnDone.setPreferredSize(new Dimension(120, 36));
-        ((javax.swing.text.AbstractDocument) txtPhone.getDocument()).setDocumentFilter(new secretary.PhoneDocumentFilter());
-        btnDone.addActionListener(e -> {
-            // Save all properties before showing confirmation
-            profileProperties.setProperty("firstName", txtFirstName.getText());
-            profileProperties.setProperty("middleName", txtMiddleName.getText());
-            profileProperties.setProperty("lastName", txtLastName.getText());
-            profileProperties.setProperty("suffix", txtSuffix.getText());
-            profileProperties.setProperty("sex", cmbSex.getSelectedItem().toString());
-            profileProperties.setProperty("status", cmbStatus.getSelectedItem().toString());
-            profileProperties.setProperty("citizenship", txtCitizenship.getText());
-            profileProperties.setProperty("birthMonth", monthBox.getSelectedItem().toString());
-            profileProperties.setProperty("birthDay", dayField.getText());
-            profileProperties.setProperty("birthYear", yearField.getText());
-            profileProperties.setProperty("age", txtAge.getText());
-            profileProperties.setProperty("position", txtPosition.getText());
-            profileProperties.setProperty("address", txtAddress.getText());
-            profileProperties.setProperty("phone", txtPhone.getText());
-            profileProperties.setProperty("email", txtEmail.getText());
-            profileProperties.setProperty("uniqueId", txtUniqueId.getText());
-            profileProperties.setProperty("idType", txtIdType.getText());
-
-
-            BarangayStaff currentStaff = UserDataManager.getInstance().getCurrentStaff();
-            if (currentStaff != null) {
-                // Update the staff object with form data
-                BarangayStaff updatedStaff = currentStaff.toBuilder()
-                        .firstName(txtFirstName.getText().trim())
-                        .middleName(txtMiddleName.getText().trim())
-                        .lastName(txtLastName.getText().trim())
-                        .suffix(txtSuffix.getText().trim())
-                        .address(txtAddress.getText().trim())
-                        .contactNo(txtPhone.getText().trim())
-                        .civilStatus(cmbStatus.getSelectedItem().toString())
-                        .email(txtEmail.getText().trim())
-                        .updatedAt(java.time.LocalDateTime.now()) // Mark the time
-                        .build();
-                UserDataManager.getInstance().updateStaff(updatedStaff);
-
-                UserDataManager.getInstance().setCurrentStaff(updatedStaff);
-                System.out.println("Staff data updated successfully!");
-            }
-
-            saveProperties();
-
-
-            // Update greeting in all panels
-            updateGreetingInAllPanels();
-
-
-            StringBuilder info = new StringBuilder();
-            info.append("First Name: ").append(txtFirstName.getText()).append("\n");
-            info.append("Middle Name: ").append(txtMiddleName.getText()).append("\n");
-            info.append("Last Name: ").append(txtLastName.getText()).append("\n");
-            info.append("Suffix: ").append(txtSuffix.getText()).append("\n");
-            info.append("Sex: ").append(cmbSex.getSelectedItem()).append("\n");
-            info.append("Civil Status: ").append(cmbStatus.getSelectedItem()).append("\n");
-            info.append("Citizenship: ").append(txtCitizenship.getText()).append("\n");
-            info.append("Birth Date: ").append(monthBox.getSelectedItem()).append(" ")
-                    .append(dayField.getText()).append(" ").append(yearField.getText()).append("\n");
-            info.append("Age: ").append(txtAge.getText()).append("\n");
-            info.append("Position: ").append(txtPosition.getText()).append("\n");
-            info.append("Address: ").append(txtAddress.getText()).append("\n");
-            info.append("Phone Number: ").append(txtPhone.getText()).append("\n");
-            info.append("Email Address: ").append(txtEmail.getText()).append("\n");
-            info.append("Unique ID NO.: ").append(txtUniqueId.getText()).append("\n");
-            info.append("ID TYPE: ").append(txtIdType.getText()).append("\n");
-
-
-            JOptionPane.showMessageDialog(secretary.this, info.toString(), "Submitted Information", JOptionPane.INFORMATION_MESSAGE);
-            });
-
-
-        setupAutoSave();
-        formPanel.add(btnDone, gbc);
-
-
-        // Make the form scrollable
-        JScrollPane scrollPane = new JScrollPane(formPanel,
-                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        scrollPane.setBorder(null);
-        scrollPane.setOpaque(false);
-        scrollPane.getViewport().setOpaque(false);
-
-
-        containerPanel.add(scrollPane, BorderLayout.CENTER);
-        return containerPanel;
-    }
     static class PhoneDocumentFilter extends javax.swing.text.DocumentFilter {
         @Override
         public void insertString(FilterBypass fb, int offset, String string, javax.swing.text.AttributeSet attr) throws javax.swing.text.BadLocationException {
@@ -1226,7 +1227,7 @@ public class secretary extends JFrame {
 
         if (option == JOptionPane.YES_OPTION) {
             // Save data and exit
-            saveProperties();
+
             dispose(); // Close the window
             System.exit(0); // Exit the application
         }
@@ -1247,7 +1248,7 @@ public class secretary extends JFrame {
             byte[] imageBytes = baos.toByteArray();
             profilePictureBase64 = Base64.getEncoder().encodeToString(imageBytes);
             profileProperties.setProperty("profilePicture", profilePictureBase64);
-            saveProperties();
+
             updateGreetingInAllPanels(); // <-- Add this line!
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, "Error saving profile picture: " + e.getMessage());
@@ -1255,12 +1256,7 @@ public class secretary extends JFrame {
     }
 
 
-    private void loadProfilePicture() {
-        profilePictureBase64 = profileProperties.getProperty("profilePicture", "");
-        if (!profilePictureBase64.isEmpty()) {
-            updateProfilePictureInAllPanels();
-        }
-    }
+
 
 
     private void updateProfilePictureInAllPanels() {
@@ -1350,7 +1346,7 @@ public class secretary extends JFrame {
             // Populate fields from staff data
             txtFirstName.setText(currentStaff.getFirstName() != null ? currentStaff.getFirstName() : "");
             txtLastName.setText(currentStaff.getLastName() != null ? currentStaff.getLastName() : "");
-            txtPosition.setText(currentStaff.getPosition() != null ? currentStaff.getPosition() : "");
+            txtPosition.setText(currentStaff.getRole() != null ? currentStaff.getRole() : "");
             txtEmail.setText(currentStaff.getEmail() != null ? currentStaff.getEmail() : "");
             txtPhone.setText(currentStaff.getContactNo() != null ? currentStaff.getContactNo() : "");
             String age = "";

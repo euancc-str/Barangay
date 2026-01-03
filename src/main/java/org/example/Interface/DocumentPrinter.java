@@ -31,7 +31,7 @@ public class DocumentPrinter implements Printable {
         this.purok = purok;
         this.residentAge = residentAge;
 
-        BarangayStaff captain = new StaffDAO().findStaffByPosition("Brgy.Captain");
+        BarangayStaff captain = new StaffDAO().findStaffByPosition("Captain");
         String cap = (captain != null) ? captain.getFirstName() + " " + captain.getMiddleName() + " " + captain.getLastName() : "";
         this.captainName = (!cap.isEmpty()) ? cap : "HON. Robert E. Palencia";
     }

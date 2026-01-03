@@ -17,30 +17,82 @@ public class BarangayAssetDAO {
              ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
-                list.add(new BarangayAsset(
-                        rs.getInt("assetId"),
-                        rs.getString("itemName"),
-                        rs.getString("propertyNumber"),
-                        rs.getDate("dateAcquired"), // Use dateAcquired based on your SQL
-                        rs.getString("status"),
-                        rs.getDouble("value") // Use value based on your SQL
-                ));
+                BarangayAsset asset = BarangayAsset.builder()
+                        .assetId(rs.getInt("assetId"))
+                        .itemName( rs.getString("itemName"))
+                        .propertyNumber( rs.getString("propertyNumber"))
+                        .dateAcquired(   rs.getDate("dateAcquired"))
+                        .status(  rs.getString("status"))
+                        .value( rs.getDouble("value"))
+                        .location(rs.getString("location"))
+                        .custodian(rs.getString("custodian"))
+                        .build();
+
+                list.add(asset);
             }
         } catch (SQLException e) { e.printStackTrace(); }
         return list;
     }
+    // Add this inside BarangayAssetDAO class
+    public BarangayAsset getAssetById(int id) {
+        String sql = "SELECT * FROM barangay_asset WHERE assetId = ?";
+        try (java.sql.Connection conn = DatabaseConnection.getConnection();
+             java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, id);
+            try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return BarangayAsset.builder()
+                            .assetId(rs.getInt("assetId"))
+                            .itemName(rs.getString("itemName"))
+                            .propertyCode(rs.getString("propertyCode"))
+                            .propertyNumber(rs.getString("propertyNumber"))
+                            .dateAcquired(rs.getDate("dateAcquired"))
+                            .status(rs.getString("status"))
+                            .value(rs.getDouble("value"))
+                            .brand(rs.getString("brand"))
+                            .model(rs.getString("model"))
+                            .fundSource(rs.getString("fundSource"))
+                            .custodian(rs.getString("custodian"))
+                            .usefulLifeYears(rs.getInt("usefulLifeYears"))
+                            .purchaseDate(rs.getDate("purchaseDate"))
+                            .location(rs.getString("location"))
+                            .serialNumber(rs.getString("serialNumber"))
+                            .build();
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
 
     // --- CREATE ---
+    // --- CREATE (Insert all attributes) ---
     public boolean addAsset(BarangayAsset asset) {
-        String sql = "INSERT INTO barangay_asset (itemName, propertyNumber, dateAcquired, status, value) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO barangay_asset " +
+                "(itemName, propertyCode, propertyNumber, dateAcquired, status, value, " +
+                "brand, model, fundSource, custodian, usefulLifeYears, purchaseDate, location, serialNumber) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, asset.getItemName());
-            stmt.setString(2, asset.getPropertyNumber());
-            stmt.setDate(3, asset.getDateAcquired());
-            stmt.setString(4, asset.getStatus());
-            stmt.setDouble(5, asset.getValue());
+            stmt.setString(2, asset.getPropertyCode());
+            stmt.setString(3, asset.getPropertyNumber());
+            stmt.setDate(4, asset.getDateAcquired());
+            stmt.setString(5, asset.getStatus());
+            stmt.setDouble(6, asset.getValue());
+
+            stmt.setString(7, asset.getBrand());
+            stmt.setString(8, asset.getModel());
+            stmt.setString(9, asset.getFundSource());
+            stmt.setString(10, asset.getCustodian());
+            stmt.setInt(11, asset.getUsefulLifeYears());
+            stmt.setDate(12, asset.getPurchaseDate());
+            stmt.setString(13, asset.getLocation());
+            stmt.setString(14, asset.getSerialNumber());
 
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -49,18 +101,34 @@ public class BarangayAssetDAO {
         }
     }
 
-    // --- UPDATE ---
+    // --- UPDATE (Update all attributes based on ID) ---
     public boolean updateAsset(BarangayAsset asset) {
-        String sql = "UPDATE barangay_asset SET itemName=?, propertyNumber=?, dateAcquired=?, status=?, value=? WHERE assetId=?";
+        String sql = "UPDATE barangay_asset SET " +
+                "itemName=?, propertyCode=?, propertyNumber=?, dateAcquired=?, status=?, value=?, " +
+                "brand=?, model=?, fundSource=?, custodian=?, usefulLifeYears=?, purchaseDate=?, " +
+                "location=?, serialNumber=? WHERE assetId=?";
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, asset.getItemName());
-            stmt.setString(2, asset.getPropertyNumber());
-            stmt.setDate(3, asset.getDateAcquired());
-            stmt.setString(4, asset.getStatus());
-            stmt.setDouble(5, asset.getValue());
-            stmt.setInt(6, asset.getAssetId());
+            stmt.setString(2, asset.getPropertyCode());
+            stmt.setString(3, asset.getPropertyNumber());
+            stmt.setDate(4, asset.getDateAcquired());
+            stmt.setString(5, asset.getStatus());
+            stmt.setDouble(6, asset.getValue());
+
+            stmt.setString(7, asset.getBrand());
+            stmt.setString(8, asset.getModel());
+            stmt.setString(9, asset.getFundSource());
+            stmt.setString(10, asset.getCustodian());
+            stmt.setInt(11, asset.getUsefulLifeYears());
+            stmt.setDate(12, asset.getPurchaseDate());
+            stmt.setString(13, asset.getLocation());
+            stmt.setString(14, asset.getSerialNumber());
+
+            // The ID is the 15th parameter
+            stmt.setInt(15, asset.getAssetId());
 
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -68,7 +136,6 @@ public class BarangayAssetDAO {
             return false;
         }
     }
-
     // --- DELETE ---
     public boolean deleteAsset(int id) {
         String sql = "DELETE FROM barangay_asset WHERE assetId=?";

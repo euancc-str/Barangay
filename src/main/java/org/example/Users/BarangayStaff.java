@@ -17,6 +17,7 @@ public class BarangayStaff extends Person {
     private String contactNo;
     private String email;
     private String username;
+    private int residentId;
     @ToString.Exclude
     private String password;       // Encrypted
     private String role;           // Admin, Captain, Official, Resident

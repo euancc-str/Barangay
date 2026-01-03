@@ -122,7 +122,6 @@ public class UserDataManager {
                 "WHERE residentId = ? AND status = 'Pending' " +
                 "ORDER BY createdAt DESC LIMIT 1";
 
-        // 2. Update the request with staff assignment
         String updateSql = "UPDATE document_request " +
                 "SET staffId = ?, status = ?, updatedAt = ? " +
                 "WHERE requestId = ?";
@@ -219,7 +218,8 @@ public class UserDataManager {
                 "firstName, lastName, gender, username, contactNo, email, password, " +
                 "age, voterStatus, householdNo, nationalId, photoPath, " +
                 "position, createdAt, updatedAt, status, address,birthDate,purok,street,middleName,civilStatus" +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?)";
+                ",isPwd,householdNo" +
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?,?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -244,8 +244,10 @@ public class UserDataManager {
             pstmt.setDate(18, Date.valueOf(resident.getDob()));
             pstmt.setString(19,resident.getPurok());
             pstmt.setString(20,resident.getStreet());
-            pstmt.setString(21,resident.getMiddleName());
+            pstmt.setString(21,resident.getMiddleName() != null ? resident.getMiddleName() :"");
             pstmt.setString(22,resident.getCivilStatus());
+            pstmt.setInt(23,resident.getIsPwd());
+            pstmt.setString(24,resident.getHouseholdNo());
             pstmt.executeUpdate();
             System.out.println("✅ Resident saved successfully!");
 
@@ -442,12 +444,23 @@ public class UserDataManager {
 
             pstmt.setString(1, staff.getFirstName());
             pstmt.setString(2, staff.getLastName());
-            pstmt.setString(3, staff.getPosition());
+            String trimmer = "Brgy.";
+            String data = "";
+            if (staff.getPosition() != null && staff.getPosition().contains(trimmer)) {
+                int start = trimmer.length();
+                data = staff.getPosition().substring(start);
+            }  else if (staff.getPosition().equals("Brgy.Captain")){
+                data = "Brgy.Captain";
+            }else {
+                data = "Admin";
+            }
+            System.out.println(data);
+            pstmt.setString(3, data);
             pstmt.setString(4, staff.getContactNo());
             pstmt.setString(5, staff.getEmail());
             pstmt.setString(6, staff.getUsername());
             pstmt.setString(7, staff.getPassword());
-            pstmt.setString(8, staff.getRole());
+            pstmt.setString(8, staff.getPosition());
             pstmt.setString(9, staff.getStatus());
             pstmt.setString(10, staff.getDepartment());
 
@@ -471,7 +484,71 @@ public class UserDataManager {
             pstmt.setString(18, staff.getIdNumber());
 
             int rowsUpdated = pstmt.executeUpdate();
-            System.out.println("✅ Updated " + rowsUpdated + " staff record(s) successfully!");
+            System.out.println("✅ Updated " + rowsUpdated + " staff record(s) successfully!\n staff:" + staff);
+
+
+        } catch (SQLException e) {
+            System.err.println("❌ Error updating staff: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    public void updateStaffUsindId(BarangayStaff staff) {
+        String sql = "UPDATE barangay_staff SET " +
+                "firstName = ?, lastName = ?, position = ?, contactNo = ?, email = ?, " +
+                "username = ?, password = ?, role = ?, status = ?, department = ?, " +
+                "lastLogin = ?, updatedAt = ?, address = ?, birthDate = ?,citizenship = ?," +
+                "suffix = ?,civilStatus=?,sex=?,middleName = ?,residentId=?  " +
+                "WHERE staffId = ?";
+        System.out.println(staff);
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, staff.getFirstName());
+            pstmt.setString(2, staff.getLastName());
+            String trimmer = "Brgy.";
+            String data = "";
+            if (staff.getPosition() != null && staff.getPosition().contains(trimmer)) {
+                int start = trimmer.length();
+                data = staff.getPosition().substring(start); // This extracts "Treasurer"
+            }  else if (staff.getPosition().equals("Brgy.Captain")){
+                data = "Brgy.Captain";
+            }else {
+                data = "Admin";
+            }
+            System.out.println(data);
+            pstmt.setString(3, data);
+            pstmt.setString(4, staff.getContactNo());
+            pstmt.setString(5, staff.getEmail());
+            pstmt.setString(6, staff.getUsername());
+            pstmt.setString(7, staff.getPassword());
+            pstmt.setString(8, staff.getPosition());
+            pstmt.setString(9, staff.getStatus());
+            pstmt.setString(10, staff.getDepartment());
+
+            // Handle nullable timestamps safely
+            pstmt.setTimestamp(11, staff.getLastLogin() != null
+                    ? Timestamp.valueOf(staff.getLastLogin())
+                    : null);
+
+            //updatedAt
+            pstmt.setTimestamp(12, Timestamp.valueOf(LocalDateTime.now()));
+
+            pstmt.setString(13, staff.getAddress());
+
+            pstmt.setDate(14, staff.getDob() != null
+                    ? Date.valueOf(staff.getDob())
+                    : null);
+            pstmt.setString(15,"Filipino");
+            pstmt.setString(16,staff.getSuffix());
+            pstmt.setString(17,staff.getCivilStatus());
+            pstmt.setString(18,staff.getSex());
+            pstmt.setString(19,staff.getMiddleName());
+            pstmt.setInt(20,staff.getResidentId());
+            pstmt.setString(21, staff.getStaffId());
+
+            int rowsUpdated = pstmt.executeUpdate();
+            System.out.println("✅ Updated " + rowsUpdated + " staff record(s) successfully!\n staff:" + staff);
+
 
         } catch (SQLException e) {
             System.err.println("❌ Error updating staff: " + e.getMessage());

@@ -177,7 +177,7 @@ public class FilloutPersonalInfo extends JFrame {
         gbc.gridx = 0;
         innerCard.add(createRequiredLabel("First Name"), gbc);
         gbc.gridx = 1;
-        innerCard.add(createRequiredLabel("Middle Name"), gbc);
+        innerCard.add(createRequiredLabel("Middle Initial"), gbc);
         gbc.gridx = 2;
         innerCard.add(createRequiredLabel("Last Name"), gbc);
 

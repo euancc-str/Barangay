@@ -38,12 +38,12 @@ public class BusinessClearancePrinter implements Printable {
         this.ctcDate = (ctcDate != null && !ctcDate.equalsIgnoreCase("null")) ? ctcDate : "";
         this.ctcPlace =ctcPlace;
         this.requestId = requestId;
-        BarangayStaff captain = new StaffDAO().findStaffByPosition("Brgy.Captain");
+        BarangayStaff captain = new StaffDAO().findStaffByPosition("Captain");
         String cap =  captain.getFirstName() + " " + captain.getMiddleName() + " "+ captain.getLastName();
         this.captainName = (cap != null && !cap.isEmpty()) ? cap : "HON. Robert E. Palencia";
     }
     private static SystemConfigDAO dao = new SystemConfigDAO();
-    String logoPath = dao.getConfig("logoPath");
+
     private final String LOGO_PATH = dao.getLogoPath();
     @Override
     public int print(Graphics g, PageFormat pf, int pageIndex) throws PrinterException {
@@ -162,7 +162,7 @@ public class BusinessClearancePrinter implements Printable {
                 "Rules, and Regulations relating to its operation.";
 
         y = drawParagraph(g2d, body, labelX, y, width - 140, 16);
-        y += 50;
+        y += 170;
 
         // Validity Note
         g2d.setFont(new Font("Arial", Font.ITALIC, 10));

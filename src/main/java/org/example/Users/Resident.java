@@ -29,6 +29,7 @@ public class Resident extends Person {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String status;
+    private int isPwd;
 
 
 }
