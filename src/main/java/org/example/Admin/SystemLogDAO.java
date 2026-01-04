@@ -114,11 +114,13 @@ public class SystemLogDAO {
     }
     // Inside SystemLogDAO class
     public int getLatestLogId(String actionFilter) {
-
         String sql = "SELECT MAX(logId) FROM system_logs";
         if (actionFilter != null && !actionFilter.isEmpty()) {
             sql += " WHERE actionType LIKE ?";
         }
+
+        System.out.println("🔎 Executing: " + sql);
+        System.out.println("🔎 Filter pattern: %" + actionFilter + "%");
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -129,13 +131,18 @@ public class SystemLogDAO {
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
-                    return rs.getInt(1); // Returns the highest ID (e.g., 502)
+                    int maxId = rs.getInt(1);
+                    System.out.println("✅ Found MAX logId: " + maxId);
+                    return maxId;
                 }
             }
         } catch (SQLException e) {
+            System.err.println("❌ SQL Error:");
             e.printStackTrace();
         }
-        return 0; // Return 0 if table is empty
+
+        System.out.println("⚠️ No matching logs found, returning 0");
+        return 0;
     }
 
 

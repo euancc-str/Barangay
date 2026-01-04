@@ -7,6 +7,7 @@ import org.example.ResidentDAO;
 import org.example.Users.BarangayAsset;
 import org.example.Users.BorrowRecord;
 import org.example.Users.Resident;
+import org.example.utils.AutoRefresher;
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -30,7 +31,6 @@ import java.util.Calendar;
 import java.awt.print.*;
 import java.text.MessageFormat;
 import java.util.*; // Add this import for java.util.Date
-
 
 public class AdminAssetBorrowingTab extends JPanel {
 
@@ -94,11 +94,12 @@ public class AdminAssetBorrowingTab extends JPanel {
     private final String NAME_REGEX = "^[a-zA-Z0-9\\s\\-\\.,&()]+$";
     private final String PROPERTY_REGEX = "^[A-Z0-9\\-\\/]+$";
     private final String SERIAL_REGEX = "^[A-Za-z0-9\\-\\s]+$";
-    private final String DECIMAL_REGEX = "^\\d+(\\.\\d{1,2})?$";
+
+    private final String DECIMAL_REGEX = "^₱?\\s?\\d+(?:,\\d{3})*(?:\\.\\d{1,2})?$";
+
     private final String INTEGER_REGEX = "^\\d+$";
     private final String DATE_REGEX = "^\\d{4}-\\d{2}-\\d{2}$";
     private final String CUSTODIAN_REGEX = "^[A-Za-z\\s\\.,]+$";
-
 
     public AdminAssetBorrowingTab() {
         setLayout(new BorderLayout());
@@ -106,13 +107,55 @@ public class AdminAssetBorrowingTab extends JPanel {
         setBorder(new EmptyBorder(10, 10, 10, 10));
 
         SwingUtilities.invokeLater(this::initializeUI);
-        startSmartPolling();
+        addAncestorListener(new javax.swing.event.AncestorListener() {
+            @Override
+            public void ancestorAdded(javax.swing.event.AncestorEvent event) {
+                // 1. STOP any existing refreshers (Safety check)
+                stopAllRefreshers();
+
+
+                loadBorrowingData();
+
+
+                equipmentRefresher = new AutoRefresher("Asset", AdminAssetBorrowingTab.this::loadAssetData);
+                venueRefresher = new AutoRefresher("Asset", AdminAssetBorrowingTab.this::loadBorrowingData);
+
+                // You might have logs like "Borrowing Approved" or "Returned Item"
+                // Ensure "Borrowing" is the keyword that matches those logs.
+                borrowingRefresher = new AutoRefresher("Asset", AdminAssetBorrowingTab.this::loadBorrowingData);
+
+                System.out.println("Asset/Borrowing Tab active. Auto-refreshers started.");
+            }
+
+            @Override
+            public void ancestorRemoved(javax.swing.event.AncestorEvent event) {
+                stopAllRefreshers();
+                System.out.println("Asset/Borrowing Tab hidden. Refreshers stopped.");
+            }
+
+            @Override
+            public void ancestorMoved(javax.swing.event.AncestorEvent event) { }
+        });
     }
-
-
+    private void stopAllRefreshers() {
+        if (equipmentRefresher != null) {
+            equipmentRefresher.stop();
+            equipmentRefresher = null;
+        }
+        if (venueRefresher != null) {
+            venueRefresher.stop();
+            venueRefresher = null;
+        }
+        if (borrowingRefresher != null) {
+            borrowingRefresher.stop();
+            borrowingRefresher = null;
+        }
+    }
+    private AutoRefresher equipmentRefresher;
+    private AutoRefresher venueRefresher;
+    private AutoRefresher borrowingRefresher;
     private javax.swing.Timer smartTimer;
     private int lastAssetMaxId = 0;
-
 
     private void startSmartPolling() {
         initializeLastAssetMaxId();
@@ -124,19 +167,16 @@ public class AdminAssetBorrowingTab extends JPanel {
         smartTimer.start();
     }
 
-
     private void initializeLastAssetMaxId() {
         new SwingWorker<Integer, Void>() {
             @Override
             protected Integer doInBackground() throws Exception {
                 String sql = "SELECT MAX(assetId) as max_id FROM barangay_asset";
-                try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
-                     java.sql.Statement stmt = conn.createStatement()) {
+                try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection(); java.sql.Statement stmt = conn.createStatement()) {
                     java.sql.ResultSet rs = stmt.executeQuery(sql);
                     return rs.next() ? rs.getInt("max_id") : 0;
                 }
             }
-
 
             @Override
             protected void done() {
@@ -149,14 +189,12 @@ public class AdminAssetBorrowingTab extends JPanel {
         }.execute();
     }
 
-
     private void checkForAssetUpdates() {
         new SwingWorker<Boolean, Void>() {
             @Override
             protected Boolean doInBackground() throws Exception {
                 String sql = "SELECT MAX(assetId) as max_id FROM barangay_asset";
-                try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
-                     java.sql.Statement stmt = conn.createStatement()) {
+                try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection(); java.sql.Statement stmt = conn.createStatement()) {
                     java.sql.ResultSet rs = stmt.executeQuery(sql);
                     if (rs.next()) {
                         int currentMaxId = rs.getInt("max_id");
@@ -179,19 +217,16 @@ public class AdminAssetBorrowingTab extends JPanel {
         }.execute();
     }
 
-
     private void updateLastAssetMaxId() {
         new SwingWorker<Integer, Void>() {
             @Override
             protected Integer doInBackground() throws Exception {
                 String sql = "SELECT MAX(assetId) as max_id FROM barangay_asset";
-                try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
-                     java.sql.Statement stmt = conn.createStatement()) {
+                try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection(); java.sql.Statement stmt = conn.createStatement()) {
                     java.sql.ResultSet rs = stmt.executeQuery(sql);
                     return rs.next() ? rs.getInt("max_id") : 0;
                 }
             }
-
 
             @Override
             protected void done() {
@@ -203,7 +238,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             }
         }.execute();
     }
-
 
     private void initializeUI() {
         // Create gradient header panel
@@ -222,23 +256,19 @@ public class AdminAssetBorrowingTab extends JPanel {
         JPanel assetPanel = createAssetPanel();
         tabbedPane.addTab("📦 Assets & Inventory", assetPanel);
 
-
         // Tab 2: Borrowing Management
         JPanel borrowingPanel = createBorrowingPanel();
         tabbedPane.addTab("📝 Borrowing Transactions", borrowingPanel);
 
-
         // Tab 3: Borrowing History
         JPanel historyPanel = createHistoryPanel();
         tabbedPane.addTab("📊 Borrowing History", historyPanel);
-
 
         // Custom tab colors
         for (int i = 0; i < tabbedPane.getTabCount(); i++) {
             tabbedPane.setBackgroundAt(i, Color.WHITE);
             tabbedPane.setForegroundAt(i, TABLE_HEADER_COLOR);
         }
-
 
         // Main container with shadow effect
         JPanel mainContainer = new JPanel(new BorderLayout());
@@ -249,7 +279,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         ));
         mainContainer.add(tabbedPane, BorderLayout.CENTER);
 
-
         add(headerPanel, BorderLayout.NORTH);
         add(mainContainer, BorderLayout.CENTER);
 
@@ -259,136 +288,56 @@ public class AdminAssetBorrowingTab extends JPanel {
         loadHistoryData();
     }
 
-
-
     private JPanel createHeaderPanel() {
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(new Color(52, 73, 94));
         headerPanel.setBorder(new EmptyBorder(20, 30, 20, 30));
 
-
         JLabel titleLabel = new JLabel("🏢 Asset & Borrowing Management");
         titleLabel.setFont(HEADER_FONT);
         titleLabel.setForeground(Color.WHITE);
-
-
-
-
-
-
-
 
         JLabel subtitleLabel = new JLabel("Manage barangay assets, track borrowing, and monitor returns");
         subtitleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         subtitleLabel.setForeground(new Color(200, 200, 200));
         subtitleLabel.setBorder(new EmptyBorder(5, 0, 0, 0));
 
-
-
-
-
-
-
-
         JPanel titlePanel = new JPanel(new BorderLayout());
         titlePanel.setBackground(new Color(52, 73, 94));
         titlePanel.add(titleLabel, BorderLayout.NORTH);
         titlePanel.add(subtitleLabel, BorderLayout.SOUTH);
-
-
-
-
-
-
-
 
         // Stats panel
         JPanel statsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 0));
         statsPanel.setBackground(new Color(52, 73, 94));
         statsPanel.setOpaque(false);
 
-
-
-
-
-
-
-
         JLabel dateLabel = new JLabel("📅 " + LocalDate.now().format(DateTimeFormatter.ofPattern("MMMM dd, yyyy")));
         dateLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         dateLabel.setForeground(Color.WHITE);
 
-
-
-
-
-
-
-
         statsPanel.add(dateLabel);
-
-
-
-
-
-
-
 
         headerPanel.add(titlePanel, BorderLayout.WEST);
         headerPanel.add(statsPanel, BorderLayout.EAST);
 
-
-
-
-
-
-
-
         return headerPanel;
     }
-
-
-
-
-
-
-
 
     private JPanel createAssetPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBackground(BG_COLOR);
         panel.setBorder(new EmptyBorder(15, 15, 15, 15));
 
-
-
-
-
-
-
-
         // Top section with search and buttons
         JPanel topPanel = createSectionPanel("📦 ASSET INVENTORY",
                 "Search assets by name, property #, location, status...");
         topPanel.setLayout(new BorderLayout(0, 15));
 
-
-
-
-
-
-
-
         // Search panel
         JPanel searchPanel = new JPanel(new BorderLayout(10, 0));
         searchPanel.setBackground(Color.WHITE);
         searchPanel.setBorder(new EmptyBorder(0, 0, 0, 0));
-
-
-
-
-
-
-
 
         assetSearchField = createSearchField("Search assets...");
         JComboBox<String> searchFilterCombo = new JComboBox<>(new String[]{
@@ -396,13 +345,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         });
         searchFilterCombo.setFont(FIELD_FONT);
         searchFilterCombo.setBackground(Color.WHITE);
-
-
-
-
-
-
-
 
         // DATE FILTER SECTION FOR ASSETS
         JLabel dateLabel = new JLabel("  Date:");
@@ -476,104 +418,41 @@ public class AdminAssetBorrowingTab extends JPanel {
             filterAssetTable();
         });
 
-
-
-
-
-
-
-
         JButton btnClearSearch = createIconButton("✕", "Clear search");
         btnClearSearch.addActionListener(e -> {
             assetSearchField.setText("");
             filterAssetTable();
         });
 
-
-
-
-
-
-
-
         JPanel searchComponents = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         searchComponents.setBackground(Color.WHITE);
         searchComponents.add(assetSearchField);
         searchComponents.add(searchFilterCombo);
         searchComponents.add(dateLabel);
-        searchComponents.add(assetDateTypeCombo);
+
         searchComponents.add(assetDateFilterBtn);
         searchComponents.add(Box.createHorizontalStrut(5));
         searchComponents.add(clearAssetDateBtn);
         searchComponents.add(btnClearSearch);
 
-
-
-
-
-
-
-
         searchPanel.add(new JLabel("🔍 Search:"), BorderLayout.WEST);
         searchPanel.add(searchComponents, BorderLayout.CENTER);
-
-
-
-
-
-
-
 
         // Button panel
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         buttonPanel.setBackground(Color.WHITE);
 
-
-
-
-
-
-
-
         JButton btnAddAsset = createModernButton("+ New Asset", ACCENT_COLOR, "Add new barangay asset");
         btnAddAsset.addActionListener(e -> handleAddAsset());
-
-
-
-
-
-
-
 
         JButton btnEditAsset = createModernButton("✏️ Edit", PRIMARY_COLOR, "Edit selected asset");
         btnEditAsset.addActionListener(e -> handleEditAsset());
 
-
-
-
-
-
-
-
         JButton btnDeleteAsset = createModernButton("🗑️ Delete", WARNING_COLOR, "Delete selected asset");
         btnDeleteAsset.addActionListener(e -> handleDeleteAsset());
 
-
-
-
-
-
-
-
         JButton btnExport = createModernButton("📤 Export", INFO_COLOR, "Export asset data");
         btnExport.addActionListener(e -> exportAssetData());
-
-
-
-
-
-
-
 
         buttonPanel.add(btnAddAsset);
         buttonPanel.add(btnEditAsset);
@@ -581,22 +460,8 @@ public class AdminAssetBorrowingTab extends JPanel {
         buttonPanel.add(Box.createHorizontalStrut(20));
         buttonPanel.add(btnExport);
 
-
-
-
-
-
-
-
         topPanel.add(searchPanel, BorderLayout.NORTH);
         topPanel.add(buttonPanel, BorderLayout.SOUTH);
-
-
-
-
-
-
-
 
         // Table
         String[] assetColumns = {"ID", "Item Name", "Property No", "Date Acquired", "Status", "Value", "Location", "Custodian"};
@@ -607,33 +472,12 @@ public class AdminAssetBorrowingTab extends JPanel {
             }
         };
 
-
-
-
-
-
-
-
         assetTable = new JTable(assetTableModel);
         styleAssetTable();
-
-
-
-
-
-
-
 
         JScrollPane assetScroll = new JScrollPane(assetTable);
         assetScroll.setBorder(new LineBorder(BORDER_COLOR, 1));
         assetScroll.getViewport().setBackground(Color.WHITE);
-
-
-
-
-
-
-
 
         // Statistics panel
         JPanel statsPanel = createStatsPanel();
@@ -642,91 +486,46 @@ public class AdminAssetBorrowingTab extends JPanel {
         assetStatsLabel.setForeground(new Color(100, 100, 100));
         statsPanel.add(assetStatsLabel, BorderLayout.WEST);
 
-
-
-
-
-
-
-
         // Add search functionality
         TableRowSorter<DefaultTableModel> assetSorter = new TableRowSorter<>(assetTableModel);
         assetTable.setRowSorter(assetSorter);
 
-
-
-
-
-
-
-
         assetSearchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { filterAssetTable(); }
-            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { filterAssetTable(); }
-            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { filterAssetTable(); }
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                filterAssetTable();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                filterAssetTable();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                filterAssetTable();
+            }
         });
-
-
-
-
-
-
-
 
         panel.add(topPanel, BorderLayout.NORTH);
         panel.add(assetScroll, BorderLayout.CENTER);
         panel.add(statsPanel, BorderLayout.SOUTH);
 
-
-
-
-
-
-
-
         return panel;
     }
-
-
-
-
-
-
-
 
     private JPanel createBorrowingPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBackground(BG_COLOR);
         panel.setBorder(new EmptyBorder(15, 15, 15, 15));
 
-
-
-
-
-
-
-
         JPanel topPanel = createSectionPanel("📝 BORROWING TRANSACTIONS",
                 "Manage active borrowing transactions");
         topPanel.setLayout(new BorderLayout(0, 15));
 
-
-
-
-
-
-
-
         // Search panel
         JPanel searchPanel = new JPanel(new BorderLayout(10, 0));
         searchPanel.setBackground(Color.WHITE);
-
-
-
-
-
-
-
 
         borrowingSearchField = createSearchField("Search borrowing records...");
         JButton btnClearBorrowingSearch = createIconButton("✕", "Clear search");
@@ -734,13 +533,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             borrowingSearchField.setText("");
             filterBorrowingTable();
         });
-
-
-
-
-
-
-
 
         // DATE FILTER SECTION FOR BORROWING
         JLabel borrowingDateLabel = new JLabel("  Date:");
@@ -814,90 +606,34 @@ public class AdminAssetBorrowingTab extends JPanel {
             filterBorrowingTable();
         });
 
-
-
-
-
-
-
-
         JPanel searchComponents = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         searchComponents.setBackground(Color.WHITE);
         searchComponents.add(borrowingSearchField);
         searchComponents.add(borrowingDateLabel);
-        searchComponents.add(borrowingDateTypeCombo);
+
         searchComponents.add(borrowingDateFilterBtn);
         searchComponents.add(Box.createHorizontalStrut(5));
         searchComponents.add(clearBorrowingDateBtn);
         searchComponents.add(btnClearBorrowingSearch);
 
-
-
-
-
-
-
-
         searchPanel.add(new JLabel("🔍 Search:"), BorderLayout.WEST);
         searchPanel.add(searchComponents, BorderLayout.CENTER);
-
-
-
-
-
-
-
 
         // Button panel
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         buttonPanel.setBackground(Color.WHITE);
 
-
-
-
-
-
-
-
         JButton btnNewTransaction = createModernButton("➕ New Transaction", ACCENT_COLOR, "Create new borrowing transaction");
         btnNewTransaction.addActionListener(e -> handleLend());
-
-
-
-
-
-
-
 
         JButton btnMarkReturned = createModernButton("✅ Mark Returned", PRIMARY_COLOR, "Mark selected item as returned");
         btnMarkReturned.addActionListener(e -> handleReturn());
 
-
-
-
-
-
-
-
         buttonPanel.add(btnNewTransaction);
         buttonPanel.add(btnMarkReturned);
 
-
-
-
-
-
-
-
         topPanel.add(searchPanel, BorderLayout.NORTH);
         topPanel.add(buttonPanel, BorderLayout.SOUTH);
-
-
-
-
-
-
-
 
         // Table
         String[] borrowingColumns = {"Borrow ID", "Asset Name", "Borrower", "Date Borrowed", "Due Date", "Status", "Days Overdue", "Actions"};
@@ -907,46 +643,18 @@ public class AdminAssetBorrowingTab extends JPanel {
                 return column == 7; // Only actions column is editable
             }
 
-
-
-
-
-
-
-
             @Override
             public Class<?> getColumnClass(int columnIndex) {
                 return columnIndex == 7 ? JButton.class : String.class;
             }
         };
 
-
-
-
-
-
-
-
         borrowingTable = new JTable(borrowingTableModel);
         styleBorrowingTable();
-
-
-
-
-
-
-
 
         JScrollPane borrowingScroll = new JScrollPane(borrowingTable);
         borrowingScroll.setBorder(new LineBorder(BORDER_COLOR, 1));
         borrowingScroll.getViewport().setBackground(Color.WHITE);
-
-
-
-
-
-
-
 
         // Statistics panel
         JPanel statsPanel = createStatsPanel();
@@ -955,81 +663,43 @@ public class AdminAssetBorrowingTab extends JPanel {
         borrowingStatsLabel.setForeground(new Color(100, 100, 100));
         statsPanel.add(borrowingStatsLabel, BorderLayout.WEST);
 
-
-
-
-
-
-
-
         // Add search functionality
         borrowingSearchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { filterBorrowingTable(); }
-            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { filterBorrowingTable(); }
-            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { filterBorrowingTable(); }
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                filterBorrowingTable();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                filterBorrowingTable();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                filterBorrowingTable();
+            }
         });
-
-
-
-
-
-
-
 
         panel.add(topPanel, BorderLayout.NORTH);
         panel.add(borrowingScroll, BorderLayout.CENTER);
         panel.add(statsPanel, BorderLayout.SOUTH);
 
-
-
-
-
-
-
-
         return panel;
     }
-
-
-
-
-
-
-
 
     private JPanel createHistoryPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBackground(BG_COLOR);
         panel.setBorder(new EmptyBorder(15, 15, 15, 15));
 
-
-
-
-
-
-
-
         JPanel topPanel = createSectionPanel("📊 BORROWING HISTORY",
                 "View complete history of all borrowing transactions");
         topPanel.setLayout(new BorderLayout(0, 15));
 
-
-
-
-
-
-
-
         // Search panel
         JPanel searchPanel = new JPanel(new BorderLayout(10, 0));
         searchPanel.setBackground(Color.WHITE);
-
-
-
-
-
-
-
 
         historySearchField = createSearchField("Search history...");
         JButton btnClearHistorySearch = createIconButton("✕", "Clear search");
@@ -1038,26 +708,12 @@ public class AdminAssetBorrowingTab extends JPanel {
             filterHistoryTable();
         });
 
-
-
-
-
-
-
-
         // FIXED: Use class field instead of local variable
         historyFilterCombo = new JComboBox<>(new String[]{
                 "All", "Good Condition", "Damaged", "Lost", "Overdue Returns"
         });
         historyFilterCombo.setFont(FIELD_FONT);
         historyFilterCombo.setBackground(Color.WHITE);
-
-
-
-
-
-
-
 
         // DATE FILTER SECTION (copied from SecretaryPrintDocument)
         JLabel dateLabel = new JLabel("  Date:");
@@ -1122,13 +778,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             filterHistoryTable();
         });
 
-
-
-
-
-
-
-
         JPanel searchComponents = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         searchComponents.setBackground(Color.WHITE);
         searchComponents.add(historySearchField);
@@ -1139,73 +788,24 @@ public class AdminAssetBorrowingTab extends JPanel {
         searchComponents.add(clearDateBtn);
         searchComponents.add(btnClearHistorySearch);
 
-
-
-
-
-
-
-
         searchPanel.add(new JLabel("🔍 Search:"), BorderLayout.WEST);
         searchPanel.add(searchComponents, BorderLayout.CENTER);
-
-
-
-
-
-
-
 
         // Button panel
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         buttonPanel.setBackground(Color.WHITE);
 
-
-
-
-
-
-
-
         JButton btnRefreshHistory = createModernButton("🔄 Refresh", PRIMARY_COLOR, "Refresh history data");
         btnRefreshHistory.addActionListener(e -> loadHistoryData());
-
-
-
-
-
-
-
 
         JButton btnExportHistory = createModernButton("📤 Export History", INFO_COLOR, "Export history data");
         btnExportHistory.addActionListener(e -> exportHistoryData());
 
-
-
-
-
-
-
-
         buttonPanel.add(btnRefreshHistory);
         buttonPanel.add(btnExportHistory);
 
-
-
-
-
-
-
-
         topPanel.add(searchPanel, BorderLayout.NORTH);
         topPanel.add(buttonPanel, BorderLayout.SOUTH);
-
-
-
-
-
-
-
 
         // Table with additional columns for history
         String[] historyColumns = {
@@ -1219,33 +819,12 @@ public class AdminAssetBorrowingTab extends JPanel {
             }
         };
 
-
-
-
-
-
-
-
         historyTable = new JTable(historyTableModel);
         styleHistoryTable();
-
-
-
-
-
-
-
 
         JScrollPane historyScroll = new JScrollPane(historyTable);
         historyScroll.setBorder(new LineBorder(BORDER_COLOR, 1));
         historyScroll.getViewport().setBackground(Color.WHITE);
-
-
-
-
-
-
-
 
         // Statistics panel
         JPanel statsPanel = createStatsPanel();
@@ -1254,46 +833,29 @@ public class AdminAssetBorrowingTab extends JPanel {
         historyStatsLabel.setForeground(new Color(100, 100, 100));
         statsPanel.add(historyStatsLabel, BorderLayout.WEST);
 
-
-
-
-
-
-
-
         // Add search functionality
         historySearchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { filterHistoryTable(); }
-            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { filterHistoryTable(); }
-            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { filterHistoryTable(); }
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                filterHistoryTable();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                filterHistoryTable();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                filterHistoryTable();
+            }
         });
 
-
-
-
-
-
-
-
         historyFilterCombo.addActionListener(e -> filterHistoryTable());
-
-
-
-
-
-
-
 
         panel.add(topPanel, BorderLayout.NORTH);
         panel.add(historyScroll, BorderLayout.CENTER);
         panel.add(statsPanel, BorderLayout.SOUTH);
-
-
-
-
-
-
-
 
         return panel;
     }
@@ -1301,7 +863,6 @@ public class AdminAssetBorrowingTab extends JPanel {
     // =========================================================================
     //  CALENDAR IMPLEMENTATION FOR EACH TAB
     // =========================================================================
-
     private void showModernDatePickerForHistory() {
         showModernDatePicker(dateFilterBtn, (date) -> {
             selectedDate = date;
@@ -1325,7 +886,7 @@ public class AdminAssetBorrowingTab extends JPanel {
 
     private void showModernDatePicker(JButton targetButton, java.util.function.Consumer<java.util.Date> dateSetter) {
         // Create a modern popup window for calendar
-        JDialog dateDialog = new JDialog((Frame)SwingUtilities.getWindowAncestor(this), "Select Date", true);
+        JDialog dateDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Select Date", true);
         dateDialog.setLayout(new BorderLayout());
         dateDialog.setResizable(false);
         dateDialog.getContentPane().setBackground(LIGHT_GREY);
@@ -1345,11 +906,11 @@ public class AdminAssetBorrowingTab extends JPanel {
 
                 // Draw shadow
                 g2d.setColor(new Color(0, 0, 0, 20));
-                g2d.fillRoundRect(2, 2, getWidth()-4, getHeight()-4, 15, 15);
+                g2d.fillRoundRect(2, 2, getWidth() - 4, getHeight() - 4, 15, 15);
 
                 // Draw main panel
                 g2d.setColor(Color.WHITE);
-                g2d.fillRoundRect(0, 0, getWidth()-4, getHeight()-4, 15, 15);
+                g2d.fillRoundRect(0, 0, getWidth() - 4, getHeight() - 4, 15, 15);
             }
         };
         calendarPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
@@ -1562,9 +1123,9 @@ public class AdminAssetBorrowingTab extends JPanel {
             }
 
             // Update the button text
-            java.util.Date dateToUse = targetButton == dateFilterBtn ? selectedDate :
-                    targetButton == assetDateFilterBtn ? selectedAssetDate :
-                            selectedBorrowingDate;
+            java.util.Date dateToUse = targetButton == dateFilterBtn ? selectedDate
+                    : targetButton == assetDateFilterBtn ? selectedAssetDate
+                    : selectedBorrowingDate;
 
             if (dateToUse != null) {
                 SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
@@ -1630,16 +1191,16 @@ public class AdminAssetBorrowingTab extends JPanel {
         if (currentSelectedDate != null) {
             Calendar selectedCal = Calendar.getInstance();
             selectedCal.setTime(currentSelectedDate);
-            isSelectedForThisButton = calendar.get(Calendar.YEAR) == selectedCal.get(Calendar.YEAR) &&
-                    calendar.get(Calendar.MONTH) == selectedCal.get(Calendar.MONTH) &&
-                    day == selectedCal.get(Calendar.DAY_OF_MONTH);
+            isSelectedForThisButton = calendar.get(Calendar.YEAR) == selectedCal.get(Calendar.YEAR)
+                    && calendar.get(Calendar.MONTH) == selectedCal.get(Calendar.MONTH)
+                    && day == selectedCal.get(Calendar.DAY_OF_MONTH);
         } else {
             isSelectedForThisButton = false;
         }
 
-        final boolean isTodayForThisButton = calendar.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
-                calendar.get(Calendar.MONTH) == today.get(Calendar.MONTH) &&
-                day == today.get(Calendar.DAY_OF_MONTH);
+        final boolean isTodayForThisButton = calendar.get(Calendar.YEAR) == today.get(Calendar.YEAR)
+                && calendar.get(Calendar.MONTH) == today.get(Calendar.MONTH)
+                && day == today.get(Calendar.DAY_OF_MONTH);
 
         JButton dayBtn = new JButton(String.valueOf(day)) {
             @Override
@@ -1652,7 +1213,7 @@ public class AdminAssetBorrowingTab extends JPanel {
                     g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
                     g2d.setColor(MODERN_BLUE);
                     g2d.setStroke(new BasicStroke(1));
-                    g2d.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 12, 12);
+                    g2d.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
                 }
 
                 if (isSelectedForThisButton) {
@@ -1796,13 +1357,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         return btn;
     }
 
-
-
-
-
-
-
-
     private JPanel createSectionPanel(String title, String subtitle) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(Color.WHITE);
@@ -1811,58 +1365,23 @@ public class AdminAssetBorrowingTab extends JPanel {
                 new EmptyBorder(15, 20, 15, 20)
         ));
 
-
-
-
-
-
-
-
         JLabel titleLabel = new JLabel(title);
         titleLabel.setFont(SECTION_FONT);
         titleLabel.setForeground(TABLE_HEADER_COLOR);
-
-
-
-
-
-
-
 
         JLabel subtitleLabel = new JLabel(subtitle);
         subtitleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         subtitleLabel.setForeground(new Color(100, 100, 100));
         subtitleLabel.setBorder(new EmptyBorder(5, 0, 0, 0));
 
-
-
-
-
-
-
-
         JPanel titlePanel = new JPanel(new BorderLayout());
         titlePanel.setBackground(Color.WHITE);
         titlePanel.add(titleLabel, BorderLayout.NORTH);
         titlePanel.add(subtitleLabel, BorderLayout.SOUTH);
 
-
-
-
-
-
-
-
         panel.add(titlePanel, BorderLayout.WEST);
         return panel;
     }
-
-
-
-
-
-
-
 
     private JPanel createStatsPanel() {
         JPanel panel = new JPanel(new BorderLayout());
@@ -1874,13 +1393,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         return panel;
     }
 
-
-
-
-
-
-
-
     private JTextField createSearchField(String placeholder) {
         JTextField field = new JTextField();
         field.setFont(FIELD_FONT);
@@ -1890,13 +1402,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         ));
         field.setPreferredSize(new Dimension(300, 35));
         field.putClientProperty("JTextField.placeholderText", placeholder);
-
-
-
-
-
-
-
 
         // Add search icon
         JPanel wrapper = new JPanel(new BorderLayout());
@@ -1908,22 +1413,8 @@ public class AdminAssetBorrowingTab extends JPanel {
         wrapper.add(searchIcon, BorderLayout.WEST);
         wrapper.add(field, BorderLayout.CENTER);
 
-
-
-
-
-
-
-
         return field;
     }
-
-
-
-
-
-
-
 
     private JButton createIconButton(String icon, String tooltip) {
         JButton button = new JButton(icon);
@@ -1938,13 +1429,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         return button;
     }
 
-
-
-
-
-
-
-
     private JButton createModernButton(String text, Color bgColor, String tooltip) {
         JButton button = new JButton(text);
         button.setFont(BUTTON_FONT);
@@ -1957,40 +1441,21 @@ public class AdminAssetBorrowingTab extends JPanel {
         button.setBorder(new EmptyBorder(8, 15, 8, 15));
         button.setToolTipText(tooltip);
 
-
-
-
-
-
-
-
         // Hover effect
         button.addMouseListener(new MouseAdapter() {
             Color original = bgColor;
+
             public void mouseEntered(MouseEvent evt) {
                 button.setBackground(original.darker());
             }
+
             public void mouseExited(MouseEvent evt) {
                 button.setBackground(original);
             }
         });
 
-
-
-
-
-
-
-
         return button;
     }
-
-
-
-
-
-
-
 
     private void styleAssetTable() {
         styleTable(assetTable);
@@ -2005,13 +1470,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         columnModel.getColumn(7).setPreferredWidth(150); // Custodian
     }
 
-
-
-
-
-
-
-
     private void styleBorrowingTable() {
         styleTable(borrowingTable);
         TableColumnModel columnModel = borrowingTable.getColumnModel();
@@ -2024,24 +1482,10 @@ public class AdminAssetBorrowingTab extends JPanel {
         columnModel.getColumn(6).setPreferredWidth(80);   // Days Overdue
         columnModel.getColumn(7).setPreferredWidth(100);  // Actions
 
-
-
-
-
-
-
-
         // Add button renderer and editor
         columnModel.getColumn(7).setCellRenderer(new ButtonRenderer());
         columnModel.getColumn(7).setCellEditor(new ButtonEditor(new JCheckBox()));
     }
-
-
-
-
-
-
-
 
     private void styleHistoryTable() {
         styleTable(historyTable);
@@ -2057,13 +1501,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         columnModel.getColumn(8).setPreferredWidth(80);   // Penalty
     }
 
-
-
-
-
-
-
-
     private void styleTable(JTable table) {
         table.setFont(TABLE_FONT);
         table.setRowHeight(35);
@@ -2073,26 +1510,12 @@ public class AdminAssetBorrowingTab extends JPanel {
         table.setSelectionForeground(Color.BLACK);
         table.setIntercellSpacing(new Dimension(0, 0));
 
-
-
-
-
-
-
-
         JTableHeader header = table.getTableHeader();
         header.setFont(TABLE_HEADER_FONT);
         header.setBackground(TABLE_HEADER_COLOR);
         header.setForeground(Color.WHITE);
         header.setReorderingAllowed(false);
     }
-
-
-
-
-
-
-
 
     // =========================================================================
     // DATA LOADING METHODS
@@ -2104,19 +1527,16 @@ public class AdminAssetBorrowingTab extends JPanel {
                 return new BarangayAssetDAO().getAllAssets();
             }
 
-
             @Override
             protected void done() {
                 try {
                     List<BarangayAsset> list = get();
                     assetTableModel.setRowCount(0);
 
-
                     for (BarangayAsset a : list) {
                         // Format value with comma as thousands separator
                         DecimalFormat formatter = new DecimalFormat("#,###.00");
                         String formattedValue = "₱" + formatter.format(a.getValue());
-
 
                         assetTableModel.addRow(new Object[]{
                                 a.getAssetId(),
@@ -2124,21 +1544,18 @@ public class AdminAssetBorrowingTab extends JPanel {
                                 a.getPropertyNumber(),
                                 a.getDateAcquired(),
                                 a.getStatus(),
-                                formattedValue,  // Use formatted value here
+                                formattedValue, // Use formatted value here
                                 a.getLocation(),
                                 a.getCustodian()
                         });
                     }
 
-
                     double totalValue = list.stream().mapToDouble(BarangayAsset::getValue).sum();
                     long availableAssets = list.stream().filter(a -> "Good".equals(a.getStatus())).count();
-
 
                     // Format total value in stats label too
                     DecimalFormat formatter = new DecimalFormat("#,###.00");
                     String formattedTotalValue = "₱" + formatter.format(totalValue);
-
 
                     assetStatsLabel.setText(String.format(
                             "Total Assets: %d | Available: %d | Total Value: %s",
@@ -2152,6 +1569,7 @@ public class AdminAssetBorrowingTab extends JPanel {
             }
         }.execute();
     }
+
     private double parseFormattedValue(String valueStr) {
         try {
             // Remove currency symbol, commas, and whitespace
@@ -2163,13 +1581,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         }
     }
 
-
-
-
-
-
-
-
     private void loadBorrowingData() {
         new SwingWorker<List<BorrowRecord>, Void>() {
             @Override
@@ -2177,39 +1588,18 @@ public class AdminAssetBorrowingTab extends JPanel {
                 return new BorrowingDAO().getActiveBorrows();
             }
 
-
-
-
-
-
-
-
             @Override
             protected void done() {
                 try {
                     List<BorrowRecord> list = get();
                     borrowingTableModel.setRowCount(0);
 
-
-
-
-
-
-
-
                     for (BorrowRecord r : list) {
                         // Calculate days overdue
                         LocalDate dueDate = r.getExpectedReturnDate().toLocalDate();
                         LocalDate today = LocalDate.now();
-                        int daysOverdue = today.isAfter(dueDate) ?
-                                (int) java.time.temporal.ChronoUnit.DAYS.between(dueDate, today) : 0;
-
-
-
-
-
-
-
+                        int daysOverdue = today.isAfter(dueDate)
+                                ? (int) java.time.temporal.ChronoUnit.DAYS.between(dueDate, today) : 0;
 
                         borrowingTableModel.addRow(new Object[]{
                                 r.getBorrowId(),
@@ -2223,23 +1613,9 @@ public class AdminAssetBorrowingTab extends JPanel {
                         });
                     }
 
-
-
-
-
-
-
-
                     long overdueCount = list.stream()
                             .filter(r -> LocalDate.now().isAfter(r.getExpectedReturnDate().toLocalDate()))
                             .count();
-
-
-
-
-
-
-
 
                     borrowingStatsLabel.setText(String.format(
                             "Active Borrows: %d | Overdue: %d",
@@ -2253,13 +1629,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         }.execute();
     }
 
-
-
-
-
-
-
-
     private void loadHistoryData() {
         new SwingWorker<List<BorrowRecord>, Void>() {
             @Override
@@ -2267,13 +1636,6 @@ public class AdminAssetBorrowingTab extends JPanel {
                 try {
                     System.out.println("Loading borrowing history...");
                     BorrowingDAO dao = new BorrowingDAO();
-
-
-
-
-
-
-
 
                     // Try to get all history
                     List<BorrowRecord> history = dao.getAllBorrowHistory();
@@ -2286,58 +1648,23 @@ public class AdminAssetBorrowingTab extends JPanel {
                 }
             }
 
-
-
-
-
-
-
-
             @Override
             protected void done() {
                 try {
                     List<BorrowRecord> list = get();
                     historyTableModel.setRowCount(0);
 
-
-
-
-
-
-
-
                     if (list == null || list.isEmpty()) {
                         historyStatsLabel.setText("No borrowing history found");
                         return;
                     }
 
-
-
-
-
-
-
-
                     System.out.println("Displaying " + list.size() + " history records");
-
-
-
-
-
-
-
 
                     for (BorrowRecord r : list) {
                         // Extract condition from remarks
                         String condition = "Good";
                         String remarks = r.getRemarks() != null ? r.getRemarks() : "";
-
-
-
-
-
-
-
 
                         if (remarks.toLowerCase().contains("damaged")) {
                             condition = "Damaged";
@@ -2348,13 +1675,6 @@ public class AdminAssetBorrowingTab extends JPanel {
                         } else if (remarks.toLowerCase().contains("major")) {
                             condition = "Major Damage";
                         }
-
-
-
-
-
-
-
 
                         // Calculate penalty if overdue
                         double penalty = 0.0;
@@ -2367,27 +1687,13 @@ public class AdminAssetBorrowingTab extends JPanel {
                             }
                         }
 
-
-
-
-
-
-
-
                         // Format dates
-                        String dateReturnedStr = r.getDateReturned() != null ?
-                                r.getDateReturned().toString() : "Not Returned";
-                        String dueDateStr = r.getExpectedReturnDate() != null ?
-                                r.getExpectedReturnDate().toString() : "N/A";
-                        String borrowedDateStr = r.getDateBorrowed() != null ?
-                                r.getDateBorrowed().toString() : "N/A";
-
-
-
-
-
-
-
+                        String dateReturnedStr = r.getDateReturned() != null
+                                ? r.getDateReturned().toString() : "Not Returned";
+                        String dueDateStr = r.getExpectedReturnDate() != null
+                                ? r.getExpectedReturnDate().toString() : "N/A";
+                        String borrowedDateStr = r.getDateBorrowed() != null
+                                ? r.getDateBorrowed().toString() : "N/A";
 
                         historyTableModel.addRow(new Object[]{
                                 r.getBorrowId(),
@@ -2402,13 +1708,6 @@ public class AdminAssetBorrowingTab extends JPanel {
                         });
                     }
 
-
-
-
-
-
-
-
                     historyStatsLabel.setText(String.format(
                             "Total History Records: %d",
                             list.size()
@@ -2420,6 +1719,7 @@ public class AdminAssetBorrowingTab extends JPanel {
             }
         }.execute();
     }
+
     // =========================================================================
     // FILTER METHODS
     // =========================================================================
@@ -2460,10 +1760,14 @@ public class AdminAssetBorrowingTab extends JPanel {
                         int dateColumnIndex = 3; // Default: Date Acquired (index 3)
 
                         Object val = entry.getValue(dateColumnIndex);
-                        if (!(val instanceof String)) return false;
+                        if (!(val instanceof String)) {
+                            return false;
+                        }
 
                         String dateStr = (String) val;
-                        if (dateStr.equals("N/A") || dateStr.isEmpty()) return false;
+                        if (dateStr.equals("N/A") || dateStr.isEmpty()) {
+                            return false;
+                        }
 
                         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
                         String selectedDateStr = sdf.format(finalSelectedDate);
@@ -2484,13 +1788,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         int count = assetTable.getRowCount();
         assetStatsLabel.setText("Filtered Assets: " + count);
     }
-
-
-
-
-
-
-
 
     private void filterBorrowingTable() {
         String searchText = borrowingSearchField.getText().toLowerCase();
@@ -2529,10 +1826,14 @@ public class AdminAssetBorrowingTab extends JPanel {
                         int dateColumnIndex = dateType.equals("Date Borrowed") ? 3 : 4; // 3=Date Borrowed, 4=Due Date
 
                         Object val = entry.getValue(dateColumnIndex);
-                        if (!(val instanceof String)) return false;
+                        if (!(val instanceof String)) {
+                            return false;
+                        }
 
                         String dateStr = (String) val;
-                        if (dateStr.equals("N/A") || dateStr.isEmpty()) return false;
+                        if (dateStr.equals("N/A") || dateStr.isEmpty()) {
+                            return false;
+                        }
 
                         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
                         String selectedDateStr = sdf.format(finalSelectedDate);
@@ -2553,13 +1854,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         int count = borrowingTable.getRowCount();
         borrowingStatsLabel.setText("Filtered Transactions: " + count);
     }
-
-
-
-
-
-
-
 
     private void filterHistoryTable() {
         String text = historySearchField.getText().toLowerCase();
@@ -2599,10 +1893,14 @@ public class AdminAssetBorrowingTab extends JPanel {
                 public boolean include(Entry<?, ?> entry) {
                     try {
                         Object val = entry.getValue(3); // Date Borrowed column
-                        if (!(val instanceof String)) return false;
+                        if (!(val instanceof String)) {
+                            return false;
+                        }
 
                         String dateStr = (String) val;
-                        if (dateStr.equals("N/A") || dateStr.isEmpty()) return false;
+                        if (dateStr.equals("N/A") || dateStr.isEmpty()) {
+                            return false;
+                        }
 
                         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
                         String selectedDateStr = sdf.format(finalSelectedDate);
@@ -2626,26 +1924,12 @@ public class AdminAssetBorrowingTab extends JPanel {
         historyStatsLabel.setText("Total Records: " + count);
     }
 
-
-
-
-
-
-
-
     // =========================================================================
     // ASSET CRUD ACTIONS WITH REGEX VALIDATION
     // =========================================================================
     private void handleAddAsset() {
         showAssetDialog(null, "Register New Asset");
     }
-
-
-
-
-
-
-
 
     private void handleEditAsset() {
         int selectedRow = assetTable.getSelectedRow();
@@ -2657,23 +1941,9 @@ public class AdminAssetBorrowingTab extends JPanel {
             return;
         }
 
-
-
-
-
-
-
-
         int modelRow = assetTable.convertRowIndexToModel(selectedRow);
         int assetId = (int) assetTableModel.getValueAt(modelRow, 0);
         BarangayAsset asset = new BarangayAssetDAO().getAssetById(assetId);
-
-
-
-
-
-
-
 
         if (asset != null) {
             showAssetDialog(asset, "Update Asset Details");
@@ -2681,13 +1951,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             JOptionPane.showMessageDialog(this, "Error: Could not fetch asset details.");
         }
     }
-
-
-
-
-
-
-
 
     private void handleDeleteAsset() {
         int selectedRow = assetTable.getSelectedRow();
@@ -2699,36 +1962,15 @@ public class AdminAssetBorrowingTab extends JPanel {
             return;
         }
 
-
-
-
-
-
-
-
         int modelRow = assetTable.convertRowIndexToModel(selectedRow);
         int id = (int) assetTableModel.getValueAt(modelRow, 0);
         String name = (String) assetTableModel.getValueAt(modelRow, 1);
-
-
-
-
-
-
-
 
         int confirm = JOptionPane.showConfirmDialog(this,
                 "Are you sure you want to delete asset: " + name + "?",
                 "Confirm Delete",
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.WARNING_MESSAGE);
-
-
-
-
-
-
-
 
         if (confirm == JOptionPane.YES_OPTION) {
             boolean success = new BarangayAssetDAO().deleteAsset(id);
@@ -2741,26 +1983,12 @@ public class AdminAssetBorrowingTab extends JPanel {
         }
     }
 
-
-
-
-
-
-
-
     // =========================================================================
     // BORROWING ACTIONS WITH ENHANCED RETURN PROCESS
     // =========================================================================
     private void handleLend() {
         showLendDialog();
     }
-
-
-
-
-
-
-
 
     private void handleReturn() {
         int selectedRow = borrowingTable.getSelectedRow();
@@ -2772,104 +2000,41 @@ public class AdminAssetBorrowingTab extends JPanel {
             return;
         }
 
-
-
-
-
-
-
-
         int modelRow = borrowingTable.convertRowIndexToModel(selectedRow);
         int borrowId = (int) borrowingTableModel.getValueAt(modelRow, 0);
 
-
-
-
-
-
-
-
         BorrowingDAO dao = new BorrowingDAO();
         BorrowRecord record = dao.getBorrowRecordById(borrowId);
-
-
-
-
-
-
-
 
         if (record == null) {
             JOptionPane.showMessageDialog(this, "Error: Could not find borrowing record.");
             return;
         }
 
-
-
-
-
-
-
-
         // Show enhanced return dialog with condition selection
         showReturnDialog(record);
     }
 
-
-
-
-
-
-
-
     private void showReturnDialog(BorrowRecord record) {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this),
                 "Return Asset - Condition Report", true);
-        dialog.setSize(500, 400);
+        dialog.setSize(600, 550);  // Increased from 500, 400 to 600, 550
         dialog.setLocationRelativeTo(this);
         dialog.setLayout(new BorderLayout());
         dialog.getContentPane().setBackground(BG_COLOR);
 
-
-
-
-
-
-
-
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
         mainPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
         mainPanel.setBackground(Color.WHITE);
-
-
-
-
-
-
-
 
         // Header with asset info
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(Color.WHITE);
         headerPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
 
-
-
-
-
-
-
-
         JLabel titleLabel = new JLabel("📦 Asset Return - Condition Report");
         titleLabel.setFont(SECTION_FONT);
         titleLabel.setForeground(PRIMARY_COLOR);
-
-
-
-
-
-
-
 
         JLabel assetInfo = new JLabel(String.format(
                 "<html><b>Asset:</b> %s<br><b>Borrower:</b> %s<br><b>Due Date:</b> %s</html>",
@@ -2880,34 +2045,13 @@ public class AdminAssetBorrowingTab extends JPanel {
         assetInfo.setFont(LABEL_FONT);
         assetInfo.setBorder(new EmptyBorder(5, 0, 0, 0));
 
-
-
-
-
-
-
-
         headerPanel.add(titleLabel, BorderLayout.NORTH);
         headerPanel.add(assetInfo, BorderLayout.CENTER);
-
-
-
-
-
-
-
 
         // Condition selection
         JPanel conditionPanel = new JPanel(new GridLayout(5, 1, 5, 5));
         conditionPanel.setBackground(Color.WHITE);
         conditionPanel.setBorder(BorderFactory.createTitledBorder("Select Condition"));
-
-
-
-
-
-
-
 
         ButtonGroup conditionGroup = new ButtonGroup();
         JRadioButton rbGood = new JRadioButton("✅ Good Condition - No issues");
@@ -2916,21 +2060,7 @@ public class AdminAssetBorrowingTab extends JPanel {
         JRadioButton rbLost = new JRadioButton("❌ Lost/Stolen - Asset cannot be recovered");
         JRadioButton rbOther = new JRadioButton("📝 Other - Specify in remarks");
 
-
-
-
-
-
-
-
         rbGood.setSelected(true);
-
-
-
-
-
-
-
 
         conditionGroup.add(rbGood);
         conditionGroup.add(rbMinor);
@@ -2938,37 +2068,16 @@ public class AdminAssetBorrowingTab extends JPanel {
         conditionGroup.add(rbLost);
         conditionGroup.add(rbOther);
 
-
-
-
-
-
-
-
         conditionPanel.add(rbGood);
         conditionPanel.add(rbMinor);
         conditionPanel.add(rbMajor);
         conditionPanel.add(rbLost);
         conditionPanel.add(rbOther);
 
-
-
-
-
-
-
-
         // Remarks field
         JPanel remarksPanel = new JPanel(new BorderLayout(5, 5));
         remarksPanel.setBackground(Color.WHITE);
         remarksPanel.setBorder(BorderFactory.createTitledBorder("Additional Remarks"));
-
-
-
-
-
-
-
 
         JTextArea remarksArea = new JTextArea(3, 30);
         remarksArea.setFont(FIELD_FONT);
@@ -2977,46 +2086,18 @@ public class AdminAssetBorrowingTab extends JPanel {
         remarksArea.setWrapStyleWord(true);
         remarksArea.setText("Returned in good condition.");
 
-
-
-
-
-
-
-
         JScrollPane remarksScroll = new JScrollPane(remarksArea);
         remarksPanel.add(remarksScroll, BorderLayout.CENTER);
-
-
-
-
-
-
-
 
         // Penalty calculation (if overdue)
         JPanel penaltyPanel = new JPanel(new BorderLayout());
         penaltyPanel.setBackground(Color.WHITE);
-
-
-
-
-
-
-
 
         LocalDate today = LocalDate.now();
         LocalDate dueDate = record.getExpectedReturnDate().toLocalDate();
         if (today.isAfter(dueDate)) {
             long daysLate = java.time.temporal.ChronoUnit.DAYS.between(dueDate, today);
             double penalty = daysLate * 50.0; // 50 pesos per day
-
-
-
-
-
-
-
 
             JLabel penaltyLabel = new JLabel(String.format(
                     "<html><font color='red'><b>⚠️ Overdue by %d days</b><br>Penalty Fee: ₱%.2f</font></html>",
@@ -3027,59 +2108,30 @@ public class AdminAssetBorrowingTab extends JPanel {
             penaltyPanel.setBorder(new EmptyBorder(10, 0, 0, 0));
         }
 
-
-
-
-
-
-
-
         // Buttons
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         buttonPanel.setBackground(Color.WHITE);
         buttonPanel.setBorder(new EmptyBorder(10, 0, 0, 0));
 
-
-
-
-
-
-
-
         JButton btnCancel = new JButton("Cancel");
         btnCancel.addActionListener(e -> dialog.dispose());
-
-
-
-
-
-
-
 
         JButton btnConfirm = createModernButton("Confirm Return", ACCENT_COLOR, "Confirm return with selected condition");
         btnConfirm.addActionListener(e -> {
             String condition;
-            if (rbGood.isSelected()) condition = "Good";
-            else if (rbMinor.isSelected()) condition = "Minor Damage";
-            else if (rbMajor.isSelected()) condition = "Major Damage";
-            else if (rbLost.isSelected()) condition = "Lost/Stolen";
-            else condition = "Other";
-
-
-
-
-
-
-
+            if (rbGood.isSelected()) {
+                condition = "Good";
+            }else if (rbMinor.isSelected()) {
+                condition = "Minor Damage";
+            }else if (rbMajor.isSelected()) {
+                condition = "Major Damage";
+            }else if (rbLost.isSelected()) {
+                condition = "Lost/Stolen";
+            }else {
+                condition = "Other";
+            }
 
             String remarks = condition + " - " + remarksArea.getText().trim();
-
-
-
-
-
-
-
 
             boolean success = new BorrowingDAO().returnItem(
                     record.getBorrowId(),
@@ -3088,25 +2140,11 @@ public class AdminAssetBorrowingTab extends JPanel {
                     remarks
             );
 
-
-
-
-
-
-
-
             if (success) {
                 JOptionPane.showMessageDialog(dialog,
                         "Asset returned successfully.\nCondition: " + condition,
                         "Success",
                         JOptionPane.INFORMATION_MESSAGE);
-
-
-
-
-
-
-
 
                 try {
                     // FIXED: Truncate the log message to avoid data truncation error
@@ -3120,13 +2158,6 @@ public class AdminAssetBorrowingTab extends JPanel {
                     // Don't fail the return operation if logging fails
                 }
 
-
-
-
-
-
-
-
                 loadBorrowingData();
                 loadAssetData();
                 loadHistoryData();
@@ -3139,58 +2170,23 @@ public class AdminAssetBorrowingTab extends JPanel {
             }
         });
 
-
-
-
-
-
-
-
         buttonPanel.add(btnCancel);
         buttonPanel.add(btnConfirm);
-
-
-
-
-
-
-
 
         // Add all panels
         mainPanel.add(headerPanel, BorderLayout.NORTH);
         mainPanel.add(conditionPanel, BorderLayout.CENTER);
         mainPanel.add(remarksPanel, BorderLayout.SOUTH);
 
-
-
-
-
-
-
-
         JPanel contentPanel = new JPanel(new BorderLayout());
         contentPanel.setBackground(Color.WHITE);
         contentPanel.add(mainPanel, BorderLayout.CENTER);
         contentPanel.add(penaltyPanel, BorderLayout.SOUTH);
 
-
-
-
-
-
-
-
         dialog.add(contentPanel, BorderLayout.CENTER);
         dialog.add(buttonPanel, BorderLayout.SOUTH);
         dialog.setVisible(true);
     }
-
-
-
-
-
-
-
 
     // =========================================================================
     // ASSET DIALOG WITH REGEX VALIDATION AND WARNING FRAME - FIXED VERSION
@@ -3202,50 +2198,40 @@ public class AdminAssetBorrowingTab extends JPanel {
         dialog.setLayout(new BorderLayout());
         dialog.getContentPane().setBackground(BG_COLOR);
 
-
         // Create warning panel (initially hidden)
         JPanel warningPanel = createWarningPanel();
         warningPanel.setVisible(false);
-
 
         JPanel formPanel = new JPanel();
         formPanel.setLayout(new BoxLayout(formPanel, BoxLayout.Y_AXIS));
         formPanel.setBackground(Color.WHITE);
         formPanel.setBorder(new EmptyBorder(20, 30, 20, 30));
 
-
         // Create all input fields
         List<JComponent> requiredFields = new ArrayList<>();
-
 
         // Basic Information
         JTextField txtName = createStyledTextField(existing != null ? existing.getItemName() : "");
         txtName.setToolTipText("Required. Alphanumeric, spaces, hyphens, periods, commas, ampersands, parentheses only");
         requiredFields.add(txtName);
 
-
         JTextField txtPropCode = createStyledTextField(existing != null ? existing.getPropertyCode() : "");
         txtPropCode.setToolTipText("Optional. Uppercase letters, numbers, hyphens, slashes only");
 
-
-        JTextField txtPropNo = createStyledTextField(existing != null ? existing.getPropertyNumber() :
-                "PROP-" + (System.currentTimeMillis() % 10000));
+        JTextField txtPropNo = createStyledTextField(existing != null ? existing.getPropertyNumber()
+                : "PROP-" + (System.currentTimeMillis() % 10000));
         txtPropNo.setToolTipText("Required. Uppercase letters, numbers, hyphens, slashes only");
         requiredFields.add(txtPropNo);
 
-
         JTextField txtSerialNo = createStyledTextField(existing != null ? existing.getSerialNumber() : "");
         txtSerialNo.setToolTipText("Optional. Alphanumeric, hyphens, spaces only");
-
 
         // Brand & Model
         JTextField txtBrand = createStyledTextField(existing != null ? existing.getBrand() : "");
         txtBrand.setToolTipText("Optional. Alphanumeric, spaces, hyphens, periods, commas, ampersands, parentheses only");
 
-
         JTextField txtModel = createStyledTextField(existing != null ? existing.getModel() : "");
         txtModel.setToolTipText("Optional. Alphanumeric, spaces, hyphens, periods, commas, ampersands, parentheses only");
-
 
         // Financial Information
         String initialValue = existing != null ? formatCurrency(existing.getValue()) : "₱0.00";
@@ -3253,30 +2239,12 @@ public class AdminAssetBorrowingTab extends JPanel {
         txtValue.setToolTipText("Required. Format: ₱1,000.00 or 1000.00");
         requiredFields.add(txtValue);
 
-
-        JTextField txtUsefulLife = createStyledTextField(existing != null ?
-                String.valueOf(existing.getUsefulLifeYears()) : "5");
+        JTextField txtUsefulLife = createStyledTextField(existing != null
+                ? String.valueOf(existing.getUsefulLifeYears()) : "5");
         txtUsefulLife.setToolTipText("Required. Whole numbers only");
         requiredFields.add(txtUsefulLife);
 
-
-
-
-
-
-
-
         // Financial Information
-
-
-
-
-
-
-
-
-
-
         String[] fundSources = {"Barangay Fund", "National Fund", "Donation", "Provincial Fund", "Other"};
         JComboBox<String> cmbFundSource = new JComboBox<>(fundSources);
         cmbFundSource.setBackground(Color.WHITE);
@@ -3284,13 +2252,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         if (existing != null && existing.getFundSource() != null) {
             cmbFundSource.setSelectedItem(existing.getFundSource());
         }
-
-
-
-
-
-
-
 
         // Dates
         JTextField txtDateAcquired = createStyledTextField("");
@@ -3300,25 +2261,11 @@ public class AdminAssetBorrowingTab extends JPanel {
         txtDateAcquired.setToolTipText("Required. Format: YYYY-MM-DD");
         requiredFields.add(txtDateAcquired);
 
-
-
-
-
-
-
-
         JTextField txtPurchaseDate = createStyledTextField("");
         if (existing != null && existing.getPurchaseDate() != null) {
             txtPurchaseDate.setText(existing.getPurchaseDate().toString());
         }
         txtPurchaseDate.setToolTipText("Optional. Format: YYYY-MM-DD");
-
-
-
-
-
-
-
 
         // Status & Location
         String[] statuses = {"Good", "Damaged", "Lost", "For Repair", "Disposed", "Borrowed"};
@@ -3329,34 +2276,13 @@ public class AdminAssetBorrowingTab extends JPanel {
             cmbStatus.setSelectedItem(existing.getStatus());
         }
 
-
-
-
-
-
-
-
         JTextField txtLocation = createStyledTextField(existing != null ? existing.getLocation() : "Barangay Hall");
         txtLocation.setToolTipText("Required. Letters, spaces, periods, commas only");
         requiredFields.add(txtLocation);
 
-
-
-
-
-
-
-
         JTextField txtCustodian = createStyledTextField(existing != null ? existing.getCustodian() : "Barangay Treasurer");
         txtCustodian.setToolTipText("Required. Letters, spaces, periods, commas only");
         requiredFields.add(txtCustodian);
-
-
-
-
-
-
-
 
         // Add input validation
         addRegexValidation(txtName, NAME_REGEX, "Item Name");
@@ -3372,13 +2298,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         addRegexValidation(txtLocation, CUSTODIAN_REGEX, "Location");
         addRegexValidation(txtCustodian, CUSTODIAN_REGEX, "Custodian");
 
-
-
-
-
-
-
-
         // Create form sections
         formPanel.add(createFormSection("Basic Information", new JComponent[][]{
                 {new JLabel("Item Name*:"), txtName},
@@ -3387,25 +2306,11 @@ public class AdminAssetBorrowingTab extends JPanel {
                 {new JLabel("Serial Number:"), txtSerialNo}
         }));
 
-
-
-
-
-
-
-
         formPanel.add(Box.createVerticalStrut(15));
         formPanel.add(createFormSection("Specifications", new JComponent[][]{
                 {new JLabel("Brand:"), txtBrand},
                 {new JLabel("Model:"), txtModel}
         }));
-
-
-
-
-
-
-
 
         formPanel.add(Box.createVerticalStrut(15));
         formPanel.add(createFormSection("Financial Information", new JComponent[][]{
@@ -3414,25 +2319,11 @@ public class AdminAssetBorrowingTab extends JPanel {
                 {new JLabel("Fund Source:"), cmbFundSource}
         }));
 
-
-
-
-
-
-
-
         formPanel.add(Box.createVerticalStrut(15));
         formPanel.add(createFormSection("Date Information", new JComponent[][]{
                 {new JLabel("Date Acquired*:"), createDatePanel(txtDateAcquired)},
                 {new JLabel("Purchase Date:"), createDatePanel(txtPurchaseDate)}
         }));
-
-
-
-
-
-
-
 
         formPanel.add(Box.createVerticalStrut(15));
         formPanel.add(createFormSection("Status & Location", new JComponent[][]{
@@ -3440,13 +2331,6 @@ public class AdminAssetBorrowingTab extends JPanel {
                 {new JLabel("Location*:"), txtLocation},
                 {new JLabel("Custodian*:"), txtCustodian}
         }));
-
-
-
-
-
-
-
 
         // Save button with validation
         JButton btnSave = createModernButton(existing == null ? "Save Asset" : "Update Asset",
@@ -3458,34 +2342,13 @@ public class AdminAssetBorrowingTab extends JPanel {
                     txtDateAcquired, txtPurchaseDate, txtLocation, txtCustodian
             );
 
-
-
-
-
-
-
-
             if (!errors.isEmpty()) {
                 showWarningFrame(errors, warningPanel);
                 return;
             }
 
-
-
-
-
-
-
-
             // Hide warning if validation passes
             warningPanel.setVisible(false);
-
-
-
-
-
-
-
 
             // Save the asset - using the corrected method signature
             saveAsset(existing, dialog, txtName, txtPropCode, txtPropNo, txtSerialNo,
@@ -3493,61 +2356,29 @@ public class AdminAssetBorrowingTab extends JPanel {
                     txtDateAcquired, txtPurchaseDate, cmbStatus, txtLocation, txtCustodian);
         });
 
-
-
-
-
-
-
-
         JPanel btnPanel = new JPanel(new BorderLayout());
         btnPanel.setBackground(Color.WHITE);
         btnPanel.setBorder(new EmptyBorder(10, 0, 0, 0));
         btnPanel.add(warningPanel, BorderLayout.NORTH);
-
-
-
-
-
-
-
 
         JPanel buttonContainer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttonContainer.setBackground(Color.WHITE);
         buttonContainer.add(btnSave);
         btnPanel.add(buttonContainer, BorderLayout.SOUTH);
 
-
-
-
-
-
-
-
         JScrollPane scrollPane = new JScrollPane(formPanel);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         scrollPane.setBorder(null);
-
-
-
-
-
-
-
 
         dialog.add(scrollPane, BorderLayout.CENTER);
         dialog.add(btnPanel, BorderLayout.SOUTH);
         dialog.setVisible(true);
     }
 
-
-
-
     private String formatCurrency(double value) {
         DecimalFormat formatter = new DecimalFormat("#,###.00");
         return "₱" + formatter.format(value);
     }
-
 
     // Fixed saveAsset method with correct parameters
     private void saveAsset(BarangayAsset existing, JDialog dialog,
@@ -3568,13 +2399,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             asset.setUsefulLifeYears(Integer.parseInt(txtUsefulLife.getText()));
             asset.setFundSource(cmbFundSource.getSelectedItem().toString());
 
-
-
-
-
-
-
-
             // Parse dates
             if (!txtDateAcquired.getText().isEmpty()) {
                 asset.setDateAcquired(Date.valueOf(txtDateAcquired.getText()));
@@ -3583,34 +2407,13 @@ public class AdminAssetBorrowingTab extends JPanel {
                 asset.setPurchaseDate(Date.valueOf(txtPurchaseDate.getText()));
             }
 
-
-
-
-
-
-
-
             asset.setStatus(cmbStatus.getSelectedItem().toString());
             asset.setLocation(txtLocation.getText().trim());
             asset.setCustodian(txtCustodian.getText().trim());
 
-
-
-
-
-
-
-
             if (existing != null) {
                 asset.setAssetId(existing.getAssetId());
             }
-
-
-
-
-
-
-
 
             boolean success;
             if (existing == null) {
@@ -3618,18 +2421,12 @@ public class AdminAssetBorrowingTab extends JPanel {
                 if (success) {
                     try {
                         new SystemLogDAO().addLog("Added Asset: " + asset.getItemName(), "Admin", 1);
-                    } catch (Exception ex) {}
+                    } catch (Exception ex) {
+                    }
                 }
             } else {
                 success = new BarangayAssetDAO().updateAsset(asset);
             }
-
-
-
-
-
-
-
 
             if (success) {
                 JOptionPane.showMessageDialog(dialog,
@@ -3653,13 +2450,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         }
     }
 
-
-
-
-
-
-
-
     private JPanel createWarningPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(new Color(255, 243, 205)); // Light yellow
@@ -3668,55 +2458,20 @@ public class AdminAssetBorrowingTab extends JPanel {
                 new EmptyBorder(10, 15, 10, 15)
         ));
 
-
-
-
-
-
-
-
         JLabel warningIcon = new JLabel("⚠️");
         warningIcon.setFont(new Font("Segoe UI", Font.BOLD, 16));
         warningIcon.setForeground(new Color(255, 193, 7));
 
-
-
-
-
-
-
-
         JLabel warningLabel = new JLabel("Please fix the following errors:");
         warningLabel.setFont(WARNING_FONT);
         warningLabel.setForeground(new Color(102, 77, 3));
-
-
-
-
-
-
-
 
         JPanel textPanel = new JPanel(new BorderLayout(5, 0));
         textPanel.setBackground(new Color(255, 243, 205));
         textPanel.add(warningIcon, BorderLayout.WEST);
         textPanel.add(warningLabel, BorderLayout.CENTER);
 
-
-
-
-
-
-
-
         panel.add(textPanel, BorderLayout.NORTH);
-
-
-
-
-
-
-
 
         JTextArea errorArea = new JTextArea();
         errorArea.setEditable(false);
@@ -3725,41 +2480,13 @@ public class AdminAssetBorrowingTab extends JPanel {
         errorArea.setForeground(WARNING_COLOR);
         errorArea.setBorder(new EmptyBorder(5, 25, 0, 0));
 
-
-
-
-
-
-
-
         panel.add(new JScrollPane(errorArea), BorderLayout.CENTER);
-
-
-
-
-
-
-
 
         // Store error area reference
         panel.putClientProperty("errorArea", errorArea);
 
-
-
-
-
-
-
-
         return panel;
     }
-
-
-
-
-
-
-
 
     private void showWarningFrame(List<String> errors, JPanel warningPanel) {
         JTextArea errorArea = (JTextArea) warningPanel.getClientProperty("errorArea");
@@ -3771,117 +2498,91 @@ public class AdminAssetBorrowingTab extends JPanel {
             errorArea.setText(errorText.toString());
             warningPanel.setVisible(true);
 
-
-
-
-
-
-
-
             // Scroll to top
             errorArea.setCaretPosition(0);
         }
     }
 
-
-
-
-
-
-
-
     private List<String> validateAssetForm(JTextField... fields) {
         List<String> errors = new ArrayList<>();
 
-
-
-
-
-
-
-
         // Check required fields
-        if (fields[0].getText().trim().isEmpty()) errors.add("Item Name is required");
-        if (fields[1].getText().trim().isEmpty()) errors.add("Property Number is required");
-        if (fields[2].getText().trim().isEmpty()) errors.add("Value is required");
-        if (fields[3].getText().trim().isEmpty()) errors.add("Useful Life is required");
-        if (fields[4].getText().trim().isEmpty()) errors.add("Date Acquired is required");
-        if (fields[6].getText().trim().isEmpty()) errors.add("Location is required");
-        if (fields[7].getText().trim().isEmpty()) errors.add("Custodian is required");
-
-
-
-
-
-
-
+        if (fields[0].getText().trim().isEmpty()) {
+            errors.add("Item Name is required");
+        }
+        if (fields[1].getText().trim().isEmpty()) {
+            errors.add("Property Number is required");
+        }
+        if (fields[2].getText().trim().isEmpty()) {
+            errors.add("Value is required");
+        }
+        if (fields[3].getText().trim().isEmpty()) {
+            errors.add("Useful Life is required");
+        }
+        if (fields[4].getText().trim().isEmpty()) {
+            errors.add("Date Acquired is required");
+        }
+        if (fields[6].getText().trim().isEmpty()) {
+            errors.add("Location is required");
+        }
+        if (fields[7].getText().trim().isEmpty()) {
+            errors.add("Custodian is required");
+        }
 
         // Regex validation
-        if (!fields[0].getText().matches(NAME_REGEX))
+        if (!fields[0].getText().matches(NAME_REGEX)) {
             errors.add("Item Name contains invalid characters");
-        if (!fields[1].getText().matches(PROPERTY_REGEX))
+        }
+        if (!fields[1].getText().matches(PROPERTY_REGEX)) {
             errors.add("Property Number format invalid (use A-Z, 0-9, -, / only)");
-        if (!fields[2].getText().matches(DECIMAL_REGEX))
+        }
+        if (!fields[2].getText().matches(DECIMAL_REGEX)) {
             errors.add("Value must be a valid number (e.g., 1000 or 1500.50)");
-        if (!fields[3].getText().matches(INTEGER_REGEX))
+        }
+        if (!fields[3].getText().matches(INTEGER_REGEX)) {
             errors.add("Useful Life must be a whole number");
-        if (!fields[4].getText().matches(DATE_REGEX))
+        }
+        if (!fields[4].getText().matches(DATE_REGEX)) {
             errors.add("Date Acquired must be in YYYY-MM-DD format");
-        if (!fields[5].getText().isEmpty() && !fields[5].getText().matches(DATE_REGEX))
+        }
+        if (!fields[5].getText().isEmpty() && !fields[5].getText().matches(DATE_REGEX)) {
             errors.add("Purchase Date must be in YYYY-MM-DD format or empty");
-        if (!fields[6].getText().matches(CUSTODIAN_REGEX))
+        }
+        if (!fields[6].getText().matches(CUSTODIAN_REGEX)) {
             errors.add("Location contains invalid characters");
-        if (!fields[7].getText().matches(CUSTODIAN_REGEX))
+        }
+        if (!fields[7].getText().matches(CUSTODIAN_REGEX)) {
             errors.add("Custodian contains invalid characters");
-
-
-
-
-
-
-
+        }
 
         // Numeric range validation
         try {
             // Parse the formatted value
             double value = parseFormattedValue(fields[2].getText());
-            if (value < 0) errors.add("Value cannot be negative");
-            if (value > 10000000) errors.add("Value is too large (max: 10,000,000)");
+            if (value < 0) {
+                errors.add("Value cannot be negative");
+            }
+            if (value > 10000000) {
+                errors.add("Value is too large (max: 10,000,000)");
+            }
         } catch (NumberFormatException e) {
             errors.add("Invalid value format. Use format like: ₱1,000.00 or 1000.00");
         }
 
-
-
-
-
-
-
-
         try {
             int usefulLife = Integer.parseInt(fields[3].getText());
-            if (usefulLife < 1) errors.add("Useful Life must be at least 1 year");
-            if (usefulLife > 50) errors.add("Useful Life cannot exceed 50 years");
+            if (usefulLife < 1) {
+                errors.add("Useful Life must be at least 1 year");
+            }
+            if (usefulLife > 50) {
+                errors.add("Useful Life cannot exceed 50 years");
+            }
         } catch (NumberFormatException e) {
             errors.add("Invalid useful life format");
         }
 
-
-
-
-
-
-
-
         return errors;
     }
-
-
-
-
-
-
-
 
     private void addRegexValidation(JTextField field, String regex, String fieldName) {
         field.addFocusListener(new FocusAdapter() {
@@ -3901,13 +2602,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         });
     }
 
-
-
-
-
-
-
-
     private JPanel createFormSection(String title, JComponent[][] components) {
         JPanel panel = new JPanel(new GridLayout(components.length, 2, 10, 10));
         panel.setBackground(Color.WHITE);
@@ -3920,13 +2614,6 @@ public class AdminAssetBorrowingTab extends JPanel {
                 TABLE_HEADER_COLOR
         ));
 
-
-
-
-
-
-
-
         for (JComponent[] row : components) {
             JLabel label = (JLabel) row[0];
             label.setFont(LABEL_FONT);
@@ -3935,33 +2622,12 @@ public class AdminAssetBorrowingTab extends JPanel {
             panel.add(row[1]);
         }
 
-
-
-
-
-
-
-
         return panel;
     }
-
-
-
-
-
-
-
 
     private JPanel createDatePanel(JTextField field) {
         JPanel panel = new JPanel(new BorderLayout(5, 0));
         panel.setBackground(Color.WHITE);
-
-
-
-
-
-
-
 
         JButton btnDate = new JButton("📅");
         btnDate.setPreferredSize(new Dimension(40, 30));
@@ -3969,32 +2635,11 @@ public class AdminAssetBorrowingTab extends JPanel {
         btnDate.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnDate.addActionListener(e -> showDatePicker(field));
 
-
-
-
-
-
-
-
         panel.add(field, BorderLayout.CENTER);
         panel.add(btnDate, BorderLayout.EAST);
 
-
-
-
-
-
-
-
         return panel;
     }
-
-
-
-
-
-
-
 
     // =========================================================================
     // EXPORT METHODS
@@ -4004,58 +2649,34 @@ public class AdminAssetBorrowingTab extends JPanel {
         fileChooser.setDialogTitle("Export Asset Data");
         fileChooser.setSelectedFile(new File("assets_export_" + LocalDate.now() + ".csv"));
 
-
-
-
-
-
-
-
         if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             File file = fileChooser.getSelectedFile();
             try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
                 // Write header
                 for (int i = 0; i < assetTable.getColumnCount(); i++) {
                     writer.print("\"" + assetTable.getColumnName(i) + "\"");
-                    if (i < assetTable.getColumnCount() - 1) writer.print(",");
+                    if (i < assetTable.getColumnCount() - 1) {
+                        writer.print(",");
+                    }
                 }
                 writer.println();
-
-
-
-
-
-
-
 
                 // Write data
                 for (int row = 0; row < assetTable.getRowCount(); row++) {
                     for (int col = 0; col < assetTable.getColumnCount(); col++) {
                         Object value = assetTable.getValueAt(row, col);
                         writer.print("\"" + (value != null ? value.toString().replace("\"", "\"\"") : "") + "\"");
-                        if (col < assetTable.getColumnCount() - 1) writer.print(",");
+                        if (col < assetTable.getColumnCount() - 1) {
+                            writer.print(",");
+                        }
                     }
                     writer.println();
                 }
-
-
-
-
-
-
-
 
                 JOptionPane.showMessageDialog(this,
                         "Asset data exported successfully!\nLocation: " + file.getAbsolutePath(),
                         "Export Successful",
                         JOptionPane.INFORMATION_MESSAGE);
-
-
-
-
-
-
-
 
             } catch (IOException e) {
                 JOptionPane.showMessageDialog(this,
@@ -4066,24 +2687,10 @@ public class AdminAssetBorrowingTab extends JPanel {
         }
     }
 
-
-
-
-
-
-
-
     private void exportHistoryData() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("Export Borrowing History");
         fileChooser.setSelectedFile(new File("borrowing_history_" + LocalDate.now() + ".csv"));
-
-
-
-
-
-
-
 
         if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             File file = fileChooser.getSelectedFile();
@@ -4091,45 +2698,28 @@ public class AdminAssetBorrowingTab extends JPanel {
                 // Write header
                 for (int i = 0; i < historyTable.getColumnCount(); i++) {
                     writer.print("\"" + historyTable.getColumnName(i) + "\"");
-                    if (i < historyTable.getColumnCount() - 1) writer.print(",");
+                    if (i < historyTable.getColumnCount() - 1) {
+                        writer.print(",");
+                    }
                 }
                 writer.println();
-
-
-
-
-
-
-
 
                 // Write data
                 for (int row = 0; row < historyTable.getRowCount(); row++) {
                     for (int col = 0; col < historyTable.getColumnCount(); col++) {
                         Object value = historyTable.getValueAt(row, col);
                         writer.print("\"" + (value != null ? value.toString().replace("\"", "\"\"") : "") + "\"");
-                        if (col < historyTable.getColumnCount() - 1) writer.print(",");
+                        if (col < historyTable.getColumnCount() - 1) {
+                            writer.print(",");
+                        }
                     }
                     writer.println();
                 }
-
-
-
-
-
-
-
 
                 JOptionPane.showMessageDialog(this,
                         "Borrowing history exported successfully!",
                         "Export Successful",
                         JOptionPane.INFORMATION_MESSAGE);
-
-
-
-
-
-
-
 
             } catch (IOException e) {
                 JOptionPane.showMessageDialog(this,
@@ -4139,13 +2729,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             }
         }
     }
-
-
-
-
-
-
-
 
     // =========================================================================
     // UI HELPERS
@@ -4161,34 +2744,17 @@ public class AdminAssetBorrowingTab extends JPanel {
         return t;
     }
 
-
-
-
-
-
-
-
     private void showDatePicker(JTextField targetField) {
         Window parentWindow = SwingUtilities.getWindowAncestor(this);
         CalendarDialog calendar = new CalendarDialog(parentWindow, targetField);
         calendar.setVisible(true);
     }
 
-
-
-
-
-
-
-
-
-
-
-
     // =========================================================================
     // RENDERER CLASSES
     // =========================================================================
     class StatusRenderer extends DefaultTableCellRenderer {
+
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
                                                        boolean isSelected, boolean hasFocus, int row, int column) {
@@ -4196,13 +2762,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             String status = value.toString();
             setHorizontalAlignment(SwingConstants.CENTER);
             setFont(new Font("Segoe UI Semibold", Font.PLAIN, 11));
-
-
-
-
-
-
-
 
             if (status.equals("Good") || status.equals("Available")) {
                 setBackground(new Color(39, 174, 96, 30));
@@ -4225,52 +2784,25 @@ public class AdminAssetBorrowingTab extends JPanel {
                 setForeground(Color.BLACK);
             }
 
-
-
-
-
-
-
-
             if (isSelected) {
                 setBackground(getBackground().darker());
             }
-
-
-
-
-
-
-
 
             return c;
         }
     }
 
-
-
-
-
-
-
-
     // =========================================================================
     // CALENDAR DIALOG (unchanged)
     // =========================================================================
     class CalendarDialog extends JDialog {
+
         private LocalDate currentDate;
         private JTextField targetField;
         private JLabel lblMonthYear;
         private JPanel daysPanel;
         private DateTimeFormatter monthYearFormatter = DateTimeFormatter.ofPattern("MMMM yyyy");
         private DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-
-
-
-
-
-
-
 
         public CalendarDialog(Window parent, JTextField targetField) {
             super(parent, "Select Date", ModalityType.APPLICATION_MODAL);
@@ -4285,47 +2817,19 @@ public class AdminAssetBorrowingTab extends JPanel {
                 currentDate = LocalDate.now();
             }
 
-
-
-
-
-
-
-
             setSize(400, 350);
             setLocationRelativeTo(parent);
             setLayout(new BorderLayout());
             getContentPane().setBackground(Color.WHITE);
 
-
-
-
-
-
-
-
             JPanel headerPanel = new JPanel(new BorderLayout());
             headerPanel.setBackground(Color.WHITE);
             headerPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-
-
-
-
-
-
-
 
             JButton btnPrev = new JButton(" < ");
             JButton btnNext = new JButton(" > ");
             lblMonthYear = new JLabel("", SwingConstants.CENTER);
             lblMonthYear.setFont(new Font("Segoe UI", Font.BOLD, 16));
-
-
-
-
-
-
-
 
             btnPrev.addActionListener(e -> {
                 currentDate = currentDate.minusMonths(1);
@@ -4336,55 +2840,20 @@ public class AdminAssetBorrowingTab extends JPanel {
                 updateCalendar();
             });
 
-
-
-
-
-
-
-
             headerPanel.add(btnPrev, BorderLayout.WEST);
             headerPanel.add(lblMonthYear, BorderLayout.CENTER);
             headerPanel.add(btnNext, BorderLayout.EAST);
-
-
-
-
-
-
-
 
             daysPanel = new JPanel(new GridLayout(0, 7, 5, 5));
             daysPanel.setBackground(Color.WHITE);
             daysPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
-
-
-
-
-
-
-
             add(headerPanel, BorderLayout.NORTH);
             add(daysPanel, BorderLayout.CENTER);
-
-
-
-
-
-
-
 
             // Add button panel at bottom
             JPanel buttonPanel = new JPanel(new FlowLayout());
             buttonPanel.setBackground(Color.WHITE);
-
-
-
-
-
-
-
 
             JButton btnToday = new JButton("Today");
             btnToday.addActionListener(e -> {
@@ -4393,54 +2862,19 @@ public class AdminAssetBorrowingTab extends JPanel {
                 dispose();
             });
 
-
-
-
-
-
-
-
             JButton btnCancel = new JButton("Cancel");
             btnCancel.addActionListener(e -> dispose());
-
-
-
-
-
-
-
 
             buttonPanel.add(btnToday);
             buttonPanel.add(btnCancel);
             add(buttonPanel, BorderLayout.SOUTH);
 
-
-
-
-
-
-
-
             updateCalendar();
         }
-
-
-
-
-
-
-
 
         private void updateCalendar() {
             lblMonthYear.setText(currentDate.format(monthYearFormatter));
             daysPanel.removeAll();
-
-
-
-
-
-
-
 
             String[] dayNames = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
             for (String dayName : dayNames) {
@@ -4450,48 +2884,20 @@ public class AdminAssetBorrowingTab extends JPanel {
                 daysPanel.add(dayLabel);
             }
 
-
-
-
-
-
-
-
             LocalDate firstDayOfMonth = currentDate.withDayOfMonth(1);
             int daysInMonth = currentDate.lengthOfMonth();
             int dayOfWeekValue = firstDayOfMonth.getDayOfWeek().getValue();
             int startOffset = (dayOfWeekValue % 7);
 
-
-
-
-
-
-
-
             for (int i = 0; i < startOffset; i++) {
                 daysPanel.add(new JLabel(""));
             }
-
-
-
-
-
-
-
 
             for (int day = 1; day <= daysInMonth; day++) {
                 LocalDate dayDate = currentDate.withDayOfMonth(day);
                 JButton dayButton = new JButton(String.valueOf(day));
                 dayButton.setFont(new Font("Segoe UI", Font.PLAIN, 12));
                 dayButton.setFocusPainted(false);
-
-
-
-
-
-
-
 
                 if (dayDate.equals(LocalDate.now())) {
                     dayButton.setBackground(new Color(220, 240, 255));
@@ -4502,13 +2908,6 @@ public class AdminAssetBorrowingTab extends JPanel {
                     dayButton.setBackground(Color.WHITE);
                 }
 
-
-
-
-
-
-
-
                 try {
                     if (!targetField.getText().isEmpty()) {
                         LocalDate selectedDate = LocalDate.parse(targetField.getText(), dateFormatter);
@@ -4517,14 +2916,8 @@ public class AdminAssetBorrowingTab extends JPanel {
                             dayButton.setForeground(Color.BLACK);
                         }
                     }
-                } catch (Exception e) {}
-
-
-
-
-
-
-
+                } catch (Exception e) {
+                }
 
                 final LocalDate selectedDay = dayDate;
                 dayButton.addActionListener(e -> {
@@ -4532,22 +2925,8 @@ public class AdminAssetBorrowingTab extends JPanel {
                     dispose();
                 });
 
-
-
-
-
-
-
-
                 daysPanel.add(dayButton);
             }
-
-
-
-
-
-
-
 
             int totalCells = 42;
             int currentCells = startOffset + daysInMonth;
@@ -4555,24 +2934,10 @@ public class AdminAssetBorrowingTab extends JPanel {
                 daysPanel.add(new JLabel(""));
             }
 
-
-
-
-
-
-
-
             daysPanel.revalidate();
             daysPanel.repaint();
         }
     }
-
-
-
-
-
-
-
 
     // =========================================================================
     // LEND DIALOG (from original code - kept for compatibility)
@@ -4584,16 +2949,10 @@ public class AdminAssetBorrowingTab extends JPanel {
         dialog.setLayout(new BorderLayout());
         dialog.getContentPane().setBackground(BG_COLOR);
 
-
-
-
         JPanel form = new JPanel();
         form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
         form.setBorder(new EmptyBorder(20, 20, 20, 20));
         form.setBackground(Color.WHITE);
-
-
-
 
         // Fields
         JTextField txtAsset = createStyledTextField("");
@@ -4601,35 +2960,20 @@ public class AdminAssetBorrowingTab extends JPanel {
         JTextField txtAssetId = new JTextField();
         txtAssetId.setVisible(false);
 
-
-
-
         JTextField txtResident = createStyledTextField("");
         txtResident.setEditable(false);
         JTextField txtResidentId = new JTextField();
         txtResidentId.setVisible(false);
 
-
-
-
         JTextField txtBorrowDate = createStyledTextField(LocalDate.now().toString());
         JTextField txtReturnDate = createStyledTextField(LocalDate.now().plusDays(3).toString());
-
-
-
 
         // Picker buttons
         JButton btnPickAsset = createModernButton("Select Asset", PRIMARY_COLOR, "📦");
         btnPickAsset.addActionListener(e -> showAssetPicker(txtAsset, txtAssetId));
 
-
-
-
         JButton btnPickResident = createModernButton("Select Borrower", SECONDARY_COLOR, "👤");
         btnPickResident.addActionListener(e -> showResidentPicker(txtResident, txtResidentId));
-
-
-
 
         // Layout
         addStyledRow(form, "1. Select Asset:", createPickerPanel(txtAsset, btnPickAsset));
@@ -4637,73 +2981,49 @@ public class AdminAssetBorrowingTab extends JPanel {
         addStyledRow(form, "3. Date Borrowed:", createDatePickerPanel(txtBorrowDate));
         addStyledRow(form, "4. Expected Return:", createDatePickerPanel(txtReturnDate));
 
-
-
-
         // Save button with date validation
         JButton btnSave = createModernButton("Confirm Transaction", ACCENT_COLOR, "✅");
         btnSave.addActionListener(e -> {
             try {
-                if(txtAssetId.getText().isEmpty() || txtResidentId.getText().isEmpty()) {
+                if (txtAssetId.getText().isEmpty() || txtResidentId.getText().isEmpty()) {
                     JOptionPane.showMessageDialog(dialog, "Please select both an Asset and a Borrower.");
                     return;
                 }
-
-
-
 
                 // Parse dates
                 LocalDate borrowDate = LocalDate.parse(txtBorrowDate.getText());
                 LocalDate returnDate = LocalDate.parse(txtReturnDate.getText());
 
-
-
-
                 // Validate that return date is not before borrow date
                 if (returnDate.isBefore(borrowDate)) {
                     JOptionPane.showMessageDialog(dialog,
-                            "Error: Expected return date cannot be before the borrow date.\n" +
-                                    "Please select a return date on or after " + borrowDate.toString(),
+                            "Error: Expected return date cannot be before the borrow date.\n"
+                                    + "Please select a return date on or after " + borrowDate.toString(),
                             "Invalid Date",
                             JOptionPane.ERROR_MESSAGE);
                     return;
                 }
 
-
-
-
                 // Validate that borrow date is not in the future
                 if (borrowDate.isAfter(LocalDate.now())) {
                     int confirm = JOptionPane.showConfirmDialog(dialog,
-                            "Warning: Borrow date is in the future (" + borrowDate + ").\n" +
-                                    "Do you want to proceed with this future date?",
+                            "Warning: Borrow date is in the future (" + borrowDate + ").\n"
+                                    + "Do you want to proceed with this future date?",
                             "Future Date Warning",
                             JOptionPane.YES_NO_OPTION,
                             JOptionPane.WARNING_MESSAGE);
-
-
-
 
                     if (confirm != JOptionPane.YES_OPTION) {
                         return;
                     }
                 }
 
-
-
-
                 int aId = Integer.parseInt(txtAssetId.getText());
                 int rId = Integer.parseInt(txtResidentId.getText());
                 Date bDate = Date.valueOf(borrowDate);
                 Date rDate = Date.valueOf(returnDate);
 
-
-
-
                 boolean success = new BorrowingDAO().lendItem(aId, rId, bDate, rDate);
-
-
-
 
                 if (success) {
                     JOptionPane.showMessageDialog(dialog, "Transaction Saved!");
@@ -4729,20 +3049,15 @@ public class AdminAssetBorrowingTab extends JPanel {
             }
         });
 
-
-
-
         JPanel btnP = new JPanel();
         btnP.setBackground(Color.WHITE);
         btnP.add(btnSave);
-
-
-
 
         dialog.add(form, BorderLayout.CENTER);
         dialog.add(btnP, BorderLayout.SOUTH);
         dialog.setVisible(true);
     }
+
     private void addStyledRow(JPanel p, String label, JComponent c) {
         JPanel row = new JPanel(new BorderLayout(10, 0));
         row.setBackground(Color.WHITE);
@@ -4756,13 +3071,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         p.add(Box.createVerticalStrut(15));
     }
 
-
-
-
-
-
-
-
     private JPanel createPickerPanel(JTextField field, JButton btn) {
         JPanel p = new JPanel(new BorderLayout(5, 0));
         p.setBackground(Color.WHITE);
@@ -4770,13 +3078,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         p.add(btn, BorderLayout.EAST);
         return p;
     }
-
-
-
-
-
-
-
 
     private JPanel createDatePickerPanel(JTextField field) {
         JPanel p = new JPanel(new BorderLayout(5, 0));
@@ -4791,13 +3092,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         return p;
     }
 
-
-
-
-
-
-
-
     // =========================================================================
     // PICKER METHODS (from original code - kept for compatibility)
     // =========================================================================
@@ -4808,80 +3102,40 @@ public class AdminAssetBorrowingTab extends JPanel {
         d.setLocationRelativeTo(this);
         d.getContentPane().setBackground(BG_COLOR);
 
-
-
-
-
-
-
-
         // Table
         String[] cols = {"ID", "Item Name", "Prop No", "Status"};
         DefaultTableModel m = new DefaultTableModel(cols, 0) {
-            public boolean isCellEditable(int r, int c) { return false; }
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
         };
         JTable t = new JTable(m);
         t.setRowHeight(25);
 
-
-
-
-
-
-
-
         // Load Only GOOD/AVAILABLE Assets
         List<BarangayAsset> list = new BarangayAssetDAO().getAllAssets();
-        for(BarangayAsset a : list) {
-            if(!"Borrowed".equalsIgnoreCase(a.getStatus()) && !"Lost".equalsIgnoreCase(a.getStatus()) && !"Disposed".equalsIgnoreCase(a.getStatus())) {
-                m.addRow(new Object[]{ a.getAssetId(), a.getItemName(), a.getPropertyNumber(), a.getStatus() });
+        for (BarangayAsset a : list) {
+            if (!"Borrowed".equalsIgnoreCase(a.getStatus()) && !"Lost".equalsIgnoreCase(a.getStatus()) && !"Disposed".equalsIgnoreCase(a.getStatus())) {
+                m.addRow(new Object[]{a.getAssetId(), a.getItemName(), a.getPropertyNumber(), a.getStatus()});
             }
         }
-
-
-
-
-
-
-
 
         // Selection Logic
         JButton btnSelect = createModernButton("Select Asset", ACCENT_COLOR, "✅");
         btnSelect.addActionListener(e -> {
             int row = t.getSelectedRow();
-            if(row != -1) {
+            if (row != -1) {
                 idField.setText(t.getValueAt(row, 0).toString());
                 nameField.setText(t.getValueAt(row, 1).toString());
                 d.dispose();
             }
         });
 
-
-
-
-
-
-
-
         d.add(new JScrollPane(t), BorderLayout.CENTER);
         d.add(btnSelect, BorderLayout.SOUTH);
 
-
-
-
-
-
-
-
         d.setVisible(true);
     }
-
-
-
-
-
-
-
 
     private void showResidentPicker(JTextField nameField, JTextField idField) {
         JDialog d = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Select Borrower", true);
@@ -4889,13 +3143,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         d.setLayout(new BorderLayout());
         d.setLocationRelativeTo(this);
         d.getContentPane().setBackground(BG_COLOR);
-
-
-
-
-
-
-
 
         // Search Bar
         JPanel searchP = new JPanel(new FlowLayout());
@@ -4905,29 +3152,17 @@ public class AdminAssetBorrowingTab extends JPanel {
         searchP.add(new JLabel("Search Name:"));
         searchP.add(txtSearch);
 
-
-
-
-
-
-
-
         // Table
         String[] cols = {"ID", "Name", "Purok"};
         DefaultTableModel m = new DefaultTableModel(cols, 0) {
-            public boolean isCellEditable(int r, int c) { return false; }
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
         };
         JTable t = new JTable(m);
         t.setRowHeight(25);
         TableRowSorter<DefaultTableModel> sort = new TableRowSorter<>(m);
         t.setRowSorter(sort);
-
-
-
-
-
-
-
 
         // Search Filter Logic
         txtSearch.addKeyListener(new KeyAdapter() {
@@ -4936,31 +3171,17 @@ public class AdminAssetBorrowingTab extends JPanel {
             }
         });
 
-
-
-
-
-
-
-
         // Load Residents
         List<Resident> list = new ResidentDAO().getAllResidents();
-        for(Resident r : list) {
-            m.addRow(new Object[]{ r.getResidentId(), r.getFirstName() +" " + r.getMiddleName()+" " + r.getLastName(), r.getPurok() });
+        for (Resident r : list) {
+            m.addRow(new Object[]{r.getResidentId(), r.getFirstName() + " " + r.getMiddleName() + " " + r.getLastName(), r.getPurok()});
         }
-
-
-
-
-
-
-
 
         // Selection
         JButton btnSelect = createModernButton("Select Resident", ACCENT_COLOR, "✅");
         btnSelect.addActionListener(e -> {
             int row = t.getSelectedRow();
-            if(row != -1) {
+            if (row != -1) {
                 int modelRow = t.convertRowIndexToModel(row);
                 idField.setText(m.getValueAt(modelRow, 0).toString());
                 nameField.setText(m.getValueAt(modelRow, 1).toString());
@@ -4968,30 +3189,17 @@ public class AdminAssetBorrowingTab extends JPanel {
             }
         });
 
-
-
-
-
-
-
-
         d.add(searchP, BorderLayout.NORTH);
         d.add(new JScrollPane(t), BorderLayout.CENTER);
         d.add(btnSelect, BorderLayout.SOUTH);
         d.setVisible(true);
     }
 
-
-
-
-
-
-
-
     // =========================================================================
     // BUTTON RENDERER AND EDITOR CLASSES (from original code)
     // =========================================================================
     class ButtonRenderer extends JButton implements TableCellRenderer {
+
         public ButtonRenderer() {
             setOpaque(true);
             setFont(new Font("Segoe UI", Font.PLAIN, 11));
@@ -4999,13 +3207,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             setForeground(Color.WHITE);
             setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
         }
-
-
-
-
-
-
-
 
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
@@ -5015,24 +3216,11 @@ public class AdminAssetBorrowingTab extends JPanel {
         }
     }
 
-
-
-
-
-
-
-
     class ButtonEditor extends DefaultCellEditor {
+
         private JButton button;
         private String label;
         private boolean isPushed;
-
-
-
-
-
-
-
 
         public ButtonEditor(JCheckBox checkBox) {
             super(checkBox);
@@ -5042,13 +3230,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             button.setBackground(new Color(52, 152, 219));
             button.setForeground(Color.WHITE);
             button.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-
-
-
-
-
-
-
 
             button.addActionListener(e -> {
                 fireEditingStopped();
@@ -5060,13 +3241,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             });
         }
 
-
-
-
-
-
-
-
         @Override
         public Component getTableCellEditorComponent(JTable table, Object value,
                                                      boolean isSelected, int row, int column) {
@@ -5075,13 +3249,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             isPushed = true;
             return button;
         }
-
-
-
-
-
-
-
 
         @Override
         public Object getCellEditorValue() {
@@ -5094,6 +3261,7 @@ public class AdminAssetBorrowingTab extends JPanel {
     //  HELPER CLASSES FOR STYLING (copied from SecretaryPrintDocument)
     // =========================================================================
     private static class RoundBorder extends AbstractBorder {
+
         private final int radius;
         private final Color color;
 
@@ -5106,7 +3274,7 @@ public class AdminAssetBorrowingTab extends JPanel {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(color);
-            g2.drawRoundRect(x, y, w-1, h-1, radius, radius);
+            g2.drawRoundRect(x, y, w - 1, h - 1, radius, radius);
             g2.dispose();
         }
 
@@ -5114,13 +3282,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             return new Insets(2, 8, 2, 8);
         }
     }
-
-
-
-
-
-
-
 
     // =========================================================================
     // MAIN METHOD
@@ -5133,28 +3294,15 @@ public class AdminAssetBorrowingTab extends JPanel {
                 e.printStackTrace();
             }
 
-
-
-
-
-
-
-
             JFrame frame = new JFrame("Asset & Borrowing Management System");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setSize(1400, 900);
             frame.setLocationRelativeTo(null);
-
-
-
-
-
-
-
 
             frame.add(new AdminAssetBorrowingTab());
             frame.setVisible(true);
         });
     }
 }
+
 

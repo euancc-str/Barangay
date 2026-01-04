@@ -112,7 +112,7 @@ public class CaptainPWDTab extends JPanel {
                     new Thread(() -> {
                         if (refresher != null)
                             refresher.stop();
-
+                        loadData();
 
                         // Initialize the refresher safely in the background
                         refresher = new AutoRefresher("Resident", () -> {

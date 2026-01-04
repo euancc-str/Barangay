@@ -118,8 +118,7 @@ public class Captain4PsTab extends JPanel {
                     if (refresher != null) {
                         refresher.stop();
                     }
-
-                    // This DB connection now happens in the background!
+                    loadData();
                     refresher = new AutoRefresher("Household", () -> {
                         // Ensure loadData updates the UI safely
                         SwingUtilities.invokeLater(() -> loadData());

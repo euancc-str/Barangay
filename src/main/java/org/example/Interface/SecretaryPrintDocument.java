@@ -72,12 +72,14 @@ public class SecretaryPrintDocument extends JPanel {
         add(new JScrollPane(createContentPanel()), BorderLayout.CENTER);
 
         loadRequestData();
+
         addAncestorListener(new javax.swing.event.AncestorListener() {
             @Override
             public void ancestorAdded(javax.swing.event.AncestorEvent event) {
                 if (refresher != null) {
                     refresher.stop();
                 }
+                loadRequestData();
                 refresher = new AutoRefresher("Document", SecretaryPrintDocument.this::loadRequestData);
                 System.out.println("Tab opened/active. Auto-refresh started.");
             }
@@ -98,66 +100,10 @@ public class SecretaryPrintDocument extends JPanel {
     private AutoRefresher refresher;
     private javax.swing.Timer lightTimer;
 
-    private void startLightPolling() {
-        lightTimer = new javax.swing.Timer(3000, e -> { // Every 3 seconds
-            if (requestTable != null && requestTable.getSelectedRow() == -1) {
-                checkLightUpdate();
-            }
-        });
-        lightTimer.start();
-    }
 
-    private static volatile long lastGlobalUpdate = System.currentTimeMillis();
-    private volatile long lastCheckedTime = 0;
 
-    private void checkLightUpdate() {
-        new SwingWorker<Boolean, Void>() {
-            @Override
-            protected Boolean doInBackground() throws Exception {
-                // Store the time BEFORE checking
-                long checkStartTime = System.currentTimeMillis();
+    private final String[] COLUMN_NAMES = {"Request ID", "Resident Name", "Document Type", "Purpose", "Status", "Date"};
 
-                String sql = "SELECT COUNT(*) as change_count FROM document_request " +
-                        "WHERE updatedAt > FROM_UNIXTIME(?)";
-
-                try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
-                     java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
-
-                    ps.setLong(1, lastCheckedTime / 1000L);
-
-                    java.sql.ResultSet rs = ps.executeQuery();
-                    if (rs.next()) {
-                        int changes = rs.getInt("change_count");
-
-                        // Only update the timestamp AFTER we've checked
-                        if (changes > 0) {
-                            lastCheckedTime = checkStartTime;
-                            return true;
-                        }
-                    }
-                }
-                return false;
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    if (get()) {
-                        loadRequestData();
-                        // Move this AFTER the check, not before
-                        lastGlobalUpdate = System.currentTimeMillis();
-                        System.out.println("✅ Changes detected - refreshing!");
-                    }
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            }
-        }.execute();
-    }
-
-    // =========================================================================
-    //  FIXED DATA LOADING (Safe Threading)
-    // =========================================================================
     public void loadRequestData() {
         new SwingWorker<List<Object[]>, Void>() {
             @Override
@@ -166,23 +112,31 @@ public class SecretaryPrintDocument extends JPanel {
                 List<DocumentRequest> rawList = residentDAO.getAllResidentsDocument();
                 List<Object[]> processedRows = new ArrayList<>();
 
+                // 1. Optimized Date Parsing (No try-catch loop)
                 for (DocumentRequest doc : rawList) {
                     if (doc != null) {
                         Object dateObj = doc.getRequestDate();
                         LocalDateTime finalDate = null;
-                        try {
+
+                        if (dateObj != null) {
                             if (dateObj instanceof java.sql.Timestamp) {
                                 finalDate = ((java.sql.Timestamp) dateObj).toLocalDateTime();
-                            } else if (dateObj != null) {
+                            } else if (dateObj instanceof java.sql.Date) {
+                                finalDate = ((java.sql.Date) dateObj).toLocalDate().atStartOfDay();
+                            } else if (dateObj instanceof LocalDateTime) {
+                                finalDate = (LocalDateTime) dateObj;
+                            } else {
+                                // Fallback for Strings (Only parse if absolutely necessary)
                                 String s = dateObj.toString().replace("T", " ");
-                                if (s.length() >= 19) finalDate = LocalDateTime.parse(s.substring(0, 19), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-                                else if (s.length() >= 16) finalDate = LocalDateTime.parse(s, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-                                else if (s.length() >= 10) finalDate = LocalDate.parse(s.substring(0, 10)).atStartOfDay();
+                                try {
+                                    if (s.length() >= 19) finalDate = LocalDateTime.parse(s.substring(0, 19), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                                    else if (s.length() >= 10) finalDate = LocalDate.parse(s.substring(0, 10)).atStartOfDay();
+                                } catch (Exception ignored) {}
                             }
-                        } catch (Exception ignored) {}
+                        }
 
                         processedRows.add(new Object[]{
-                                "" + doc.getRequestId(),
+                                String.valueOf(doc.getRequestId()), // Ensure ID is String for consistency
                                 doc.getFullName(),
                                 doc.getName(),
                                 doc.getPurpose(),
@@ -199,28 +153,50 @@ public class SecretaryPrintDocument extends JPanel {
                 try {
                     List<Object[]> rows = get();
                     if (tableModel != null) {
-                        // Safely clear and reload
+                        // Save current selection to restore it later
+                        int selectedRow = requestTable.getSelectedRow();
+                        String selectedId = (selectedRow != -1) ? (String) requestTable.getValueAt(selectedRow, 0) : null;
+
+                        // Disable sorter during update to prevent Resorting 500 times
                         RowFilter<? super DefaultTableModel, ? super Integer> currentFilter = null;
                         if (sorter != null) {
                             currentFilter = sorter.getRowFilter();
                             sorter.setRowFilter(null);
                         }
 
-                        tableModel.setRowCount(0);
+                        // 2. BULK UPDATE: Convert List to Vector for single-fire update
+                        java.util.Vector<java.util.Vector<Object>> dataVector = new java.util.Vector<>();
                         for (Object[] row : rows) {
-                            tableModel.addRow(row);
+                            java.util.Vector<Object> rowVector = new java.util.Vector<>();
+                            for (Object o : row) rowVector.add(o);
+                            dataVector.add(rowVector);
                         }
 
+                        java.util.Vector<String> columnIdentifiers = new java.util.Vector<>();
+                        for(String col : COLUMN_NAMES) columnIdentifiers.add(col);
+
+                        // This fires ONE event instead of 500
+                        tableModel.setDataVector(dataVector, columnIdentifiers);
+
+                        // Restore Sorter & Filter
                         if (sorter != null) sorter.setRowFilter(currentFilter);
                         if (statusFilterBox != null) applyFilters();
+
+                        // Restore Selection
+                        if (selectedId != null) {
+                            for (int i = 0; i < requestTable.getRowCount(); i++) {
+                                if (selectedId.equals(requestTable.getValueAt(i, 0))) {
+                                    requestTable.setRowSelectionInterval(i, i);
+                                    break;
+                                }
+                            }
+                        }
                     }
                     updateRecordCount();
-                    if (requestTable != null) requestTable.repaint();
                 } catch (Exception e) { e.printStackTrace(); }
             }
         }.execute();
     }
-
     // =========================================================================
     //  FILTER LOGIC with Regex Enhancement
     // =========================================================================
@@ -1026,7 +1002,7 @@ public class SecretaryPrintDocument extends JPanel {
             ResidentDAO dao = new ResidentDAO();
             org.example.Users.Resident res = dao.findResidentById(residentId);
 
-            new SystemLogDAO().addLog("Printed Document for ",name, Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
+            new SystemLogDAO().addLog("Printed Document ",name, Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
             if (docType.equalsIgnoreCase("Barangay Clearance")) {
                 if (res != null) {
 
@@ -1141,7 +1117,7 @@ public class SecretaryPrintDocument extends JPanel {
 
             // REFRESH YOUR TABLE HERE
             loadRequestData();
-            startLightPolling();
+
 
         } catch (Exception e) {
             e.printStackTrace();

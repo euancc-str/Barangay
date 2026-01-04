@@ -9,6 +9,7 @@ import org.example.SerbisyongBarangay.requestaDocumentFrame;
 
 import org.example.UserDataManager;
 import org.example.Users.Resident;
+import org.example.utils.AutoRefresher;
 
 
 import java.awt.*;
@@ -68,7 +69,30 @@ public class SecretaryPerformSearch extends JPanel {
                 loadResidentData(); // Runs after the white screen is gone
             }
         }.execute();
-        startLightPolling();
+        addAncestorListener(new javax.swing.event.AncestorListener() {
+            @Override
+            public void ancestorAdded(javax.swing.event.AncestorEvent event) {
+                if (refresher != null) {
+                    refresher.stop();
+                }
+                loadResidentData();
+                // Use "Resident" as the filter to match "Added a Resident", "Updated Resident", etc.
+                refresher = new AutoRefresher("Resident", SecretaryPerformSearch.this::loadResidentData);
+                System.out.println("🟢 Tab opened/active. Auto-refresh started.");
+            }
+
+            @Override
+            public void ancestorRemoved(javax.swing.event.AncestorEvent event) {
+                if (refresher != null) {
+                    refresher.stop();
+                    refresher = null;
+                }
+                System.out.println("🔴 Tab hidden/closed. Auto-refresh stopped.");
+            }
+
+            @Override
+            public void ancestorMoved(javax.swing.event.AncestorEvent event) { }
+        });
     }
 
     private javax.swing.Timer lightTimer;
@@ -82,7 +106,7 @@ public class SecretaryPerformSearch extends JPanel {
         });
         lightTimer.start();
     }
-
+    private AutoRefresher refresher;
     private void checkLightUpdate() {
         // Quick query - just get the latest timestamp
         new SwingWorker<Long, Void>() {

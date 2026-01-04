@@ -56,6 +56,7 @@ public class AdminBorrowingTab extends JPanel {
                 if (refresher != null) {
                     refresher.stop();
                 }
+                loadData();
                 refresher = new AutoRefresher("Asset", AdminBorrowingTab.this::loadData);
                 System.out.println("Tab opened/active. Auto-refresh started.");
             }

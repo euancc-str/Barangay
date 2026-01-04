@@ -45,6 +45,7 @@ public class AdminStaffTab extends JPanel {
                 if (refresher != null) {
                     refresher.stop();
                 }
+                loadStaffData();
                 refresher = new AutoRefresher("Staff", AdminStaffTab.this::loadStaffData);
                 System.out.println("Tab opened/active. Auto-refresh started.");
             }
@@ -695,7 +696,6 @@ public class AdminStaffTab extends JPanel {
 
         buttonPanel.add(btnAdd);
         buttonPanel.add(btnUpdate);
-        buttonPanel.add(btnDeactivate);
 
         contentPanel.add(buttonPanel);
         contentPanel.add(Box.createVerticalStrut(20));
@@ -768,67 +768,111 @@ public class AdminStaffTab extends JPanel {
     }
     private void handleAddStaff() {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Register New Staff", true);
-        dialog.setSize(500, 800); // Slightly taller for extra fields
+        dialog.setSize(600, 850);
         dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout());
 
-        JPanel formPanel = new JPanel();
-        formPanel.setLayout(new BoxLayout(formPanel, BoxLayout.Y_AXIS));
-        formPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
-        formPanel.setBackground(Color.WHITE);
+        JPanel mainPanel = new JPanel(new BorderLayout(0, 20));
+        mainPanel.setBackground(Color.WHITE);
+        mainPanel.setBorder(new EmptyBorder(30, 30, 30, 30));
 
-        // --- 1. CREATE FIELDS ---
-        JTextField txtName = createStyledTextField("");
-        JTextField txtLastName = createStyledTextField("");
+        JLabel titleLabel = new JLabel("Register New Staff", SwingConstants.CENTER);
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 22));
+        titleLabel.setForeground(HEADER_BG);
+        mainPanel.add(titleLabel, BorderLayout.NORTH);
 
-        String[] positions = {"Brgy.Secretary", "Brgy.Treasurer", "Brgy.Captain","Admin"};
-        JComboBox<String> cbPosition = new JComboBox<>(positions);
-        cbPosition.setSelectedIndex(3);
-        cbPosition.setEnabled(false);
-        cbPosition.setBackground(Color.WHITE);
-        cbPosition.setFont(new Font("Arial", Font.PLAIN, 14));
+        JPanel detailsPanel = new JPanel();
+        detailsPanel.setLayout(new BoxLayout(detailsPanel, BoxLayout.Y_AXIS));
+        detailsPanel.setBackground(Color.WHITE);
+        detailsPanel.setBorder(new EmptyBorder(10, 20, 10, 20));
 
-        String [] civilStatus = new SystemConfigDAO().getOptionsNature("civilStatus");
-        JComboBox<String> cbCivil = new JComboBox<>(civilStatus);
-        cbCivil.setBackground(Color.WHITE);
-        cbCivil.setFont(new Font("Arial", Font.PLAIN, 14));
+        // --- 1. HIDDEN ID FIELD (To capture Resident ID) ---
+        JTextField txtResId = new JTextField("0"); // Default to 0
+        txtResId.setVisible(false);
+        detailsPanel.add(txtResId);
 
+        // --- 2. PERSONAL INFORMATION ---
+        JTextField txtFirst = createStyledTextField("");
+        JTextField txtMiddle = createStyledTextField("");
+        JTextField txtLast = createStyledTextField("");
+        JTextField txtSuffix = createStyledTextField("");
         JTextField txtContact = createStyledTextField("");
-        // Apply Phone Filter immediately
+        // Apply Phone Filter
         ((javax.swing.text.AbstractDocument) txtContact.getDocument()).setDocumentFilter(new PhoneDocumentFilter());
 
         JTextField txtEmail = createStyledTextField("");
-        JTextField txtAddress = createStyledTextField("");
+        String brgy = new SystemConfigDAO().getConfig("barangay_name");
+        JTextField txtAddress = createStyledTextField(brgy);
 
-        // Credentials
-        JTextField txtUsername = createStyledTextField("");
-        JPasswordField txtPassword = new JPasswordField(""); // Use PasswordField for staff
-        // Style the password field manually to match
-        txtPassword.setFont(new Font("Arial", Font.PLAIN, 14));
-        txtPassword.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(200, 200, 200)),
-                new EmptyBorder(5, 10, 5, 10)
-        ));
+        // --- RESTORED DROPDOWNS ---
+        // Sex
+        String [] sexData = new SystemConfigDAO().getOptionsNature("sex");
+        JComboBox<String> cbSex = new JComboBox<>(sexData);
+        cbSex.setBackground(Color.WHITE);
 
-        // --- 2. DATE & AGE LOGIC (Reusable Logic) ---
-        JTextField txtAge = createStyledTextField("");
-        txtAge.setEditable(false);
-        txtAge.setBackground(new Color(245, 245, 245));
-        txtAge.setText("0");
+        // Civil Status
+        String [] civilStatus = new SystemConfigDAO().getOptionsNature("civilStatus");
+        JComboBox<String> cbCivil = new JComboBox<>(civilStatus);
+        cbCivil.setBackground(Color.WHITE);
 
-        JTextField txtMiddleName = createStyledTextField("");
+        // Position
+        String[] positions = {"Brgy.Secretary", "Brgy.Treasurer", "Brgy.Captain", "Admin"};
+        JComboBox<String> cbPosition = new JComboBox<>(positions);
+        cbPosition.setSelectedIndex(0); // Default to Secretary
+        cbPosition.setBackground(Color.WHITE);
+
+        // --- RESIDENT LINK BUTTON ---
+        JButton btnLink = new JButton("<html><center>Select from<br>Resident List</center></html>");
+        btnLink.setFont(new Font("Arial", Font.PLAIN, 10));
+        btnLink.setFocusPainted(false);
+        btnLink.setBackground(new Color(240, 240, 240));
+
+        // Listener for Link Button (With Proxy Fields for Dropdowns)
+        btnLink.addActionListener(e -> {
+            // 1. Create temporary text fields because openResidentSelector requires JTextFields
+            JTextField proxySex = new JTextField();
+            JTextField proxyCivil = new JTextField();
+
+            // 2. Open the selector passing the text fields and the hidden ID field
+            openResidentSelector(dialog, txtFirst, txtMiddle, txtLast, txtSuffix,
+                    txtContact, txtAddress, txtEmail, proxySex, proxyCivil, txtResId);
+
+            // 3. After selector closes (it's modal), sync the Dropdowns with the data returned
+            if (!proxySex.getText().isEmpty()) {
+                cbSex.setSelectedItem(proxySex.getText());
+            }
+            if (!proxyCivil.getText().isEmpty()) {
+                cbCivil.setSelectedItem(proxyCivil.getText());
+            }
+        });
+
+        JPanel nameHeader = new JPanel(new BorderLayout());
+        nameHeader.setBackground(Color.WHITE);
+        nameHeader.add(new JLabel("Personal Information"), BorderLayout.CENTER);
+        nameHeader.add(btnLink, BorderLayout.EAST);
+
+        addStyledPanelRow(detailsPanel, "", nameHeader);
+        addStyledRow(detailsPanel, "First Name:", txtFirst);
+        addStyledRow(detailsPanel, "Middle Initial:", txtMiddle);
+        addStyledRow(detailsPanel, "Last Name:", txtLast);
+        addStyledRow(detailsPanel, "Suffix:", txtSuffix);
+        addStyledRow(detailsPanel, "Sex:", cbSex);           // Dropdown
+        addStyledRow(detailsPanel, "Civil Status:", cbCivil); // Dropdown
+        addStyledRow(detailsPanel, "Address:", txtAddress);
+
+        // --- 3. DATE OF BIRTH & AGE ---
+        JTextField txtAge = createStyledTextField("0");
         txtAge.setEditable(false);
         txtAge.setBackground(new Color(245, 245, 245));
 
         String[] months = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
         JComboBox<String> cbMonth = new JComboBox<>(months);
-
         String[] days = new String[31];
         for (int i = 0; i < 31; i++) days[i] = String.valueOf(i + 1);
         JComboBox<String> cbDay = new JComboBox<>(days);
-
         int currentYear = LocalDate.now().getYear();
-        String[] years = new String[100]; // Staff usually aren't infants, so 100 years back is fine
-        for (int i = 0; i < 100; i++) years[i] = String.valueOf(currentYear - 18 - i); // Start at 18 years ago
+        String[] years = new String[100];
+        for (int i = 0; i < 100; i++) years[i] = String.valueOf(currentYear - 18 - i);
         JComboBox<String> cbYear = new JComboBox<>(years);
 
         JPanel datePanel = new JPanel(new GridLayout(1, 3, 5, 0));
@@ -843,10 +887,8 @@ public class AdminStaffTab extends JPanel {
                 int d = Integer.parseInt((String) cbDay.getSelectedItem());
                 int y = Integer.parseInt((String) cbYear.getSelectedItem());
                 int m = Month.valueOf(mStr.toUpperCase()).getValue();
-
                 LocalDate birthDate = LocalDate.of(y, m, d);
                 LocalDate now = LocalDate.now();
-
                 if (birthDate.isAfter(now)) {
                     txtAge.setText("Invalid");
                 } else {
@@ -854,109 +896,135 @@ public class AdminStaffTab extends JPanel {
                     txtAge.setText(String.valueOf(age));
                 }
             } catch (Exception ex) {
-                txtAge.setText("Invalid Date");
+                txtAge.setText("Invalid");
             }
         };
-
         cbMonth.addActionListener(dateListener);
         cbDay.addActionListener(dateListener);
         cbYear.addActionListener(dateListener);
-        dateListener.actionPerformed(null); // Init
+        dateListener.actionPerformed(null); // Init Age
 
-        // --- 3. ADD TO PANEL ---
-        addStyledRow(formPanel, "First Name:", txtName);
-        addStyledRow(formPanel,"Middle Initial: ", txtMiddleName);
-        addStyledRow(formPanel, "Last Name:", txtLastName);
-        addStyledRow(formPanel, "Position:", cbPosition);
-        addStyledRow(formPanel, "Date of Birth:", datePanel);
-        addStyledRow(formPanel, "Age (Auto):", txtAge);
-        addStyledRow(formPanel,"Civil status:",cbCivil);
-        addStyledRow(formPanel, "Contact No. (09...):", txtContact);
-        addStyledRow(formPanel, "Email:", txtEmail);
-        addStyledRow(formPanel, "Address:", txtAddress);
+        addStyledRow(detailsPanel, "Date of Birth:", datePanel);
+        addStyledRow(detailsPanel, "Age (Auto):", txtAge);
 
-        // Divider
-        formPanel.add(Box.createVerticalStrut(10));
+        addStyledRow(detailsPanel, "Position:", cbPosition); // Dropdown
+        addStyledRow(detailsPanel, "Contact No:", txtContact);
+        addStyledRow(detailsPanel, "Email:", txtEmail);
+
+        // --- 4. CREDENTIALS ---
+        detailsPanel.add(Box.createVerticalStrut(10));
         JLabel lblCreds = new JLabel("Login Credentials");
         lblCreds.setFont(new Font("Arial", Font.BOLD, 14));
         lblCreds.setForeground(HEADER_BG);
-        formPanel.add(lblCreds);
-        formPanel.add(Box.createVerticalStrut(5));
+        detailsPanel.add(lblCreds);
 
-        addStyledRow(formPanel, "Username:", txtUsername);
-        addStyledRow(formPanel, "Password:", txtPassword);
+        JTextField txtUsername = createStyledTextField("");
+        JPasswordField txtPassword = new JPasswordField("");
+        txtPassword.setFont(new Font("Arial", Font.PLAIN, 14));
+        txtPassword.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(200, 200, 200)),
+                new EmptyBorder(5, 10, 5, 10)
+        ));
 
-        // --- 4. SAVE BUTTON ---
+        addStyledRow(detailsPanel, "Username:", txtUsername);
+        addStyledRow(detailsPanel, "Password:", txtPassword);
+
+        mainPanel.add(new JScrollPane(detailsPanel), BorderLayout.CENTER);
+
+        // --- BUTTONS ---
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
+        btnPanel.setBackground(Color.WHITE);
+
+        JButton btnCancel = createRoundedButton("Cancel", Color.GRAY);
+        btnCancel.setPreferredSize(new Dimension(150, 45));
+        btnCancel.addActionListener(e -> dialog.dispose());
+
         JButton btnSave = createRoundedButton("Create Account", BTN_ADD_COLOR);
-        enforceLetterOnlyOnNames(txtName, txtMiddleName, txtLastName);
+        btnSave.setPreferredSize(new Dimension(200, 45));
+        enforceLetterOnlyOnNames(txtFirst, txtMiddle, txtLast);
+        cbPosition.setSelectedIndex(3);
+        cbPosition.setEnabled(false);
         btnSave.addActionListener(e -> {
-            // Validation
-            if (txtName.getText().isEmpty() || txtLastName.getText().isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "Names are required.", "Error", JOptionPane.ERROR_MESSAGE);
+            // A. VALIDATION
+            if (txtFirst.getText().trim().isEmpty() || txtLast.getText().trim().isEmpty()) {
+                JOptionPane.showMessageDialog(dialog, "First and Last names are required.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            if (txtUsername.getText().trim().isEmpty() || new String(txtPassword.getPassword()).trim().isEmpty()) {
+                JOptionPane.showMessageDialog(dialog, "Username and Password are required.", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             if (txtContact.getText().length() != 11) {
                 JOptionPane.showMessageDialog(dialog, "Contact number must be 11 digits.", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            if (txtUsername.getText().isEmpty() || new String(txtPassword.getPassword()).isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "Username and Password are required.", "Error", JOptionPane.ERROR_MESSAGE);
-                return;
+
+            // Middle Initial Validation
+            String mName = txtMiddle.getText().trim();
+            if (!mName.isEmpty()) {
+                if (!mName.matches("^[a-zA-Z]\\.?$")) {
+                    JOptionPane.showMessageDialog(dialog, "Middle Initial must be a single letter.", "Invalid Format", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                mName = mName.replace(".", "").toUpperCase() + ".";
             }
 
             try {
-                // Date Logic
+                // B. GATHER DATA
                 String mStr = (String) cbMonth.getSelectedItem();
                 int m = Month.valueOf(mStr.toUpperCase()).getValue();
                 int d = Integer.parseInt((String) cbDay.getSelectedItem());
                 int y = Integer.parseInt((String) cbYear.getSelectedItem());
                 LocalDate birthDate = LocalDate.of(y, m, d);
 
-                int age = Integer.parseInt(txtAge.getText());
-                String fullName = txtName.getText() + " " + txtLastName.getText();
+                int age = 0;
+                try { age = Integer.parseInt(txtAge.getText()); } catch(NumberFormatException nfe) {}
 
-                // Mock ID for GUI
-                int newId = staffTable.getRowCount() + 1;
+                // Retrieve the Resident ID from the hidden field
+                int resId = 0;
+                try {
+                    String idText = txtResId.getText().trim();
+                    if (!idText.isEmpty()) {
+                        resId = Integer.parseInt(idText);
+                    }
+                } catch(NumberFormatException nfe) {
+                    resId = 0;
+                }
 
-                // Update UI Table
-                tableModel.addRow(new Object[]{
-                        String.valueOf(newId),
-                        fullName,
-                        cbPosition.getSelectedItem(),
-                        txtContact.getText(),
-                        "Active",
-                        "Never"
-                });
-
-                // Build Staff Object
-
-
+                // C. BUILD OBJECT
                 BarangayStaff staff = BarangayStaff.builder()
-                        .firstName(txtName.getText())
-                        .lastName(txtLastName.getText())
-                        .position((String) cbPosition.getSelectedItem())
-                        .age(age)
+                        .residentId(resId) // Pass the captured ID here
+                        .firstName(txtFirst.getText().trim())
+                        .middleName(mName)
+                        .lastName(txtLast.getText().trim())
+                        .suffix(txtSuffix.getText().trim())
+                        .position(cbPosition.getSelectedItem().toString())
                         .role(mapPositionToRole(cbPosition.getSelectedItem().toString()))
-                        .middleName(txtMiddleName.getText())
-                        .dob(birthDate) // Use java.sql.Date for DB
-                        .contactNo(txtContact.getText())
-                        .email(txtEmail.getText())
-                        .address(txtAddress.getText())
-                        .username(txtUsername.getText())
-                        .password(new String(txtPassword.getPassword()))
+                        .sex(cbSex.getSelectedItem().toString())
                         .civilStatus(cbCivil.getSelectedItem().toString())
+                        .dob(birthDate)
+                        .age(age)
+                        .contactNo(txtContact.getText().trim())
+                        .email(txtEmail.getText().trim())
+                        .address(txtAddress.getText().trim())
+                        .citizenship("Filipino")
+                        .username(txtUsername.getText().trim())
+                        .password(new String(txtPassword.getPassword()))
                         .status("Active")
-                        .lastLogin(java.time.LocalDateTime.now())
-                        .createdAt(java.time.LocalDateTime.now())
-                        .updatedAt(java.time.LocalDateTime.now())
-
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .lastLogin(null)
                         .build();
 
-                // Save to DB
+                // D. SAVE
                 UserDataManager.getInstance().addStaff(staff);
 
-                logDAO.addLog("Added staff",staff.getFirstName() + " " + staff.getLastName(), Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
+                // Log and Close
+                logDAO.addLog("Added staff", staff.getFirstName() + " " + staff.getLastName(),
+                        Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
+
                 JOptionPane.showMessageDialog(dialog, "Staff Account Created Successfully!");
+                loadStaffData();
                 dialog.dispose();
 
             } catch (Exception ex) {
@@ -965,12 +1033,11 @@ public class AdminStaffTab extends JPanel {
             }
         });
 
-        JPanel btnPanel = new JPanel();
-        btnPanel.setBackground(Color.WHITE);
+        btnPanel.add(btnCancel);
         btnPanel.add(btnSave);
+        mainPanel.add(btnPanel, BorderLayout.SOUTH);
 
-        dialog.add(new JScrollPane(formPanel), BorderLayout.CENTER);
-        dialog.add(btnPanel, BorderLayout.SOUTH);
+        dialog.add(mainPanel);
         dialog.setVisible(true);
     }
     SystemLogDAO logDAO = new SystemLogDAO();

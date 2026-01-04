@@ -78,6 +78,7 @@ public class AdminAssetTab extends JPanel {
                 if (refresher != null) {
                     refresher.stop();
                 }
+                loadData();
                 refresher = new AutoRefresher("Asset", AdminAssetTab.this::loadData);
                 System.out.println("Tab opened/active. Auto-refresh started.");
             }
@@ -1198,8 +1199,321 @@ public class AdminAssetTab extends JPanel {
 
         return headerPanel;
     }
+    // --- NUMERIC VALIDATION METHOD ---
+    private void addNumericValidation(JTextField textField, boolean allowDecimal, int maxLength) {
+        textField.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyTyped(KeyEvent e) {
+                char c = e.getKeyChar();
+                String currentText = textField.getText();
 
+                // Check length limit
+                if (currentText.length() >= maxLength && c != KeyEvent.VK_BACK_SPACE) {
+                    e.consume();
+                    return;
+                }
 
+                if (allowDecimal) {
+                    // Allow digits, one decimal point, and backspace
+                    if (!Character.isDigit(c) && c != '.' && c != KeyEvent.VK_BACK_SPACE) {
+                        e.consume(); // Reject invalid character
+                    }
+
+                    // Allow only one decimal point
+                    if (c == '.' && currentText.contains(".")) {
+                        e.consume();
+                    }
+                } else {
+                    // Allow only digits and backspace
+                    if (!Character.isDigit(c) && c != KeyEvent.VK_BACK_SPACE) {
+                        e.consume(); // Reject invalid character
+                    }
+                }
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+                // Visual feedback for validation
+                String text = textField.getText().trim();
+                if (text.isEmpty() || (allowDecimal && (text.equals("0") || text.equals("0.00"))) ||
+                        (!allowDecimal && text.equals("0"))) {
+                    textField.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
+                } else {
+                    textField.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
+                }
+            }
+        });
+    }
+
+    // --- TEXT FIELD VALIDATION WITH MIN LENGTH ---
+    private void addTextValidation(JTextField textField, int minLength, int maxLength, String fieldName) {
+        textField.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyTyped(KeyEvent e) {
+                char c = e.getKeyChar();
+                String currentText = textField.getText();
+
+                // Check max length limit
+                if (currentText.length() >= maxLength && c != KeyEvent.VK_BACK_SPACE) {
+                    e.consume();
+                    Toolkit.getDefaultToolkit().beep();
+                    return;
+                }
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+                String text = textField.getText().trim();
+
+                // Visual feedback based on validation
+                if (text.isEmpty()) {
+                    textField.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
+                    textField.setToolTipText(fieldName + " cannot be empty");
+                } else if (text.length() < minLength) {
+                    textField.setBorder(BorderFactory.createLineBorder(Color.ORANGE, 2));
+                    textField.setToolTipText(fieldName + " must be at least " + minLength + " characters");
+                } else {
+                    textField.setBorder(BorderFactory.createLineBorder(Color.GREEN, 1));
+                    textField.setToolTipText(null);
+                }
+            }
+        });
+    }
+
+    // --- ALPHANUMERIC VALIDATION (for codes/serial numbers) ---
+    private void addAlphanumericValidation(JTextField textField, int minLength, int maxLength, String fieldName) {
+        textField.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyTyped(KeyEvent e) {
+                char c = e.getKeyChar();
+                String currentText = textField.getText();
+
+                // Check max length
+                if (currentText.length() >= maxLength && c != KeyEvent.VK_BACK_SPACE) {
+                    e.consume();
+                    Toolkit.getDefaultToolkit().beep();
+                    return;
+                }
+
+                // Allow letters, digits, hyphens, and backspace only
+                if (!Character.isLetterOrDigit(c) && c != '-' && c != '_' && c != KeyEvent.VK_BACK_SPACE) {
+                    e.consume();
+                    Toolkit.getDefaultToolkit().beep();
+                }
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+                String text = textField.getText().trim();
+
+                if (text.isEmpty()) {
+                    textField.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
+                    textField.setToolTipText(fieldName + " cannot be empty");
+                } else if (text.length() < minLength) {
+                    textField.setBorder(BorderFactory.createLineBorder(Color.ORANGE, 2));
+                    textField.setToolTipText(fieldName + " must be at least " + minLength + " characters");
+                } else {
+                    textField.setBorder(BorderFactory.createLineBorder(Color.GREEN, 1));
+                    textField.setToolTipText(null);
+                }
+            }
+        });
+    }
+
+    // --- COMPREHENSIVE VALIDATION BEFORE SAVE ---
+    private boolean validateAllFields(JTextField txtName, JTextField txtPropCode, JTextField txtPropNo,
+                                      JTextField txtSerial, JTextField txtBrand, JTextField txtModel,
+                                      JTextField txtValue, JTextField txtLife, JTextField txtCustodian,
+                                      JTextField txtLocation, JTextField txtFund, JDialog dialog) {
+
+        // Item Name validation
+        if (txtName.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(dialog, "Item Name cannot be empty!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtName.requestFocus();
+            return false;
+        }
+        if (txtName.getText().trim().length() < 3) {
+            JOptionPane.showMessageDialog(dialog, "Item Name must be at least 3 characters!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtName.requestFocus();
+            return false;
+        }
+
+        // Property Code validation
+        if (txtPropCode.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(dialog, "Property Code cannot be empty!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtPropCode.requestFocus();
+            return false;
+        }
+        if (txtPropCode.getText().trim().length() < 5) {
+            JOptionPane.showMessageDialog(dialog, "Property Code must be at least 5 characters!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtPropCode.requestFocus();
+            return false;
+        }
+
+        // Property Number validation
+        if (txtPropNo.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(dialog, "Property Number cannot be empty!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtPropNo.requestFocus();
+            return false;
+        }
+        if (txtPropNo.getText().trim().length() < 5) {
+            JOptionPane.showMessageDialog(dialog, "Property Number must be at least 5 characters!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtPropNo.requestFocus();
+            return false;
+        }
+
+        // Serial Number validation
+        if (txtSerial.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(dialog, "Serial Number cannot be empty!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtSerial.requestFocus();
+            return false;
+        }
+        if (txtSerial.getText().trim().length() < 5) {
+            JOptionPane.showMessageDialog(dialog, "Serial Number must be at least 5 characters!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtSerial.requestFocus();
+            return false;
+        }
+
+        // Brand validation
+        if (txtBrand.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(dialog, "Brand cannot be empty!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtBrand.requestFocus();
+            return false;
+        }
+        if (txtBrand.getText().trim().length() < 2) {
+            JOptionPane.showMessageDialog(dialog, "Brand must be at least 2 characters!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtBrand.requestFocus();
+            return false;
+        }
+
+        // Model validation
+        if (txtModel.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(dialog, "Model cannot be empty!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtModel.requestFocus();
+            return false;
+        }
+        if (txtModel.getText().trim().length() < 2) {
+            JOptionPane.showMessageDialog(dialog, "Model must be at least 2 characters!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtModel.requestFocus();
+            return false;
+        }
+
+        // Value validation
+        if (txtValue.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(dialog, "Acquisition Cost/Value cannot be empty!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtValue.requestFocus();
+            return false;
+        }
+        try {
+            double value = Double.parseDouble(txtValue.getText().trim());
+            if (value <= 0) {
+                JOptionPane.showMessageDialog(dialog, "Acquisition Cost/Value must be greater than 0!",
+                        "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtValue.requestFocus();
+                return false;
+            }
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(dialog, "Acquisition Cost/Value must be a valid number!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtValue.requestFocus();
+            return false;
+        }
+
+        // Useful Life validation
+        if (txtLife.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(dialog, "Useful Life cannot be empty!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtLife.requestFocus();
+            return false;
+        }
+        try {
+            int life = Integer.parseInt(txtLife.getText().trim());
+            if (life <= 0) {
+                JOptionPane.showMessageDialog(dialog, "Useful Life must be at least 1 year!",
+                        "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtLife.requestFocus();
+                return false;
+            }
+            if (life > 99) {
+                JOptionPane.showMessageDialog(dialog, "Useful Life cannot exceed 99 years!",
+                        "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtLife.requestFocus();
+                return false;
+            }
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(dialog, "Useful Life must be a valid number!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtLife.requestFocus();
+            return false;
+        }
+
+        // Fund Source validation
+        if (txtFund.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(dialog, "Fund Source cannot be empty!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtFund.requestFocus();
+            return false;
+        }
+        if (txtFund.getText().trim().length() < 3) {
+            JOptionPane.showMessageDialog(dialog, "Fund Source must be at least 3 characters!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtFund.requestFocus();
+            return false;
+        }
+
+        // Custodian validation
+        if (txtCustodian.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(dialog, "Custodian cannot be empty!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtCustodian.requestFocus();
+            return false;
+        }
+        if (txtCustodian.getText().trim().length() < 3) {
+            JOptionPane.showMessageDialog(dialog, "Custodian must be at least 3 characters!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtCustodian.requestFocus();
+            return false;
+        }
+
+        // Location validation
+        if (txtLocation.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(dialog, "Location cannot be empty!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtLocation.requestFocus();
+            return false;
+        }
+        if (txtLocation.getText().trim().length() < 3) {
+            JOptionPane.showMessageDialog(dialog, "Location must be at least 3 characters!",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            txtLocation.requestFocus();
+            return false;
+        }
+
+        return true; // All validations passed
+    }
+
+// Usage in showDialog method - Add these after creating the text fields:
+
+    // For Value field - max 12 digits (e.g., 999,999,999.99)
+
+    // In the Save button action listener, replace the validation section with:
+// if (!validateAllFields(txtName, txtPropCode, txtPropNo, txtSerial, txtBrand,
+//                        txtModel, txtValue, txtLife, txtCustodian, txtLocation, txtFund, dialog)) {
+//     return;
+// }
     private void showDialog(BarangayAsset existing, String title) {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), title, true);
         dialog.setSize(600, 750);
@@ -1241,7 +1555,23 @@ public class AdminAssetTab extends JPanel {
 
         JTextField txtCustodian = createStyledTextField(existing != null ? existing.getCustodian() : "");
         JTextField txtLocation = createStyledTextField(existing != null ? existing.getLocation() : "Barangay Hall");
+        addNumericValidation(txtValue, true, 12);
 
+        // For Useful Life field - max 2 digits (up to 99 years)
+        addNumericValidation(txtLife, false, 2);
+
+        // Add text validations:
+        addTextValidation(txtName, 3, 100, "Item Name");
+        addTextValidation(txtBrand, 2, 50, "Brand");
+        addTextValidation(txtModel, 2, 50, "Model");
+        addTextValidation(txtCustodian, 3, 100, "Custodian");
+        addTextValidation(txtLocation, 3, 100, "Location");
+        addTextValidation(txtFund, 3, 100, "Fund Source");
+
+        // Add alphanumeric validations for codes:
+        addAlphanumericValidation(txtPropCode, 5, 20, "Property Code");
+        addAlphanumericValidation(txtPropNo, 5, 30, "Property Number");
+        addAlphanumericValidation(txtSerial, 5, 30, "Serial Number");
 
         // --- ADD ROWS ---
         addStyledRow(formPanel, "Item Name:", txtName);
@@ -1267,6 +1597,10 @@ public class AdminAssetTab extends JPanel {
         // --- SAVE LOGIC ---
         JButton btnSave = createRoundedButton("Save Asset", BTN_ADD_COLOR);
         btnSave.addActionListener(e -> {
+            if (!validateAllFields(txtName, txtPropCode, txtPropNo, txtSerial, txtBrand,
+                    txtModel, txtValue, txtLife, txtCustodian, txtLocation, txtFund, dialog)) {
+                return; // Stop if validation fails
+            }
             try {
                 BarangayAsset asset = new BarangayAsset();
                 asset.setItemName(txtName.getText());

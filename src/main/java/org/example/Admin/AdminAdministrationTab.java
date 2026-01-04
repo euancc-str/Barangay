@@ -92,6 +92,7 @@ public class AdminAdministrationTab extends JPanel {
                 if (refresher != null) {
                     refresher.stop();
                 }
+                loadData();
                 refresher = new AutoRefresher("Asset", AdminAdministrationTab.this::loadData);
                 System.out.println("Tab opened/active. Auto-refresh started.");
             }

@@ -491,98 +491,87 @@ public class CaptainScheduleTab extends JPanel {
 
     private void initializeCalendarDialog() {
         calendarDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Select Date", true);
-        calendarDialog.setSize(350, 400);
-        calendarDialog.setLayout(new BorderLayout());
+        calendarDialog.setSize(700, 700);
+        calendarDialog.setLayout(new BorderLayout(10, 10));
         calendarDialog.setResizable(false);
-        calendarDialog.setLocationRelativeTo(this);
-
 
         // Initialize selected date to today
         selectedCalendarDate = LocalDate.now();
 
-
         // Main calendar panel
-        JPanel calendarPanel = new JPanel(new BorderLayout());
+        JPanel calendarPanel = new JPanel();
+        calendarPanel.setLayout(new BoxLayout(calendarPanel, BoxLayout.Y_AXIS));
         calendarPanel.setBackground(CALENDAR_BG);
-        calendarPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-
+        calendarPanel.setBorder(new EmptyBorder(15, 15, 15, 15));
 
         // Month/year navigation panel
-        JPanel navPanel = new JPanel(new BorderLayout());
+        JPanel navPanel = new JPanel(new BorderLayout(10, 0));
         navPanel.setBackground(CALENDAR_BG);
-        navPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
-
+        navPanel.setMaximumSize(new Dimension(400, 40));
 
         JButton prevMonthBtn = new JButton("◀");
-        prevMonthBtn.setFont(new Font("Arial", Font.BOLD, 14));
-        prevMonthBtn.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        prevMonthBtn.setFont(new Font("Arial", Font.BOLD, 16));
+        prevMonthBtn.setPreferredSize(new Dimension(50, 35));
         prevMonthBtn.addActionListener(e -> {
             selectedCalendarDate = selectedCalendarDate.minusMonths(1);
             updateCalendar();
         });
 
-
         monthYearLabel = new JLabel();
-        monthYearLabel.setFont(new Font("Arial", Font.BOLD, 16));
+        monthYearLabel.setFont(new Font("Arial", Font.BOLD, 18));
         monthYearLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
-
         JButton nextMonthBtn = new JButton("▶");
-        nextMonthBtn.setFont(new Font("Arial", Font.BOLD, 14));
-        nextMonthBtn.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        nextMonthBtn.setFont(new Font("Arial", Font.BOLD, 16));
+        nextMonthBtn.setPreferredSize(new Dimension(50, 35));
         nextMonthBtn.addActionListener(e -> {
             selectedCalendarDate = selectedCalendarDate.plusMonths(1);
             updateCalendar();
         });
 
-
         navPanel.add(prevMonthBtn, BorderLayout.WEST);
         navPanel.add(monthYearLabel, BorderLayout.CENTER);
         navPanel.add(nextMonthBtn, BorderLayout.EAST);
 
-
         // Day labels panel
-        JPanel dayLabelsPanel = new JPanel(new GridLayout(1, 7));
+        JPanel dayLabelsPanel = new JPanel(new GridLayout(1, 7, 5, 5));
         dayLabelsPanel.setBackground(CALENDAR_BG);
+        dayLabelsPanel.setMaximumSize(new Dimension(400, 30));
         String[] dayNames = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
         for (String day : dayNames) {
-            JLabel dayLabel = new JLabel(day);
-            dayLabel.setFont(new Font("Arial", Font.BOLD, 12));
-            dayLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            JLabel dayLabel = new JLabel(day, SwingConstants.CENTER);
+            dayLabel.setFont(new Font("Arial", Font.BOLD, 13));
             dayLabelsPanel.add(dayLabel);
         }
 
-
         // Days grid panel
-        JPanel daysPanel = new JPanel(new GridLayout(6, 7, 2, 2));
+        JPanel daysPanel = new JPanel(new GridLayout(6, 7, 5, 5));
         daysPanel.setBackground(CALENDAR_BG);
+        daysPanel.setPreferredSize(new Dimension(400, 280));
         dayButtons = new JButton[6][7];
-
 
         for (int row = 0; row < 6; row++) {
             for (int col = 0; col < 7; col++) {
                 final int r = row;
                 final int c = col;
-                JButton dayBtn = new JButton();
-                dayBtn.setFont(new Font("Arial", Font.PLAIN, 12));
+                JButton dayBtn = new JButton("");
+                dayBtn.setFont(new Font("Arial", Font.BOLD, 14));
                 dayBtn.setFocusPainted(false);
-                dayBtn.setBorder(BorderFactory.createLineBorder(new Color(220, 220, 220)));
+                dayBtn.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200), 1));
                 dayBtn.setBackground(Color.WHITE);
                 dayBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-
 
                 dayBtn.addMouseListener(new MouseAdapter() {
                     @Override
                     public void mouseEntered(MouseEvent e) {
-                        if (!dayBtn.getText().isEmpty()) {
+                        if (!dayBtn.getText().isEmpty() && dayBtn.isEnabled()) {
                             dayBtn.setBackground(CALENDAR_HOVER);
                         }
                     }
 
-
                     @Override
                     public void mouseExited(MouseEvent e) {
-                        if (!dayBtn.getText().isEmpty()) {
+                        if (!dayBtn.getText().isEmpty() && dayBtn.isEnabled()) {
                             LocalDate buttonDate = getButtonDate(r, c);
                             if (buttonDate != null) {
                                 if (buttonDate.equals(LocalDate.now())) {
@@ -597,118 +586,110 @@ public class CaptainScheduleTab extends JPanel {
                     }
                 });
 
-
                 dayBtn.addActionListener(e -> {
-                    LocalDate selectedDate = getButtonDate(r, c);
-                    if (selectedDate != null) {
-                        selectedCalendarDate = selectedDate;
-                        updateCalendar();
-                        calendarDialog.setVisible(false);
-                        updateDateButton();
+                    if (!dayBtn.getText().isEmpty() && dayBtn.isEnabled()) {
+                        LocalDate selectedDate = getButtonDate(r, c);
+                        if (selectedDate != null) {
+                            selectedCalendarDate = selectedDate;
+                            updateCalendar();
+                            calendarDialog.setVisible(false);
+                            updateDateButton();
+                        }
                     }
                 });
-
 
                 dayButtons[row][col] = dayBtn;
                 daysPanel.add(dayBtn);
             }
         }
 
+        // Add spacing between components
+        calendarPanel.add(navPanel);
+        calendarPanel.add(Box.createVerticalStrut(10));
+        calendarPanel.add(dayLabelsPanel);
+        calendarPanel.add(Box.createVerticalStrut(5));
+        calendarPanel.add(daysPanel);
 
         // Button panel
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
         buttonPanel.setBackground(CALENDAR_BG);
-        buttonPanel.setBorder(new EmptyBorder(10, 0, 0, 0));
-
 
         JButton btnTodayCal = new JButton("Today");
+        btnTodayCal.setFont(new Font("Arial", Font.PLAIN, 12));
         btnTodayCal.addActionListener(e -> {
             selectedCalendarDate = LocalDate.now();
             updateCalendar();
             updateDateButton();
         });
 
-
         JButton btnSelect = new JButton("Select");
+        btnSelect.setFont(new Font("Arial", Font.BOLD, 12));
         btnSelect.setBackground(PRIMARY_COLOR);
         btnSelect.setForeground(Color.WHITE);
+        btnSelect.setFocusPainted(false);
         btnSelect.addActionListener(e -> {
             calendarDialog.setVisible(false);
             updateDateButton();
         });
 
-
         JButton btnCancel = new JButton("Cancel");
+        btnCancel.setFont(new Font("Arial", Font.PLAIN, 12));
         btnCancel.addActionListener(e -> calendarDialog.setVisible(false));
-
 
         buttonPanel.add(btnTodayCal);
         buttonPanel.add(btnSelect);
         buttonPanel.add(btnCancel);
 
-
-        // Add all panels to dialog
-        calendarPanel.add(navPanel, BorderLayout.NORTH);
-        calendarPanel.add(dayLabelsPanel, BorderLayout.CENTER);
-        calendarPanel.add(daysPanel, BorderLayout.SOUTH);
-
-
+        // Add to dialog
         calendarDialog.add(calendarPanel, BorderLayout.CENTER);
         calendarDialog.add(buttonPanel, BorderLayout.SOUTH);
 
-
         updateCalendar();
     }
-
 
     private void updateCalendar() {
         // Update month/year label
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMMM yyyy");
         monthYearLabel.setText(selectedCalendarDate.format(formatter));
 
-
         // Get first day of month and number of days
         LocalDate firstDayOfMonth = selectedCalendarDate.withDayOfMonth(1);
         int daysInMonth = selectedCalendarDate.lengthOfMonth();
         int startDay = firstDayOfMonth.getDayOfWeek().getValue() % 7; // 0 = Sunday, 6 = Saturday
 
-
-        // Clear all buttons
+        // Clear all buttons first
         for (int row = 0; row < 6; row++) {
             for (int col = 0; col < 7; col++) {
                 dayButtons[row][col].setText("");
                 dayButtons[row][col].setBackground(Color.WHITE);
                 dayButtons[row][col].setForeground(Color.BLACK);
                 dayButtons[row][col].setEnabled(false);
+                dayButtons[row][col].setOpaque(true);
             }
         }
-
 
         // Fill in days
         LocalDate today = LocalDate.now();
         int dayCounter = 1;
-        for (int i = 0; i < 6; i++) {
-            for (int j = 0; j < 7; j++) {
+
+        for (int i = 0; i < 6 && dayCounter <= daysInMonth; i++) {
+            for (int j = 0; j < 7 && dayCounter <= daysInMonth; j++) {
                 if (i == 0 && j < startDay) {
                     continue;
                 }
-                if (dayCounter > daysInMonth) {
-                    break;
-                }
-
 
                 LocalDate currentDate = LocalDate.of(selectedCalendarDate.getYear(),
                         selectedCalendarDate.getMonth(),
                         dayCounter);
+
                 dayButtons[i][j].setText(String.valueOf(dayCounter));
                 dayButtons[i][j].setEnabled(true);
-
+                dayButtons[i][j].setOpaque(true);
 
                 // Highlight today
                 if (currentDate.equals(today)) {
                     dayButtons[i][j].setBackground(new Color(220, 240, 255));
                 }
-
 
                 // Highlight selected date
                 if (currentDate.equals(selectedCalendarDate)) {
@@ -718,7 +699,6 @@ public class CaptainScheduleTab extends JPanel {
                     dayButtons[i][j].setForeground(Color.BLACK);
                 }
 
-
                 // Gray out weekends
                 if (j == 0 || j == 6) { // Sunday or Saturday
                     if (!currentDate.equals(selectedCalendarDate) && !currentDate.equals(today)) {
@@ -726,13 +706,14 @@ public class CaptainScheduleTab extends JPanel {
                     }
                 }
 
-
                 dayCounter++;
             }
         }
+
+        // Force repaint
+        calendarDialog.revalidate();
+        calendarDialog.repaint();
     }
-
-
     private LocalDate getButtonDate(int row, int col) {
         try {
             String dayText = dayButtons[row][col].getText();
@@ -1019,6 +1000,7 @@ public class CaptainScheduleTab extends JPanel {
                     .startTime(startTime)
                     .endTime(endTime)
                     .isAvailable(true)
+                    .dayOfWeek(scheduleDate.getDayOfWeek().toString()) // <--- ADD THIS LINE
                     .build();
 
 
@@ -1509,6 +1491,7 @@ public class CaptainScheduleTab extends JPanel {
                         .startTime(startTime)
                         .endTime(endTime)
                         .isAvailable(true)
+                        .dayOfWeek(scheduleDate.getDayOfWeek().toString()) // <--- ADD THIS LINE
                         .build();
 
 

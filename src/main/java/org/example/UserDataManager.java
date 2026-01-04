@@ -37,8 +37,9 @@ public class UserDataManager {
     public void addStaff(BarangayStaff staff) {
         String sql = "INSERT INTO barangay_staff (" +
                 "firstName, lastName, position, contactNo, email, username, password, " +
-                "role, status, department, lastLogin, createdAt, updatedAt, address, idNumber, birthDate" +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)";
+                "role, status, department, lastLogin, createdAt, updatedAt, address," +
+                " idNumber, birthDate,sex,civilStatus,citizenship,residentId" +
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -68,6 +69,10 @@ public class UserDataManager {
             pstmt.setDate(16, staff.getDob() != null
                     ? Date.valueOf(staff.getDob())
                     : null);
+            pstmt.setString(17,staff.getSex());
+            pstmt.setString(18,staff.getCivilStatus());
+            pstmt.setString(19,staff.getCitizenship());
+            pstmt.setInt(20,staff.getResidentId());
             pstmt.executeUpdate();
             System.out.println("✅ Staff saved successfully!");
         } catch (SQLException e) {
@@ -218,8 +223,11 @@ public class UserDataManager {
                 "firstName, lastName, gender, username, contactNo, email, password, " +
                 "age, voterStatus, householdNo, nationalId, photoPath, " +
                 "position, createdAt, updatedAt, status, address,birthDate,purok,street,middleName,civilStatus" +
-                ",isPwd,householdNo" +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?,?)";
+                ",isPwd" +
+                ") VALUES (?, ?, ?, ?, ?, " +
+                "?, ?, ?, ?, ?," +
+                " ?, ?, ?, ?, ?, " +
+                "?, ?,?,?,?,?,?,?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -247,7 +255,7 @@ public class UserDataManager {
             pstmt.setString(21,resident.getMiddleName() != null ? resident.getMiddleName() :"");
             pstmt.setString(22,resident.getCivilStatus());
             pstmt.setInt(23,resident.getIsPwd());
-            pstmt.setString(24,resident.getHouseholdNo());
+
             pstmt.executeUpdate();
             System.out.println("✅ Resident saved successfully!");
 

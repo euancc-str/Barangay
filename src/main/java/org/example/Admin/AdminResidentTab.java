@@ -62,6 +62,7 @@ public class AdminResidentTab extends JPanel {
                 if (refresher != null) {
                     refresher.stop();
                 }
+                loadResidentData();
                 refresher = new AutoRefresher("Resident", AdminResidentTab.this::loadResidentData);
                 System.out.println("Tab opened/active. Auto-refresh started.");
             }

@@ -11,6 +11,7 @@ import org.example.Admin.SystemLogDAO;
 import org.example.BlotterCaseDAO;
 import org.example.Captain.CaptainSchedule;
 import org.example.Captain.CaptainScheduleDAO;
+import org.example.Users.BlotterCase;
 import org.example.UserDataManager;
 import org.example.Users.BlotterCase;
 import org.example.utils.AutoRefresher;
@@ -25,11 +26,11 @@ import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DocumentFilter;
 import java.awt.*;
-import java.awt.event.*;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.sql.Date;
 import java.text.SimpleDateFormat;
+import java.awt.event.*;
+import java.sql.Date;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
@@ -38,12 +39,16 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
+
 public class SuperAdminBlotterTab extends JPanel {
+
+
     private JTable table;
     private DefaultTableModel tableModel;
     private TableRowSorter<DefaultTableModel> sorter;
     private JLabel lblRecordCount;
     private JTextField searchField;
+
 
     // Fields for validation
     private JTextField txtCaseNo;
@@ -64,6 +69,7 @@ public class SuperAdminBlotterTab extends JPanel {
     private JTextField txtIncidentTime;
     private JTextField txtSummonDate;
 
+
     // Colors matching AdminBlotterTab
     private final Color PRIMARY_COLOR = new Color(41, 128, 185);
     private final Color SECONDARY_COLOR = new Color(52, 152, 219);
@@ -80,6 +86,7 @@ public class SuperAdminBlotterTab extends JPanel {
     private final Color BTN_DELETE_COLOR = new Color(231, 76, 60);
     private final Color VALIDATION_ERROR_COLOR = new Color(255, 230, 230);
 
+
     // Fonts matching AdminBlotterTab
     private final Font HEADER_FONT = new Font("Segoe UI", Font.BOLD, 24);
     private final Font SECTION_FONT = new Font("Segoe UI Semibold", Font.BOLD, 14);
@@ -89,12 +96,9 @@ public class SuperAdminBlotterTab extends JPanel {
     private final Font TABLE_FONT = new Font("Segoe UI", Font.PLAIN, 11);
     private final Font TABLE_HEADER_FONT = new Font("Segoe UI", Font.BOLD, 11);
 
+
     private javax.swing.Timer smartTimer;
     private int lastBlotterId = 0;
-
-    // =========================================================================
-    // NEW CALENDAR FILTER FIELDS (Copied exactly from SecretaryPrintDocument)
-    // =========================================================================
     private JComboBox<String> statusFilterBox;
     private JButton dateFilterBtn; // Changed from JComboBox to JButton
     private java.util.Date selectedDate; // Added for calendar selection
@@ -103,12 +107,15 @@ public class SuperAdminBlotterTab extends JPanel {
     private final Color DARK_GREY = new Color(52, 58, 64);
     private JComboBox<String> periodFilterBox;
     private JComboBox<String> yearFilterBox;
+
     public SuperAdminBlotterTab() {
         setLayout(new BorderLayout(0, 0));
         setBackground(BG_COLOR);
 
+
         add(createHeaderPanel(), BorderLayout.NORTH);
         add(createContentPanel(), BorderLayout.CENTER);
+
 
         loadData();
         addAncestorListener(new javax.swing.event.AncestorListener() {
@@ -117,6 +124,7 @@ public class SuperAdminBlotterTab extends JPanel {
                 if (refresher != null) {
                     refresher.stop();
                 }
+                loadData();
                 refresher = new AutoRefresher("Case", SuperAdminBlotterTab.this::loadData);
                 System.out.println("Tab opened/active. Auto-refresh started.");
             }
@@ -137,9 +145,11 @@ public class SuperAdminBlotterTab extends JPanel {
 
     private AutoRefresher refresher;
 
+
     // =========================================================================
-    // FILTER LOGIC with Calendar (Copied exactly from SecretaryPrintDocument)
+    // VALIDATION METHODS
     // =========================================================================
+
     private void applyFilters() {
         if (sorter == null) return;
 
@@ -713,14 +723,12 @@ public class SuperAdminBlotterTab extends JPanel {
         }
     }
 
-    // =========================================================================
-    // VALIDATION METHODS (Original code - unchanged)
-    // =========================================================================
     private boolean isValidName(String name) {
         if (name == null || name.trim().isEmpty()) return false;
         String regex = "^[A-Za-zÀ-ÿñÑ\\s.'-]{2,100}$";
         return name.trim().matches(regex);
     }
+
 
     private boolean isValidLocation(String location) {
         if (location == null || location.trim().isEmpty()) return false;
@@ -728,11 +736,13 @@ public class SuperAdminBlotterTab extends JPanel {
         return location.trim().matches(regex);
     }
 
+
     private boolean isValidOfficerName(String officer) {
         if (officer == null || officer.trim().isEmpty()) return false;
         String regex = "^[A-Za-zÀ-ÿñÑ\\s.'-]{2,100}$";
         return officer.trim().matches(regex);
     }
+
 
     private boolean isValidTextArea(String text, int minLength, int maxLength) {
         if (text == null || text.trim().isEmpty()) return true;
@@ -742,22 +752,26 @@ public class SuperAdminBlotterTab extends JPanel {
         return text.matches(regex);
     }
 
+
     private boolean isValidTime(String time) {
         if (time == null || time.trim().isEmpty()) return false;
         String regex = "^([01]?[0-9]|2[0-3]):[0-5][0-9]$";
         return time.trim().matches(regex);
     }
 
+
     private JTextField createTimeTextField(String initialTime) {
         JTextField timeField = new JTextField(initialTime);
         timeField.setFont(FIELD_FONT);
         timeField.setToolTipText("Format: HH:MM (24-hour) e.g., 14:30");
+
 
         ((AbstractDocument) timeField.getDocument()).setDocumentFilter(new DocumentFilter() {
             @Override
             public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr)
                     throws BadLocationException {
                 if (string == null) return;
+
 
                 StringBuilder sb = new StringBuilder();
                 for (char c : string.toCharArray()) {
@@ -768,10 +782,12 @@ public class SuperAdminBlotterTab extends JPanel {
                 super.insertString(fb, offset, sb.toString(), attr);
             }
 
+
             @Override
             public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs)
                     throws BadLocationException {
                 if (text == null) return;
+
 
                 StringBuilder sb = new StringBuilder();
                 for (char c : text.toCharArray()) {
@@ -782,6 +798,7 @@ public class SuperAdminBlotterTab extends JPanel {
                 super.replace(fb, offset, length, sb.toString(), attrs);
             }
         });
+
 
         timeField.addFocusListener(new FocusAdapter() {
             @Override
@@ -806,6 +823,7 @@ public class SuperAdminBlotterTab extends JPanel {
                             return;
                         }
 
+
                         String minuteStr = parts[1];
                         int minute = Integer.parseInt(minuteStr.length() > 2 ? minuteStr.substring(0, 2) : minuteStr);
                         if (minute < 0 || minute > 59) {
@@ -814,10 +832,12 @@ public class SuperAdminBlotterTab extends JPanel {
                             return;
                         }
 
+
                         String hourStr = String.format("%02d", hour);
                         String minuteFormatted = String.format("%02d", minute);
                         timeField.setText(hourStr + ":" + minuteFormatted);
                     }
+
 
                     if (!isValidTime(timeField.getText())) {
                         timeField.setBackground(VALIDATION_ERROR_COLOR);
@@ -830,8 +850,10 @@ public class SuperAdminBlotterTab extends JPanel {
             }
         });
 
+
         return timeField;
     }
+
 
     private void addInputFilter(JTextField field, boolean allowNumbers) {
         if (field.getDocument() instanceof AbstractDocument) {
@@ -841,6 +863,7 @@ public class SuperAdminBlotterTab extends JPanel {
                         throws BadLocationException {
                     if (string == null) return;
 
+
                     StringBuilder sb = new StringBuilder();
                     for (char c : string.toCharArray()) {
                         if (Character.isLetter(c) ||
@@ -856,10 +879,12 @@ public class SuperAdminBlotterTab extends JPanel {
                     super.insertString(fb, offset, sb.toString(), attr);
                 }
 
+
                 @Override
                 public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs)
                         throws BadLocationException {
                     if (text == null) return;
+
 
                     StringBuilder sb = new StringBuilder();
                     for (char c : text.toCharArray()) {
@@ -878,6 +903,7 @@ public class SuperAdminBlotterTab extends JPanel {
             });
         }
     }
+
 
     private void addInputFilterToTextArea(JTextArea textArea, boolean allowNumbers) {
         if (textArea.getDocument() instanceof AbstractDocument) {
@@ -887,6 +913,7 @@ public class SuperAdminBlotterTab extends JPanel {
                         throws BadLocationException {
                     if (string == null) return;
 
+
                     StringBuilder sb = new StringBuilder();
                     for (char c : string.toCharArray()) {
                         if (Character.isLetter(c) ||
@@ -909,10 +936,12 @@ public class SuperAdminBlotterTab extends JPanel {
                     super.insertString(fb, offset, sb.toString(), attr);
                 }
 
+
                 @Override
                 public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs)
                         throws BadLocationException {
                     if (text == null) return;
+
 
                     StringBuilder sb = new StringBuilder();
                     for (char c : text.toCharArray()) {
@@ -939,6 +968,7 @@ public class SuperAdminBlotterTab extends JPanel {
         }
     }
 
+
     private void addValidationListener(JTextField field, java.util.function.Function<String, Boolean> validator) {
         field.getDocument().addDocumentListener(new DocumentListener() {
             @Override
@@ -947,6 +977,7 @@ public class SuperAdminBlotterTab extends JPanel {
             public void removeUpdate(DocumentEvent e) { validateField(); }
             @Override
             public void changedUpdate(DocumentEvent e) { validateField(); }
+
 
             private void validateField() {
                 SwingUtilities.invokeLater(() -> {
@@ -967,21 +998,26 @@ public class SuperAdminBlotterTab extends JPanel {
         });
     }
 
+
     private boolean hasDuplicatePersons() {
         String complainant = txtComplainant.getText().trim().toLowerCase();
         String respondent = txtRespondent.getText().trim().toLowerCase();
         String victim = txtVictim.getText().trim().toLowerCase();
 
+
         if (complainant.isEmpty() || respondent.isEmpty()) {
             return false;
         }
+
 
         boolean complainantRespondentSame = complainant.equals(respondent);
         boolean complainantVictimSame = !victim.isEmpty() && complainant.equals(victim);
         boolean respondentVictimSame = !victim.isEmpty() && respondent.equals(victim);
 
+
         if (complainantRespondentSame || complainantVictimSame || respondentVictimSame) {
             StringBuilder errorMsg = new StringBuilder("Duplicate persons found:\n\n");
+
 
             if (complainantRespondentSame) {
                 errorMsg.append("• Complainant and Respondent are the same: ").append(txtComplainant.getText()).append("\n");
@@ -993,7 +1029,9 @@ public class SuperAdminBlotterTab extends JPanel {
                 errorMsg.append("• Respondent and Victim are the same: ").append(txtRespondent.getText()).append("\n");
             }
 
+
             errorMsg.append("\nPlease ensure all persons are different individuals.");
+
 
             JOptionPane.showMessageDialog(this,
                     errorMsg.toString(),
@@ -1002,20 +1040,26 @@ public class SuperAdminBlotterTab extends JPanel {
             return true;
         }
 
+
         return false;
     }
+
 
     // =========================================================================
     // DUPLICATE CASE DETECTION
     // =========================================================================
+
+
     private boolean isDuplicateCase(BlotterCase newCase, boolean isUpdate, int existingCaseId) {
         BlotterCaseDAO dao = new BlotterCaseDAO();
         List<BlotterCase> allCases = dao.getAllBlotterCases();
+
 
         for (BlotterCase existingCase : allCases) {
             if (isUpdate && existingCase.getCaseId() == existingCaseId) {
                 continue;
             }
+
 
             boolean sameComplainant = existingCase.getComplainant().equalsIgnoreCase(newCase.getComplainant());
             boolean sameRespondent = existingCase.getRespondent().equalsIgnoreCase(newCase.getRespondent());
@@ -1024,14 +1068,17 @@ public class SuperAdminBlotterTab extends JPanel {
             boolean sameIncidentType = existingCase.getIncidentType().equalsIgnoreCase(newCase.getIncidentType());
             boolean sameTime = existingCase.getTimeRecorded().equals(newCase.getTimeRecorded());
 
+
             String existingNarrative = existingCase.getNarrative().toLowerCase().trim();
             String newNarrative = newCase.getNarrative().toLowerCase().trim();
             boolean similarNarrative = existingNarrative.contains(newNarrative) ||
                     newNarrative.contains(existingNarrative) ||
                     existingNarrative.equals(newNarrative);
 
+
             if (sameComplainant && sameRespondent && sameVictim &&
                     sameLocation && sameIncidentType && sameTime && similarNarrative) {
+
 
                 StringBuilder message = new StringBuilder();
                 message.append("⚠️ DUPLICATE CASE DETECTED!\n\n");
@@ -1047,6 +1094,7 @@ public class SuperAdminBlotterTab extends JPanel {
                 message.append("Are you sure you want to save this as a new case?\n");
                 message.append("(Click 'Yes' to proceed anyway, 'No' to cancel)");
 
+
                 int option = JOptionPane.showConfirmDialog(
                         this,
                         message.toString(),
@@ -1055,18 +1103,24 @@ public class SuperAdminBlotterTab extends JPanel {
                         JOptionPane.WARNING_MESSAGE
                 );
 
+
                 return option != JOptionPane.YES_OPTION;
             }
         }
 
+
         return false;
     }
+
 
     // =========================================================================
     // SMART POLLING
     // =========================================================================
+
+
     private void startSmartPolling() {
         initializelastBlotterId();
+
 
         smartTimer = new javax.swing.Timer(2000, e -> {
             if (table == null || table.getSelectedRow() == -1) {
@@ -1076,6 +1130,7 @@ public class SuperAdminBlotterTab extends JPanel {
         smartTimer.start();
     }
 
+
     private void initializelastBlotterId() {
         new SwingWorker<Integer, Void>() {
             @Override
@@ -1084,10 +1139,12 @@ public class SuperAdminBlotterTab extends JPanel {
                 try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
                      java.sql.Statement stmt = conn.createStatement()) {
 
+
                     java.sql.ResultSet rs = stmt.executeQuery(sql);
                     return rs.next() ? rs.getInt("max_id") : 0;
                 }
             }
+
 
             @Override
             protected void done() {
@@ -1101,6 +1158,7 @@ public class SuperAdminBlotterTab extends JPanel {
         }.execute();
     }
 
+
     private void checkForBlotterUpdates() {
         new SwingWorker<Boolean, Void>() {
             @Override
@@ -1108,6 +1166,7 @@ public class SuperAdminBlotterTab extends JPanel {
                 String sql = "SELECT MAX(caseId) as max_id FROM blotter_case";
                 try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
                      java.sql.Statement stmt = conn.createStatement()) {
+
 
                     java.sql.ResultSet rs = stmt.executeQuery(sql);
                     if (rs.next()) {
@@ -1117,6 +1176,7 @@ public class SuperAdminBlotterTab extends JPanel {
                 }
                 return false;
             }
+
 
             @Override
             protected void done() {
@@ -1133,6 +1193,7 @@ public class SuperAdminBlotterTab extends JPanel {
         }.execute();
     }
 
+
     private void updatelastBlotterId() {
         new SwingWorker<Integer, Void>() {
             @Override
@@ -1141,10 +1202,12 @@ public class SuperAdminBlotterTab extends JPanel {
                 try (java.sql.Connection conn = org.example.DatabaseConnection.getConnection();
                      java.sql.Statement stmt = conn.createStatement()) {
 
+
                     java.sql.ResultSet rs = stmt.executeQuery(sql);
                     return rs.next() ? rs.getInt("max_id") : 0;
                 }
             }
+
 
             @Override
             protected void done() {
@@ -1158,9 +1221,12 @@ public class SuperAdminBlotterTab extends JPanel {
         }.execute();
     }
 
+
     // =========================================================================
     // DATA LOADING
     // =========================================================================
+
+
     public void loadData() {
         new SwingWorker<List<BlotterCase>, Void>() {
             @Override
@@ -1168,11 +1234,13 @@ public class SuperAdminBlotterTab extends JPanel {
                 return new BlotterCaseDAO().getAllBlotterCases();
             }
 
+
             @Override
             protected void done() {
                 try {
                     List<BlotterCase> list = get();
                     tableModel.setRowCount(0);
+
 
                     for (BlotterCase b : list) {
                         tableModel.addRow(new Object[]{
@@ -1188,7 +1256,7 @@ public class SuperAdminBlotterTab extends JPanel {
                                 b.getOfficerInCharge()
                         });
                     }
-                    updateRecordCount();
+                    lblRecordCount.setText("Total Cases: " + list.size());
                     updatelastBlotterId();
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -1198,12 +1266,16 @@ public class SuperAdminBlotterTab extends JPanel {
         }.execute();
     }
 
+
     // =========================================================================
     // ACTIONS
     // =========================================================================
+
+
     private void handleAdd() {
         showDialog(null, "New Blotter Case");
     }
+
 
     private void handleUpdate() {
         int selectedRow = table.getSelectedRow();
@@ -1212,10 +1284,13 @@ public class SuperAdminBlotterTab extends JPanel {
             return;
         }
 
+
         int modelRow = table.convertRowIndexToModel(selectedRow);
         int id = (int) tableModel.getValueAt(modelRow, 0);
 
+
         BlotterCase existing = new BlotterCaseDAO().getCaseById(id);
+
 
         if (existing != null) {
             showDialog(existing, "Update Case Details");
@@ -1224,6 +1299,7 @@ public class SuperAdminBlotterTab extends JPanel {
         }
     }
 
+
     private void handleDelete() {
         int selectedRow = table.getSelectedRow();
         if (selectedRow == -1) {
@@ -1231,22 +1307,25 @@ public class SuperAdminBlotterTab extends JPanel {
             return;
         }
 
+
         int modelRow = table.convertRowIndexToModel(selectedRow);
         int id = (int) tableModel.getValueAt(modelRow, 0);
         String caseNo = (String) tableModel.getValueAt(modelRow, 1);
+
 
         int confirm = JOptionPane.showConfirmDialog(this,
                 "Are you sure you want to delete Case " + caseNo + "?",
                 "Confirm Delete", JOptionPane.YES_NO_OPTION);
 
+
         if (confirm == JOptionPane.YES_OPTION) {
             new BlotterCaseDAO().deleteBlotterCase(id);
-            int staffId = Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId());
-            try { new SystemLogDAO().addLog("Deleted Case " + caseNo, "Admin",staffId ); } catch(Exception e){}
+            try { new SystemLogDAO().addLog("Deleted Case " + caseNo, "Admin", 1); } catch(Exception e){}
             loadData();
             JOptionPane.showMessageDialog(this, "Case deleted successfully.");
         }
     }
+
 
     private void handlePrint() {
         JFileChooser fileChooser = new JFileChooser();
@@ -1325,25 +1404,33 @@ public class SuperAdminBlotterTab extends JPanel {
         }
     }
 
+
+
     // =========================================================================
     // DIALOG (ADD / EDIT) - UPDATED TO MATCH ADMINBLOTTERTAB
     // =========================================================================
+
+
     private void showDialog(BlotterCase existing, String title) {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), title, true);
         dialog.setSize(1000, 900);
         dialog.setLocationRelativeTo(this);
         dialog.setLayout(new BorderLayout());
 
+
         JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.setBackground(BG_COLOR);
+
 
         // Header
         JPanel headerPanel = createModernHeader(PRIMARY_COLOR);
         mainPanel.add(headerPanel, BorderLayout.NORTH);
 
+
         // Create form content
         JPanel contentPanel = createFormContentPanel(existing, SECTION_BG, BORDER_COLOR,
                 LABEL_FONT, FIELD_FONT, SECTION_FONT);
+
 
         JScrollPane scrollPane = new JScrollPane(contentPanel);
         scrollPane.setBorder(null);
@@ -1351,15 +1438,19 @@ public class SuperAdminBlotterTab extends JPanel {
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         mainPanel.add(scrollPane, BorderLayout.CENTER);
 
+
         // Action buttons
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
         buttonPanel.setBackground(BG_COLOR);
         buttonPanel.setBorder(new EmptyBorder(10, 0, 20, 0));
 
+
         JButton btnCancel = createModernButton("Cancel", WARNING_COLOR, "✖");
         JButton btnSave = createModernButton("Save Case", ACCENT_COLOR, "💾");
 
+
         btnCancel.addActionListener(e -> dialog.dispose());
+
 
         BlotterCaseDAO dao = new BlotterCaseDAO();
         btnSave.addActionListener(e -> {
@@ -1368,13 +1459,16 @@ public class SuperAdminBlotterTab extends JPanel {
             }
         });
 
+
         buttonPanel.add(btnCancel);
         buttonPanel.add(btnSave);
         mainPanel.add(buttonPanel, BorderLayout.SOUTH);
 
+
         dialog.add(mainPanel);
         dialog.setVisible(true);
     }
+
 
     private JPanel createModernHeader(Color primaryColor) {
         JPanel panel = new JPanel();
@@ -1382,22 +1476,27 @@ public class SuperAdminBlotterTab extends JPanel {
         panel.setBackground(primaryColor);
         panel.setBorder(new EmptyBorder(15, 0, 15, 0));
 
+
         JLabel title = new JLabel("BLOTTER CASE FORM", SwingConstants.CENTER);
         title.setFont(HEADER_FONT);
         title.setForeground(Color.WHITE);
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
+
 
         JLabel subtitle = new JLabel("Super Administrator Mode", SwingConstants.CENTER);
         subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 16));
         subtitle.setForeground(new Color(220, 220, 220));
         subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
 
+
         panel.add(title);
         panel.add(Box.createVerticalStrut(5));
         panel.add(subtitle);
 
+
         return panel;
     }
+
 
     private JPanel createFormContentPanel(BlotterCase existing, Color sectionBg, Color borderColor,
                                           Font labelFont, Font fieldFont, Font sectionFont) {
@@ -1406,8 +1505,10 @@ public class SuperAdminBlotterTab extends JPanel {
         contentPanel.setBackground(BG_COLOR);
         contentPanel.setBorder(new EmptyBorder(20, 30, 30, 30));
 
+
         // Initialize fields
         initializeFields(existing);
+
 
         // I. BLOTTER INFORMATION
         contentPanel.add(createSectionPanel("I. BLOTTER INFORMATION",
@@ -1415,11 +1516,13 @@ public class SuperAdminBlotterTab extends JPanel {
                 sectionFont, PRIMARY_COLOR));
         contentPanel.add(Box.createVerticalStrut(15));
 
+
         // II. COMPLAINANT
         contentPanel.add(createSectionPanel("II. COMPLAINANT (NAGREREKLAMO)",
                 createPersonPanel(txtComplainant, "complainant", sectionBg, borderColor, labelFont, fieldFont),
                 sectionFont, PRIMARY_COLOR));
         contentPanel.add(Box.createVerticalStrut(15));
+
 
         // III. RESPONDENT
         contentPanel.add(createSectionPanel("III. RESPONDENT (INIREREKLAMO)",
@@ -1427,11 +1530,13 @@ public class SuperAdminBlotterTab extends JPanel {
                 sectionFont, PRIMARY_COLOR));
         contentPanel.add(Box.createVerticalStrut(15));
 
+
         // IV. VICTIM
         contentPanel.add(createSectionPanel("IV. VICTIM (BIKTIMA)",
                 createPersonPanel(txtVictim, "victim", sectionBg, borderColor, labelFont, fieldFont),
                 sectionFont, PRIMARY_COLOR));
         contentPanel.add(Box.createVerticalStrut(15));
+
 
         // V. INCIDENT DETAILS
         contentPanel.add(createSectionPanel("V. INCIDENT DETAILS",
@@ -1439,11 +1544,13 @@ public class SuperAdminBlotterTab extends JPanel {
                 sectionFont, PRIMARY_COLOR));
         contentPanel.add(Box.createVerticalStrut(15));
 
+
         // VI. NARRATIVE
         contentPanel.add(createSectionPanel("VI. COMPLAINT/NARRATIVE (SALAYSAY)",
                 createNarrativePanel(sectionBg, borderColor, labelFont, fieldFont),
                 sectionFont, PRIMARY_COLOR));
         contentPanel.add(Box.createVerticalStrut(15));
+
 
         // VII. WITNESSES
         contentPanel.add(createSectionPanel("VII. WITNESSES (SAKSI)",
@@ -1451,11 +1558,13 @@ public class SuperAdminBlotterTab extends JPanel {
                 sectionFont, PRIMARY_COLOR));
         contentPanel.add(Box.createVerticalStrut(15));
 
+
         // VIII. RESOLUTION
         contentPanel.add(createSectionPanel("VIII. RESOLUTION (PAGKAKASUNDO)",
                 createResolutionPanel(sectionBg, borderColor, labelFont, fieldFont),
                 sectionFont, PRIMARY_COLOR));
         contentPanel.add(Box.createVerticalStrut(15));
+
 
         // IX. OFFICER
         contentPanel.add(createSectionPanel("IX. OFFICER IN-CHARGE",
@@ -1463,39 +1572,48 @@ public class SuperAdminBlotterTab extends JPanel {
                 sectionFont, PRIMARY_COLOR));
         contentPanel.add(Box.createVerticalStrut(15));
 
+
         // X. HEARING & SUMMON
         contentPanel.add(createSectionPanel("X. HEARING & SUMMON DATES",
                 createHearingPanel(sectionBg, borderColor, labelFont, fieldFont),
                 sectionFont, PRIMARY_COLOR));
 
+
         return contentPanel;
     }
+
 
     private void initializeFields(BlotterCase existing) {
         // Case number
         txtCaseNo = createStyledTextField(existing != null ? existing.getCaseNumber() :
                 "BC-" + System.currentTimeMillis(), false);
 
+
         // Dates
         String today = LocalDate.now().toString();
         txtDate = createStyledTextField(existing != null && existing.getDateRecorded() != null ?
                 existing.getDateRecorded().toString() : today, false);
+
 
         // Time
         String initialTime = existing != null && existing.getTimeRecorded() != null ?
                 existing.getTimeRecorded().format(DateTimeFormatter.ofPattern("HH:mm")) : "12:00";
         txtTime = createTimeTextField(initialTime);
 
+
         // Incident date
         txtIncidentDate = createStyledTextField(LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")), true);
 
+
         // Incident time
         txtIncidentTime = createTimeTextField("12:00");
+
 
         // People
         txtComplainant = createStyledTextField(existing != null ? existing.getComplainant() : "", true);
         txtRespondent = createStyledTextField(existing != null ? existing.getRespondent() : "", true);
         txtVictim = createStyledTextField(existing != null ? existing.getVictim() : "N/A", true);
+
 
         // Incident Type
         String[] types = new SystemConfigDAO().getOptionsNature("incidentType");
@@ -1503,8 +1621,10 @@ public class SuperAdminBlotterTab extends JPanel {
         cbType.setFont(FIELD_FONT);
         if (existing != null) cbType.setSelectedItem(existing.getIncidentType());
 
+
         // Location
         txtLocation = createStyledTextField(existing != null ? existing.getLocation() : "Purok ", true);
+
 
         // Narrative
         txtNarrative = new JTextArea(existing != null ? existing.getNarrative() : "", 3, 20);
@@ -1512,8 +1632,10 @@ public class SuperAdminBlotterTab extends JPanel {
         txtNarrative.setLineWrap(true);
         txtNarrative.setWrapStyleWord(true);
 
+
         // Witnesses
         txtWitness = createStyledTextField(existing != null ? existing.getWitnesses() : "None", true);
+
 
         // Status
         String[] statuses = {"Pending", "Resolved", "Dismissed", "Certified to File Action", "Amicably Settled"};
@@ -1521,19 +1643,24 @@ public class SuperAdminBlotterTab extends JPanel {
         cbStatus.setFont(FIELD_FONT);
         if (existing != null) cbStatus.setSelectedItem(existing.getStatus());
 
+
         // Hearing
         txtHearing = createStyledTextField(existing != null && existing.getHearingDate() != null ?
                 existing.getHearingDate().toString() : "", true);
+
 
         // Summon date
         txtSummonDate = createStyledTextField("", false);
         txtSummonDate.setEditable(false);
 
+
         // Officer
         txtOfficer = createStyledTextField(existing != null ? existing.getOfficerInCharge() : "Desk Officer", true);
 
+
         // Resolution
         txtResolution = createStyledTextField(existing != null ? existing.getResolution() : "", true);
+
 
         // Add input filtering
         addInputFilter(txtComplainant, false);
@@ -1545,6 +1672,7 @@ public class SuperAdminBlotterTab extends JPanel {
         addInputFilter(txtResolution, true);
         addInputFilterToTextArea(txtNarrative, true);
 
+
         // Add validation listeners
         addValidationListener(txtComplainant, this::isValidName);
         addValidationListener(txtRespondent, this::isValidName);
@@ -1553,15 +1681,18 @@ public class SuperAdminBlotterTab extends JPanel {
         addValidationListener(txtOfficer, this::isValidOfficerName);
     }
 
+
     private JPanel createSectionPanel(String title, JComponent content, Font titleFont, Color titleColor) {
         JPanel panel = new JPanel(new BorderLayout(0, 10));
         panel.setBackground(BG_COLOR);
         panel.setBorder(new EmptyBorder(0, 0, 0, 0));
 
+
         JLabel titleLabel = new JLabel(title);
         titleLabel.setFont(titleFont);
         titleLabel.setForeground(titleColor);
         titleLabel.setBorder(new EmptyBorder(0, 0, 5, 0));
+
 
         JPanel contentWrapper = new JPanel(new BorderLayout());
         contentWrapper.setBackground(SECTION_BG);
@@ -1571,16 +1702,20 @@ public class SuperAdminBlotterTab extends JPanel {
         ));
         contentWrapper.add(content, BorderLayout.CENTER);
 
+
         panel.add(titleLabel, BorderLayout.NORTH);
         panel.add(contentWrapper, BorderLayout.CENTER);
 
+
         return panel;
     }
+
 
     private JPanel createBlotterInfoPanel(Color sectionBg, Color borderColor, Font labelFont, Font fieldFont) {
         JPanel panel = new JPanel(new GridLayout(2, 3, 20, 15));
         panel.setBackground(sectionBg);
         panel.setBorder(new EmptyBorder(5, 5, 5, 5));
+
 
         panel.add(createLabeledField("Blotter No:", txtCaseNo, labelFont, fieldFont));
         panel.add(createLabeledField("Date Recorded:", txtDate, labelFont, fieldFont));
@@ -1589,8 +1724,10 @@ public class SuperAdminBlotterTab extends JPanel {
         panel.add(new JLabel()); // Empty cell
         panel.add(new JLabel()); // Empty cell
 
+
         return panel;
     }
+
 
     private JPanel createPersonPanel(JTextField field, String type, Color sectionBg,
                                      Color borderColor, Font labelFont, Font fieldFont) {
@@ -1600,8 +1737,10 @@ public class SuperAdminBlotterTab extends JPanel {
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
+
         JButton pickerBtn = createModernPickerButton();
         pickerBtn.addActionListener(e -> showResidentPicker(field));
+
 
         gbc.gridx = 0;
         gbc.gridy = 0;
@@ -1610,24 +1749,30 @@ public class SuperAdminBlotterTab extends JPanel {
         label.setFont(labelFont);
         panel.add(label, gbc);
 
+
         gbc.gridx = 1;
         gbc.weightx = 1.0;
         panel.add(field, gbc);
+
 
         gbc.gridx = 2;
         gbc.weightx = 0;
         panel.add(pickerBtn, gbc);
 
+
         return panel;
     }
+
 
     private JPanel createIncidentPanel(Color sectionBg, Color borderColor, Font labelFont, Font fieldFont) {
         JPanel panel = new JPanel(new GridLayout(4, 2, 20, 15));
         panel.setBackground(sectionBg);
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
+
         // Incident Type
         panel.add(createLabeledField("Incident Type:", cbType, labelFont, fieldFont));
+
 
         // Location with picker button
         JPanel locationPanel = new JPanel(new BorderLayout(5, 0));
@@ -1643,6 +1788,7 @@ public class SuperAdminBlotterTab extends JPanel {
         locationPanel.add(btnLocationPicker, BorderLayout.EAST);
         panel.add(createLabeledField("Location:", locationPanel, labelFont, fieldFont));
 
+
         // Incident Date
         JPanel datePanel = new JPanel(new BorderLayout(5, 0));
         datePanel.setBackground(sectionBg);
@@ -1655,8 +1801,10 @@ public class SuperAdminBlotterTab extends JPanel {
         datePanel.add(btnDatePicker, BorderLayout.EAST);
         panel.add(createLabeledField("Incident Date:", datePanel, labelFont, fieldFont));
 
+
         // Incident Time
         panel.add(createLabeledField("Incident Time:", txtIncidentTime, labelFont, fieldFont));
+
 
         // Empty cells for grid alignment
         panel.add(new JPanel());
@@ -1664,34 +1812,43 @@ public class SuperAdminBlotterTab extends JPanel {
         panel.add(new JPanel());
         panel.add(new JPanel());
 
+
         return panel;
     }
+
 
     private JPanel createNarrativePanel(Color sectionBg, Color borderColor, Font labelFont, Font fieldFont) {
         JPanel panel = new JPanel(new BorderLayout(0, 8));
         panel.setBackground(sectionBg);
 
+
         JLabel areaLabel = new JLabel("Narrative Details:");
         areaLabel.setFont(labelFont);
         areaLabel.setForeground(new Color(80, 80, 80));
+
 
         JScrollPane scrollPane = new JScrollPane(txtNarrative);
         scrollPane.setBorder(new LineBorder(borderColor, 1));
         scrollPane.setPreferredSize(new Dimension(Integer.MAX_VALUE, 150));
 
+
         panel.add(areaLabel, BorderLayout.NORTH);
         panel.add(scrollPane, BorderLayout.CENTER);
 
+
         return panel;
     }
+
 
     private JPanel createWitnessesPanel(Color sectionBg, Color borderColor, Font labelFont, Font fieldFont) {
         JPanel panel = new JPanel(new BorderLayout(0, 8));
         panel.setBackground(sectionBg);
 
+
         JLabel areaLabel = new JLabel("Witness Information:");
         areaLabel.setFont(labelFont);
         areaLabel.setForeground(new Color(80, 80, 80));
+
 
         JTextField witnessField = new JTextField();
         witnessField.setFont(fieldFont);
@@ -1701,29 +1858,36 @@ public class SuperAdminBlotterTab extends JPanel {
         ));
         witnessField.setText(txtWitness.getText());
 
+
         witnessField.getDocument().addDocumentListener(new DocumentListener() {
             @Override public void insertUpdate(DocumentEvent e) { updateWitnessField(); }
             @Override public void removeUpdate(DocumentEvent e) { updateWitnessField(); }
             @Override public void changedUpdate(DocumentEvent e) { updateWitnessField(); }
+
 
             private void updateWitnessField() {
                 txtWitness.setText(witnessField.getText());
             }
         });
 
+
         panel.add(areaLabel, BorderLayout.NORTH);
         panel.add(witnessField, BorderLayout.CENTER);
 
+
         return panel;
     }
+
 
     private JPanel createResolutionPanel(Color sectionBg, Color borderColor, Font labelFont, Font fieldFont) {
         JPanel panel = new JPanel(new BorderLayout(0, 8));
         panel.setBackground(sectionBg);
 
+
         JLabel areaLabel = new JLabel("Resolution Details:");
         areaLabel.setFont(labelFont);
         areaLabel.setForeground(new Color(80, 80, 80));
+
 
         JTextArea resolutionArea = new JTextArea(4, 20);
         resolutionArea.setFont(fieldFont);
@@ -1731,24 +1895,30 @@ public class SuperAdminBlotterTab extends JPanel {
         resolutionArea.setWrapStyleWord(true);
         resolutionArea.setText(txtResolution.getText());
 
+
         resolutionArea.getDocument().addDocumentListener(new DocumentListener() {
             @Override public void insertUpdate(DocumentEvent e) { updateResolutionField(); }
             @Override public void removeUpdate(DocumentEvent e) { updateResolutionField(); }
             @Override public void changedUpdate(DocumentEvent e) { updateResolutionField(); }
+
 
             private void updateResolutionField() {
                 txtResolution.setText(resolutionArea.getText());
             }
         });
 
+
         JScrollPane scrollPane = new JScrollPane(resolutionArea);
         scrollPane.setBorder(new LineBorder(borderColor, 1));
+
 
         panel.add(areaLabel, BorderLayout.NORTH);
         panel.add(scrollPane, BorderLayout.CENTER);
 
+
         return panel;
     }
+
 
     private JPanel createOfficerPanel(Color sectionBg, Color borderColor, Font labelFont, Font fieldFont) {
         JPanel panel = new JPanel(new GridBagLayout());
@@ -1757,20 +1927,25 @@ public class SuperAdminBlotterTab extends JPanel {
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
+
         JLabel label = new JLabel("Officer Name:");
         label.setFont(labelFont);
+
 
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.weightx = 0;
         panel.add(label, gbc);
 
+
         gbc.gridx = 1;
         gbc.weightx = 1.0;
         panel.add(txtOfficer, gbc);
 
+
         return panel;
     }
+
 
     private JPanel createHearingPanel(Color sectionBg, Color borderColor, Font labelFont, Font fieldFont) {
         JPanel panel = new JPanel(new GridLayout(2, 2, 20, 15));
@@ -1786,7 +1961,13 @@ public class SuperAdminBlotterTab extends JPanel {
         JComboBox<String> hearingDateCombo = new JComboBox<>(availableDates.toArray(new String[0]));
         hearingDateCombo.setFont(fieldFont);
         if (!txtHearing.getText().isEmpty()) {
-            hearingDateCombo.setSelectedItem(txtHearing.getText());
+            // Try to select existing date if present
+            for (int i = 0; i < hearingDateCombo.getItemCount(); i++) {
+                if (hearingDateCombo.getItemAt(i).startsWith(txtHearing.getText())) {
+                    hearingDateCombo.setSelectedIndex(i);
+                    break;
+                }
+            }
         }
 
         // Update the original field when combo changes
@@ -1809,8 +1990,9 @@ public class SuperAdminBlotterTab extends JPanel {
 
         panel.add(createLabeledField("Hearing Date (Captain's Schedule):", hearingPanel, labelFont, fieldFont));
 
-        // Auto-calculated summon date (1 week before hearing)
+        // Auto-calculated summon date (7 days before hearing)
         txtSummonDate.setBackground(new Color(248, 249, 250));
+        txtSummonDate.setEditable(false); // Read-only
 
         // Calculate summon date when hearing date changes
         hearingDateCombo.addActionListener(e -> {
@@ -1819,7 +2001,9 @@ public class SuperAdminBlotterTab extends JPanel {
                 try {
                     String dateStr = selected.toString().split(" ")[0];
                     LocalDate hearingDate = LocalDate.parse(dateStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-                    LocalDate summonDate = hearingDate.minusWeeks(1);
+
+                    // --- FIX: Subtract exactly 7 days ---
+                    LocalDate summonDate = hearingDate.minusDays(7);
                     txtSummonDate.setText(summonDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
                 } catch (Exception ex) {
                     txtSummonDate.setText("");
@@ -1827,12 +2011,12 @@ public class SuperAdminBlotterTab extends JPanel {
             }
         });
 
-        panel.add(createLabeledField("Letter of Summon Date (Auto-calculated):", txtSummonDate, labelFont, fieldFont));
+        // --- FIX: Updated Label Name ---
+        panel.add(createLabeledField("Summon Letter (7 Days Before):", txtSummonDate, labelFont, fieldFont));
 
         return panel;
     }
 
-    SystemLogDAO log = new SystemLogDAO();
     private List<String> getCaptainAvailableDates() {
         List<String> availableDates = new ArrayList<>();
         availableDates.add("Select Date");
@@ -1841,14 +2025,19 @@ public class SuperAdminBlotterTab extends JPanel {
             CaptainScheduleDAO scheduleDAO = new CaptainScheduleDAO();
             List<CaptainSchedule> schedules = scheduleDAO.getAllSchedules();
 
+            // --- FIX START: Filter out past dates ---
+            LocalDate today = LocalDate.now();
+
             for (CaptainSchedule schedule : schedules) {
-                if (schedule.isAvailable()) {
+                // Check availability AND ensure date is not in the past
+                if (schedule.isAvailable() && !schedule.getScheduleDate().isBefore(today)) {
                     String dateStr = schedule.getScheduleDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
                     String day = schedule.getDayOfWeek();
                     String timeSlot = schedule.getStartTime() + " - " + schedule.getEndTime();
                     availableDates.add(dateStr + " (" + day + ") " + timeSlot);
                 }
             }
+            // --- FIX END ---
 
             if (availableDates.size() == 1) {
                 availableDates.add("No available dates - Contact Captain");
@@ -1864,24 +2053,30 @@ public class SuperAdminBlotterTab extends JPanel {
         List<String> availableDates = getCaptainAvailableDates();
         comboBox.setModel(new DefaultComboBoxModel<>(availableDates.toArray(new String[0])));
 
+
         if (availableDates.size() > 1) {
             comboBox.setSelectedIndex(1);
         }
     }
 
+
     private JPanel createLabeledField(String label, JComponent field, Font labelFont, Font fieldFont) {
         JPanel panel = new JPanel(new BorderLayout(10, 0));
         panel.setBackground(SECTION_BG);
+
 
         JLabel lbl = new JLabel(label);
         lbl.setFont(labelFont);
         lbl.setForeground(new Color(60, 60, 60));
 
+
         panel.add(lbl, BorderLayout.WEST);
         panel.add(field, BorderLayout.CENTER);
 
+
         return panel;
     }
+
 
     private JTextField createStyledTextField(String text, boolean editable) {
         JTextField field = new JTextField(text);
@@ -1895,6 +2090,7 @@ public class SuperAdminBlotterTab extends JPanel {
         return field;
     }
 
+
     private JButton createModernPickerButton() {
         JButton button = new JButton("👤 Pick");
         button.setFont(new Font("Segoe UI", Font.PLAIN, 11));
@@ -1905,6 +2101,7 @@ public class SuperAdminBlotterTab extends JPanel {
         return button;
     }
 
+
     private JButton createModernButton(String text, Color bgColor, String icon) {
         JButton button = new JButton(icon + "  " + text);
         button.setFont(BUTTON_FONT);
@@ -1914,6 +2111,7 @@ public class SuperAdminBlotterTab extends JPanel {
         button.setBorderPainted(false);
         button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         button.setBorder(new EmptyBorder(10, 20, 10, 20));
+
 
         button.addMouseListener(new MouseAdapter() {
             Color original = bgColor;
@@ -1927,12 +2125,15 @@ public class SuperAdminBlotterTab extends JPanel {
             }
         });
 
+
         return button;
     }
+
 
     private boolean saveCaseData(JDialog dialog, BlotterCase existing, BlotterCaseDAO dao) {
         List<String> missingFields = new ArrayList<>();
         List<String> invalidFields = new ArrayList<>();
+
 
         // Required field validations
         if (txtComplainant.getText().trim().isEmpty()) missingFields.add("Complainant");
@@ -1945,15 +2146,18 @@ public class SuperAdminBlotterTab extends JPanel {
         if (txtNarrative.getText().trim().isEmpty()) missingFields.add("Narrative");
         if (txtResolution.getText().trim().isEmpty()) missingFields.add("Resolution");
 
+
         // Format validations
         if (!txtTime.getText().trim().isEmpty() && !isValidTime(txtTime.getText().trim())) {
             invalidFields.add("Time - Invalid format (use HH:MM, 00:00-23:59)");
         }
 
+
         // Duplicate person check
         if (hasDuplicatePersons()) {
             return false;
         }
+
 
         // Show validation errors
         if (!missingFields.isEmpty()) {
@@ -1968,6 +2172,7 @@ public class SuperAdminBlotterTab extends JPanel {
             return false;
         }
 
+
         if (!invalidFields.isEmpty()) {
             StringBuilder errorMessage = new StringBuilder("Please correct the following fields:\n\n");
             for (String field : invalidFields) {
@@ -1979,6 +2184,7 @@ public class SuperAdminBlotterTab extends JPanel {
                     JOptionPane.ERROR_MESSAGE);
             return false;
         }
+
 
         try {
             BlotterCase b = new BlotterCase();
@@ -1996,6 +2202,7 @@ public class SuperAdminBlotterTab extends JPanel {
             b.setOfficerInCharge(txtOfficer.getText().trim());
             b.setResolution(txtResolution.getText().trim());
 
+
             // Check for duplicate case number
             boolean isEditMode = existing != null;
             if (!isEditMode && dao.isCaseNumberExists(txtCaseNo.getText().trim())) {
@@ -2005,11 +2212,13 @@ public class SuperAdminBlotterTab extends JPanel {
                 return false;
             }
 
+
             // Check for duplicate case details
             int existingCaseId = (existing != null) ? existing.getCaseId() : 0;
             if (isDuplicateCase(b, isEditMode, existingCaseId)) {
                 return false;
             }
+
 
             // Handle hearing date
             LocalDate hearingDate = null;
@@ -2018,6 +2227,7 @@ public class SuperAdminBlotterTab extends JPanel {
                 try {
                     hearingDate = java.sql.Date.valueOf(dateText).toLocalDate();
                     b.setHearingDate(hearingDate);
+
 
                     // Check hearing conflict
                     if (!checkHearingConflict(hearingDate)) {
@@ -2033,6 +2243,7 @@ public class SuperAdminBlotterTab extends JPanel {
                 b.setHearingDate(null);
             }
 
+
             if (existing == null) {
                 dao.addBlotterCase(b);
                 try { new SystemLogDAO().addLog("Added Case " + b.getCaseNumber(), "Admin", 1); } catch(Exception ex){}
@@ -2044,8 +2255,10 @@ public class SuperAdminBlotterTab extends JPanel {
                 JOptionPane.showMessageDialog(dialog, "Case updated successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
             }
 
+
             loadData();
             return true;
+
 
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -2054,9 +2267,12 @@ public class SuperAdminBlotterTab extends JPanel {
         }
     }
 
+
     // =========================================================================
     // UI HELPERS
     // =========================================================================
+
+
     private JPanel createPickerPanel(JTextField field, String type) {
         JPanel p = new JPanel(new BorderLayout(5, 0));
         p.setBackground(Color.WHITE);
@@ -2067,6 +2283,7 @@ public class SuperAdminBlotterTab extends JPanel {
         return p;
     }
 
+
     private JPanel createSimpleDatePicker(JTextField field) {
         JPanel p = new JPanel(new BorderLayout(5, 0));
         p.setBackground(Color.WHITE);
@@ -2074,16 +2291,19 @@ public class SuperAdminBlotterTab extends JPanel {
         btn.setFocusPainted(false);
         btn.addActionListener(e -> field.setText(LocalDate.now().toString()));
 
+
         p.add(field, BorderLayout.CENTER);
         p.add(btn, BorderLayout.EAST);
         return p;
     }
+
 
     private void showResidentPicker(JTextField targetField) {
         JDialog d = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Select Resident", true);
         d.setSize(600, 450);
         d.setLayout(new BorderLayout());
         d.setLocationRelativeTo(this);
+
 
         // Simple Search Bar
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -2093,6 +2313,7 @@ public class SuperAdminBlotterTab extends JPanel {
         searchPanel.add(txtSearch);
         searchPanel.add(btnSearch);
 
+
         // Table Setup
         String[] cols = {"ID", "Name", "Purok"};
         DefaultTableModel m = new DefaultTableModel(cols, 0) {
@@ -2101,12 +2322,14 @@ public class SuperAdminBlotterTab extends JPanel {
         JTable t = new JTable(m);
         t.setRowHeight(25);
 
+
         // Load Data from ResidentDAO
         List<org.example.Users.Resident> list = new org.example.ResidentDAO().getAllResidents();
         for (org.example.Users.Resident r : list) {
             String middle = r.getMiddleName() != null ? r.getMiddleName() : "";
             m.addRow(new Object[]{r.getResidentId(), r.getFirstName() + " " + middle + " " + r.getLastName(), r.getPurok()});
         }
+
 
         // Select Button Logic
         JButton btnSelect = new JButton("Select");
@@ -2118,11 +2341,13 @@ public class SuperAdminBlotterTab extends JPanel {
             }
         });
 
+
         d.add(searchPanel, BorderLayout.NORTH);
         d.add(new JScrollPane(t), BorderLayout.CENTER);
         d.add(btnSelect, BorderLayout.SOUTH);
         d.setVisible(true);
     }
+
 
     private JPanel createContentPanel() {
         JPanel p = new JPanel();
@@ -2130,16 +2355,19 @@ public class SuperAdminBlotterTab extends JPanel {
         p.setBackground(BG_COLOR);
         p.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        // 1. TOOLBAR WITH ALL CONTROLS IN ONE LINEAR ROW
-        JPanel toolbarPanel = new JPanel(new BorderLayout());
-        toolbarPanel.setBackground(BG_COLOR);
-        toolbarPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
+        // =================================================================
+        // TOOLBAR CONTAINER (Holds 2 Rows: Buttons on Top, Filters Below)
+        // =================================================================
+        JPanel toolbarContainer = new JPanel();
+        toolbarContainer.setLayout(new BoxLayout(toolbarContainer, BoxLayout.Y_AXIS));
+        toolbarContainer.setBackground(BG_COLOR);
+        toolbarContainer.setBorder(new EmptyBorder(0, 0, 10, 0));
 
-        // Create a single horizontal panel for all controls
-        JPanel controlsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        controlsPanel.setBackground(BG_COLOR);
+        // --- ROW 1: ACTION BUTTONS ---
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        buttonPanel.setBackground(BG_COLOR);
+        buttonPanel.setBorder(new EmptyBorder(0, 0, 10, 0)); // Spacing between buttons and filters
 
-        // Action buttons (left side)
         JButton btnAdd = createModernButton("+ New Case", BTN_ADD_COLOR, "➕");
         btnAdd.addActionListener(e -> handleAdd());
 
@@ -2152,18 +2380,14 @@ public class SuperAdminBlotterTab extends JPanel {
         JButton btnPrint = createModernButton("Print Report", BTN_PRINT_COLOR, "🖨️");
         btnPrint.addActionListener(e -> handlePrint());
 
-        // Status Filter (after print button)
-        JLabel statusLabel = new JLabel("Status:");
-        statusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        statusLabel.setForeground(new Color(80, 80, 80));
+        buttonPanel.add(btnAdd);
+        buttonPanel.add(btnEdit);
+        buttonPanel.add(btnDelete);
+        buttonPanel.add(btnPrint);
 
-        String[] filters = {"All Status", "Pending", "Resolved", "Dismissed", "Certified to File Action", "Amicably Settled"};
-        statusFilterBox = new JComboBox<>(filters);
-        statusFilterBox.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        statusFilterBox.setBackground(Color.WHITE);
-        statusFilterBox.setPreferredSize(new Dimension(120, 28));
-        statusFilterBox.addActionListener(e -> applyFilters());
-        controlsPanel.add(Box.createHorizontalStrut(10));
+        // --- ROW 2: FILTERS & SEARCH ---
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        filterPanel.setBackground(BG_COLOR);
 
         // 1. Period Filter
         String[] periods = {"All Periods", "This Week", "This Month"};
@@ -2203,12 +2427,19 @@ public class SuperAdminBlotterTab extends JPanel {
             applyFilters();
         });
 
-        // Add to panel
-        controlsPanel.add(new JLabel("Filter:"));
-        controlsPanel.add(periodFilterBox);
-        controlsPanel.add(Box.createHorizontalStrut(5));
-        controlsPanel.add(yearFilterBox);
-        // Date Filter Button (next to status)
+        // 3. Status Filter
+        JLabel statusLabel = new JLabel("Status:");
+        statusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        statusLabel.setForeground(new Color(80, 80, 80));
+
+        String[] filters = {"All Status", "Pending", "Resolved", "Dismissed", "Certified to File Action", "Amicably Settled"};
+        statusFilterBox = new JComboBox<>(filters);
+        statusFilterBox.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        statusFilterBox.setBackground(Color.WHITE);
+        statusFilterBox.setPreferredSize(new Dimension(120, 28));
+        statusFilterBox.addActionListener(e -> applyFilters());
+
+        // 4. Date Filter Button
         dateFilterBtn = new JButton("📅 Date") {
             @Override
             protected void paintComponent(Graphics g) {
@@ -2268,7 +2499,7 @@ public class SuperAdminBlotterTab extends JPanel {
             applyFilters();
         });
 
-        // Search bar (right side)
+        // 5. Search Bar
         JLabel searchLabel = new JLabel("Search:");
         searchLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         searchLabel.setForeground(new Color(80, 80, 80));
@@ -2307,31 +2538,35 @@ public class SuperAdminBlotterTab extends JPanel {
         searchButton.setToolTipText("Search");
         searchButton.addActionListener(e -> applyFilters());
 
-        // Add all components in the specified order
-        controlsPanel.add(btnAdd);
-        controlsPanel.add(btnEdit);
-        controlsPanel.add(btnDelete);
-        controlsPanel.add(btnPrint);
-        controlsPanel.add(Box.createHorizontalStrut(20)); // Spacer
-        controlsPanel.add(statusLabel);
-        controlsPanel.add(statusFilterBox);
-        controlsPanel.add(Box.createHorizontalStrut(10)); // Spacer
-        controlsPanel.add(dateFilterBtn);
-        controlsPanel.add(clearDateBtn);
-        controlsPanel.add(Box.createHorizontalStrut(20)); // Spacer
-        controlsPanel.add(searchLabel);
-        controlsPanel.add(searchField);
-        controlsPanel.add(searchButton);
+        // Add components to Filter Panel
+        filterPanel.add(new JLabel("Filter:"));
+        filterPanel.add(periodFilterBox);
+        filterPanel.add(Box.createHorizontalStrut(5));
+        filterPanel.add(yearFilterBox);
 
-        // Add flexible glue to push everything to the left
-        JPanel spacerPanel = new JPanel(new BorderLayout());
-        spacerPanel.setBackground(BG_COLOR);
-        spacerPanel.add(controlsPanel, BorderLayout.WEST);
+        filterPanel.add(Box.createHorizontalStrut(10));
+        filterPanel.add(statusLabel);
+        filterPanel.add(statusFilterBox);
 
-        toolbarPanel.add(spacerPanel, BorderLayout.NORTH);
-        p.add(toolbarPanel, BorderLayout.NORTH);
+        filterPanel.add(Box.createHorizontalStrut(10));
+        filterPanel.add(dateFilterBtn);
+        filterPanel.add(clearDateBtn);
 
-        // 2. TABLE
+        filterPanel.add(Box.createHorizontalStrut(20)); // Spacing before search
+        filterPanel.add(searchLabel);
+        filterPanel.add(searchField);
+        filterPanel.add(searchButton);
+
+        // Add rows to main toolbar container
+        toolbarContainer.add(buttonPanel);
+        toolbarContainer.add(filterPanel);
+
+        // Add toolbar to main layout
+        p.add(toolbarContainer, BorderLayout.NORTH);
+
+        // =================================================================
+        // TABLE
+        // =================================================================
         String[] cols = {"ID", "Case #", "Date", "Type", "Complainant", "Respondent", "Status", "Hearing", "Location", "Officer"};
         tableModel = new DefaultTableModel(cols, 0) {
             public boolean isCellEditable(int r, int c) { return false; }
@@ -2354,7 +2589,9 @@ public class SuperAdminBlotterTab extends JPanel {
         scroll.setBorder(BorderFactory.createEmptyBorder(10,0,0,0));
         p.add(scroll, BorderLayout.CENTER);
 
-        // 3. FOOTER
+        // =================================================================
+        // FOOTER
+        // =================================================================
         lblRecordCount = new JLabel("Total Cases: 0");
         lblRecordCount.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblRecordCount.setBorder(new EmptyBorder(10, 5, 0, 0));
@@ -2362,17 +2599,19 @@ public class SuperAdminBlotterTab extends JPanel {
 
         return p;
     }
-
     private boolean checkHearingConflict(LocalDate hearingDate) {
         CaptainScheduleDAO dao = new CaptainScheduleDAO();
         List<CaptainSchedule> schedules = dao.getSchedulesByDate(hearingDate);
+
 
         if (schedules.isEmpty()) {
             return true;
         }
 
+
         for (CaptainSchedule sched : schedules) {
             String timeRange = sched.getStartTime() + " - " + sched.getEndTime();
+
 
             int choice = JOptionPane.showConfirmDialog(this,
                     "ALERT: The Captain:"+sched.getCaptainName()+" already has a schedule on " + hearingDate + ".\n" +
@@ -2383,30 +2622,37 @@ public class SuperAdminBlotterTab extends JPanel {
                     JOptionPane.YES_NO_OPTION,
                     JOptionPane.WARNING_MESSAGE);
 
+
             if (choice == JOptionPane.NO_OPTION) {
                 return false;
             }
         }
 
+
         return true;
     }
+
 
     private JPanel createHeaderPanel() {
         JPanel h = new JPanel(new BorderLayout());
         h.setBackground(PRIMARY_COLOR);
         h.setBorder(new EmptyBorder(25, 40, 25, 40));
 
+
         JPanel titleBox = new JPanel();
         titleBox.setLayout(new BoxLayout(titleBox, BoxLayout.Y_AXIS));
         titleBox.setBackground(PRIMARY_COLOR);
+
 
         JLabel l1 = new JLabel("Barangay System");
         l1.setFont(HEADER_FONT);
         l1.setForeground(Color.WHITE);
 
+
         JLabel l2 = new JLabel("Blotter & Incident Management - Super Admin");
         l2.setFont(new Font("Arial", Font.PLAIN, 18));
         l2.setForeground(Color.LIGHT_GRAY);
+
 
         titleBox.add(l1);
         titleBox.add(l2);
@@ -2414,20 +2660,24 @@ public class SuperAdminBlotterTab extends JPanel {
         return h;
     }
 
+
     private void showDatePicker(JTextField targetField) {
         JDialog dateDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Select Date", true);
         dateDialog.setSize(400, 350);
         dateDialog.setLocationRelativeTo(this);
         dateDialog.setLayout(new BorderLayout());
 
+
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(Color.WHITE);
         headerPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+
 
         JButton btnPrev = new JButton(" < ");
         JButton btnNext = new JButton(" > ");
         JLabel lblMonthYear = new JLabel("", SwingConstants.CENTER);
         lblMonthYear.setFont(new Font("Arial", Font.BOLD, 16));
+
 
         final LocalDate[] currentDate = {LocalDate.now()};
         try {
@@ -2438,35 +2688,43 @@ public class SuperAdminBlotterTab extends JPanel {
             currentDate[0] = LocalDate.now();
         }
 
+
         JPanel calendarPanel = new JPanel(new GridLayout(0, 7, 5, 5));
         calendarPanel.setBackground(Color.WHITE);
         calendarPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
+
         updateCalendar(calendarPanel, lblMonthYear, currentDate[0], targetField, dateDialog);
+
 
         btnPrev.addActionListener(e -> {
             currentDate[0] = currentDate[0].minusMonths(1);
             updateCalendar(calendarPanel, lblMonthYear, currentDate[0], targetField, dateDialog);
         });
 
+
         btnNext.addActionListener(e -> {
             currentDate[0] = currentDate[0].plusMonths(1);
             updateCalendar(calendarPanel, lblMonthYear, currentDate[0], targetField, dateDialog);
         });
 
+
         headerPanel.add(btnPrev, BorderLayout.WEST);
         headerPanel.add(lblMonthYear, BorderLayout.CENTER);
         headerPanel.add(btnNext, BorderLayout.EAST);
+
 
         dateDialog.add(headerPanel, BorderLayout.NORTH);
         dateDialog.add(calendarPanel, BorderLayout.CENTER);
         dateDialog.setVisible(true);
     }
 
+
     private void updateCalendar(JPanel calendarPanel, JLabel lblMonthYear, LocalDate currentDate,
                                 JTextField targetField, JDialog dateDialog) {
         calendarPanel.removeAll();
         lblMonthYear.setText(currentDate.format(DateTimeFormatter.ofPattern("MMMM yyyy")));
+
 
         String[] days = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
         for (String d : days) {
@@ -2475,12 +2733,15 @@ public class SuperAdminBlotterTab extends JPanel {
             calendarPanel.add(l);
         }
 
+
         YearMonth yearMonth = YearMonth.of(currentDate.getYear(), currentDate.getMonth());
         LocalDate firstOfMonth = yearMonth.atDay(1);
         int dayOfWeek = firstOfMonth.getDayOfWeek().getValue();
         int emptySlots = (dayOfWeek == 7) ? 0 : dayOfWeek;
 
+
         for (int i = 0; i < emptySlots; i++) calendarPanel.add(new JLabel(""));
+
 
         int daysInMonth = yearMonth.lengthOfMonth();
         for (int day = 1; day <= daysInMonth; day++) {
@@ -2490,11 +2751,13 @@ public class SuperAdminBlotterTab extends JPanel {
             btn.setBackground(Color.WHITE);
             btn.setMargin(new Insets(2, 2, 2, 2));
 
+
             LocalDate buttonDate = LocalDate.of(currentDate.getYear(), currentDate.getMonthValue(), day);
             if (buttonDate.equals(LocalDate.now())) {
                 btn.setForeground(Color.BLUE);
                 btn.setFont(new Font("Arial", Font.BOLD, 12));
             }
+
 
             btn.addActionListener(e -> {
                 targetField.setText(buttonDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
@@ -2505,6 +2768,7 @@ public class SuperAdminBlotterTab extends JPanel {
         calendarPanel.revalidate();
         calendarPanel.repaint();
     }
+
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {

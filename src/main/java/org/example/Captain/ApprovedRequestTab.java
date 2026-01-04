@@ -98,6 +98,7 @@ public class ApprovedRequestTab extends JPanel {
                 if (refresher != null) {
                     refresher.stop();
                 }
+                loadRequestData();
                 refresher = new AutoRefresher("Document", ApprovedRequestTab.this::loadRequestData);
                 System.out.println("Tab opened/active. Auto-refresh started.");
             }
@@ -1073,6 +1074,7 @@ public class ApprovedRequestTab extends JPanel {
         // Right: Print Button
         JButton btnPrint = createModernButton("Print Report", PRIMARY_COLOR, Color.WHITE);
         btnPrint.setPreferredSize(new Dimension(130, 38));
+        btnPrint.addActionListener(e -> handlePrintTable());
 
 
         // Wrap filters panel to ensure it stays centered

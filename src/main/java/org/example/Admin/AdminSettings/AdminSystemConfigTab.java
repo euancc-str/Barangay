@@ -139,9 +139,21 @@ public class AdminSystemConfigTab extends JPanel {
         // Save Button
         JButton btnSave = createModernButton("Save General Settings", SUCCESS_COLOR);
         btnSave.addActionListener(e -> {
-            dao.updateConfig("barangay_name", txtBrgyName.getText());
-            dao.updateConfig("defaultCtcPlace", txtfullBrgyName.getText());
-            JOptionPane.showMessageDialog(this, "Settings Saved!");
+            int confirm = JOptionPane.showConfirmDialog(
+                    this,
+                    "Are you sure you want to save these general settings?",
+                    "Confirm Save",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.QUESTION_MESSAGE
+            );
+
+
+            if (confirm == JOptionPane.YES_OPTION) {
+                dao.updateConfig("barangay_name", txtBrgyName.getText());
+                dao.updateConfig("defaultCtcPlace", txtfullBrgyName.getText());
+
+                JOptionPane.showMessageDialog(this, "Settings Saved Successfully!");
+            }
         });
 
 

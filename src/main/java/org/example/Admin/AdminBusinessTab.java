@@ -6,6 +6,7 @@ package org.example.Admin;
 import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.BusinessDAO;
 import org.example.ResidentDAO;
+import org.example.UserDataManager;
 import org.example.Users.BusinessEstablishment;
 import org.example.Users.Resident;
 
@@ -1068,6 +1069,7 @@ public class AdminBusinessTab extends JPanel {
 
 
             if (new BusinessDAO().deleteBusiness(id)) {
+                log.addLog("Deleted a Business","Business Id: " + id,Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
                 JOptionPane.showMessageDialog(this, "Deleted successfully.");
                 refreshData();
             } else {
@@ -1360,83 +1362,172 @@ public class AdminBusinessTab extends JPanel {
             String capitalStr = txtCapital.getText().trim();
             String employeeCountStr = txtEmployeeCount.getText().trim();
 
+            // ========== VALIDATION WITH IMMEDIATE RETURN ==========
 
-            // ========== VALIDATION ==========
-            List<String> errors = new ArrayList<>();
-
-
-            // 1. Owner validation
+            // 1. Owner validation - MUST BE FIRST
             if (ownerIdStr.isEmpty()) {
-                errors.add("Please select a business owner.");
-            }
-
-
-            // 2. Business name validation
-            if (businessName.isEmpty()) {
-                errors.add("Business Name is required.");
-            } else if (!isValidBusinessName(businessName)) {
-                errors.add("Business Name should be 2-100 characters and can only contain letters, numbers, spaces, &, ., ', \", (, ), -");
-            }
-
-
-            // 3. Business nature validation
-            if (!businessNature.isEmpty() && !isValidBusinessNature(businessNature)) {
-                errors.add("Business Nature can only contain letters, numbers, spaces, commas, periods, and hyphens (2-200 chars).");
-            }
-
-
-            // 4. Permit number validation
-            if (!permitNo.isEmpty() && !isValidPermitNumber(permitNo)) {
-                errors.add("Permit Number should follow format: BPL-YYYY-XXXXX (e.g., BPL-2023-12345)");
-            }
-
-
-            // 5. Purok validation
-            if (!purok.isEmpty() && !isValidPurok(purok)) {
-                errors.add("Purok should be in format: Purok 1, Zone 5, Barangay 3, etc.");
-            }
-
-
-            // 6. Address validation
-            if (!address.isEmpty() && !isValidAddress(address)) {
-                errors.add("Address should be 5-200 characters and can only contain letters, numbers, spaces, #, ,, ., -");
-            }
-
-
-            // 7. Capital validation
-            if (!isValidCapital(capitalStr)) {
-                errors.add("Capital Investment must be a positive number (e.g., 1000 or 1000.50)");
-            }
-
-
-            // 8. Employee count validation
-            // 8. Employee count validation
-            if (!isValidEmployeeCount(employeeCountStr)) {
-                errors.add("Employee Count must be a number between 1-999 (maximum 3 digits).");
-            }
-
-
-            // Display errors if any
-            if (!errors.isEmpty()) {
-                StringBuilder errorMsg = new StringBuilder("Please fix the following errors:\n\n");
-                for (String error : errors) {
-                    errorMsg.append("• ").append(error).append("\n");
-                }
-                JOptionPane.showMessageDialog(d, errorMsg.toString(), "Validation Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(d, "Please select a business owner.", "Validation Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
+            // 2. Business name validation
+            if (businessName.isEmpty()) {
+                JOptionPane.showMessageDialog(d, "Business Name is required.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtName.requestFocus();
+                return;
+            }
 
-            // ========== PARSE VALUES ==========
+            if (businessName.length() < 2) {
+                JOptionPane.showMessageDialog(d, "Business Name must be at least 2 characters long.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtName.requestFocus();
+                return;
+            }
+
+            if (businessName.length() > 100) {
+                JOptionPane.showMessageDialog(d, "Business Name cannot exceed 100 characters.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtName.requestFocus();
+                return;
+            }
+
+            if (!businessName.matches("^[A-Za-z0-9\\s&.'\"()-]{2,100}$")) {
+                JOptionPane.showMessageDialog(d,
+                        "Business Name can only contain letters, numbers, spaces, and these characters: & . ' \" ( ) -",
+                        "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtName.requestFocus();
+                return;
+            }
+
+            // 3. Business nature validation (optional field)
+            if (!businessNature.isEmpty()) {
+                if (businessNature.length() < 2) {
+                    JOptionPane.showMessageDialog(d, "Business Nature must be at least 2 characters if provided.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                    txtNature.requestFocus();
+                    return;
+                }
+                if (businessNature.length() > 200) {
+                    JOptionPane.showMessageDialog(d, "Business Nature cannot exceed 200 characters.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                    txtNature.requestFocus();
+                    return;
+                }
+                if (!businessNature.matches("^[A-Za-z0-9\\s,.-]{2,200}$")) {
+                    JOptionPane.showMessageDialog(d,
+                            "Business Nature can only contain letters, numbers, spaces, commas, periods, and hyphens.",
+                            "Validation Error", JOptionPane.ERROR_MESSAGE);
+                    txtNature.requestFocus();
+                    return;
+                }
+            }
+
+            // 4. Permit number validation (optional but must follow format if provided)
+            if (!permitNo.isEmpty()) {
+                if (!permitNo.matches("^BPL-\\d{4}-\\d{5}$")) {
+                    JOptionPane.showMessageDialog(d,
+                            "Permit Number must follow format: BPL-YYYY-XXXXX\nExample: BPL-2024-12345",
+                            "Validation Error", JOptionPane.ERROR_MESSAGE);
+                    txtPermitNo.requestFocus();
+                    return;
+                }
+            }
+            if(permitNo.length() <5){
+                JOptionPane.showMessageDialog(d, "Please fill in permit well!", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            // 5. Address validation
+            if (address.isEmpty()) {
+                JOptionPane.showMessageDialog(d, "Address is required.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtAddress.requestFocus();
+                return;
+            }
+
+            if (address.length() < 5) {
+                JOptionPane.showMessageDialog(d, "Address must be at least 5 characters long.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtAddress.requestFocus();
+                return;
+            }
+
+            if (address.length() > 200) {
+                JOptionPane.showMessageDialog(d, "Address cannot exceed 200 characters.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtAddress.requestFocus();
+                return;
+            }
+
+            if (!address.matches("^[A-Za-z0-9\\s,#.-]{5,200}$")) {
+                JOptionPane.showMessageDialog(d,
+                        "Address can only contain letters, numbers, spaces, and these characters: , # . -",
+                        "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtAddress.requestFocus();
+                return;
+            }
+
+            // 6. Capital validation
+            if (capitalStr.isEmpty()) {
+                JOptionPane.showMessageDialog(d, "Capital Investment is required.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtCapital.requestFocus();
+                return;
+            }
+
+            if (!capitalStr.matches("^\\d+(\\.\\d{1,2})?$")) {
+                JOptionPane.showMessageDialog(d,
+                        "Capital Investment must be a valid number (e.g., 1000 or 1000.50).",
+                        "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtCapital.requestFocus();
+                return;
+            }
+
+            double capitalInvestment = 0;
+            try {
+                capitalInvestment = Double.parseDouble(capitalStr);
+                if (capitalInvestment <= 0) {
+                    JOptionPane.showMessageDialog(d, "Capital Investment must be greater than 0.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                    txtCapital.requestFocus();
+                    return;
+                }
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(d, "Capital Investment must be a valid number.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtCapital.requestFocus();
+                return;
+            }
+
+            // 7. Employee count validation
+            if (employeeCountStr.isEmpty()) {
+                JOptionPane.showMessageDialog(d, "Employee Count is required.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtEmployeeCount.requestFocus();
+                return;
+            }
+
+            if (!employeeCountStr.matches("^\\d{1,3}$")) {
+                JOptionPane.showMessageDialog(d,
+                        "Employee Count must be a number with maximum 3 digits (1-999).",
+                        "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtEmployeeCount.requestFocus();
+                return;
+            }
+
+            int employeeCount = 0;
+            try {
+                employeeCount = Integer.parseInt(employeeCountStr);
+                if (employeeCount < 1) {
+                    JOptionPane.showMessageDialog(d, "Employee Count must be at least 1.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                    txtEmployeeCount.requestFocus();
+                    return;
+                }
+                if (employeeCount > 999) {
+                    JOptionPane.showMessageDialog(d, "Employee Count cannot exceed 999.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                    txtEmployeeCount.requestFocus();
+                    return;
+                }
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(d, "Employee Count must be a valid number.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                txtEmployeeCount.requestFocus();
+                return;
+            }
+
+            // ========== PARSE OTHER VALUES ==========
             int ownerId = Integer.parseInt(ownerIdStr);
-            int employeeCount = Integer.parseInt(employeeCountStr);
-            double capitalInvestment = Double.parseDouble(capitalStr);
-
 
             // Get dates from date pickers
             LocalDate dateEstablished = null;
             LocalDate lastRenewalDate = null;
-
 
             try {
                 // Date Established
@@ -1446,7 +1537,6 @@ public class AdminBusinessTab extends JPanel {
                     dateEstablished = LocalDate.parse(dateStr);
                 }
 
-
                 // Last Renewal Date
                 if (dateChooserRenewal.getDate() != null) {
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
@@ -1454,19 +1544,20 @@ public class AdminBusinessTab extends JPanel {
                     lastRenewalDate = LocalDate.parse(dateStr);
                 }
 
-
                 // Validate date logic
                 if (dateEstablished != null && lastRenewalDate != null && lastRenewalDate.isBefore(dateEstablished)) {
-                    JOptionPane.showMessageDialog(d, "Last Renewal Date cannot be before Date Established.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(d,
+                            "Last Renewal Date cannot be before Date Established.",
+                            "Validation Error", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
 
-
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(d, "Invalid date format. Please select valid dates.", "Date Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(d,
+                        "Invalid date format. Please select valid dates.",
+                        "Date Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-
 
             // ========== CREATE BUSINESS OBJECT ==========
             BusinessEstablishment b = new BusinessEstablishment();
@@ -1490,12 +1581,14 @@ public class AdminBusinessTab extends JPanel {
             boolean success;
             if (existing == null) {
                 success = new BusinessDAO().addBusiness(b);
+                log.addLog("Added a Business","owner Id: " + b.getOwnerId(),Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
 
             } else {
                 b.setBusinessId(existing.getBusinessId());
                 success = new BusinessDAO().updateBusiness(b);
-            }
+                log.addLog("Updated a Business","owner Id: " + b.getOwnerId(),Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
 
+            }
 
             if (success) {
                 JOptionPane.showMessageDialog(d,
@@ -1607,6 +1700,7 @@ public class AdminBusinessTab extends JPanel {
 
         return dateChooser;
     }
+    SystemLogDAO log = new SystemLogDAO();
     // =========================================================================
     //  RESIDENT PICKER (Reused Logic) - UPDATED WITH SEARCH FUNCTIONALITY
     // =========================================================================

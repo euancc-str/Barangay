@@ -9,8 +9,6 @@ import java.awt.print.PageFormat;
 import java.awt.print.Printable;
 import java.awt.print.PrinterException;
 import java.awt.print.PrinterJob;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -19,7 +17,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-
+import java.io.File;
+import java.io.FileOutputStream;
 import javax.swing.text.AbstractDocument;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
@@ -46,20 +45,22 @@ import javax.swing.table.TableRowSorter;
 import javax.swing.text.BadLocationException;
 
 
+
 import com.lowagie.text.Document;
 import com.lowagie.text.PageSize;
 import com.lowagie.text.Paragraph;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
+
 import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.BlotterCaseDAO;
 import org.example.Captain.CaptainSchedule;
 import org.example.Captain.CaptainScheduleDAO;
 import org.example.ResidentDAO;
-import org.example.UserDataManager;
 import org.example.Users.BlotterCase;
 import org.example.Users.Resident;
+
 import org.example.utils.AutoRefresher;
 
 
@@ -192,6 +193,7 @@ public class AdminBlotterTab extends JPanel implements Printable {
                 if (refresher != null) {
                     refresher.stop();
                 }
+                loadBlotterData();
                 refresher = new AutoRefresher("Case", AdminBlotterTab.this::loadBlotterData);
                 System.out.println("Tab opened/active. Auto-refresh started.");
             }
@@ -767,39 +769,31 @@ public class AdminBlotterTab extends JPanel implements Printable {
         panel.setBackground(SECTION_BG);
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
-
         // Hearing Date with combo box and button
         JPanel hearingPanel = new JPanel(new BorderLayout(5, 0));
         hearingPanel.setBackground(SECTION_BG);
-
 
         String[] dates = getNext60Days();
         cmbHearingDate = new JComboBox<>(dates);
         styleComboBox(cmbHearingDate);
         cmbHearingDate.setEditable(true);
 
-
         hearingPanel.add(cmbHearingDate, BorderLayout.CENTER);
-
 
         JButton btnHearingDatePicker = new JButton("📅 Check");
         btnHearingDatePicker.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         btnHearingDatePicker.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
         btnHearingDatePicker.setBackground(new Color(240, 240, 240));
 
-
         // Create a custom action for the combo box date picker
         btnHearingDatePicker.addActionListener(e -> {
-            // Create a text field to pass to the date picker
             JTextField tempField = new JTextField();
             if (cmbHearingDate.getSelectedItem() != null) {
                 tempField.setText(cmbHearingDate.getSelectedItem().toString());
             }
 
-
             // Show date picker
             showDatePickerForHearing(tempField);
-
 
             // Update combo box with selected date
             if (!tempField.getText().isEmpty()) {
@@ -807,33 +801,43 @@ public class AdminBlotterTab extends JPanel implements Printable {
             }
         });
 
-
         hearingPanel.add(btnHearingDatePicker, BorderLayout.EAST);
 
+        // Summon Date (Auto-calculated)
+        txtSummonDate = createStyledTextField("", true);
+        txtSummonDate.setEditable(false); // Make read-only as it is auto-calculated
+        txtSummonDate.setToolTipText("Auto-calculated: 7 days before hearing");
 
-        // Summon Date
-        txtSummonDate = createStyledTextField(LocalDate.now().plusDays(3).format(DateTimeFormatter.ofPattern("yyyy-MM-dd")), true);
         JPanel summonPanel = new JPanel(new BorderLayout(5, 0));
         summonPanel.setBackground(SECTION_BG);
         summonPanel.add(txtSummonDate, BorderLayout.CENTER);
 
+        // --- FIX START: Auto-calculate Summon Date (7 days before) ---
+        cmbHearingDate.addActionListener(e -> {
+            Object selected = cmbHearingDate.getSelectedItem();
+            if (selected != null && !selected.toString().equals("Select Date")) {
+                try {
+                    // Extract date string (handles both "yyyy-MM-dd" and "yyyy-MM-dd (Day) Time")
+                    String dateStr = selected.toString().split(" ")[0];
+                    LocalDate hearingDate = LocalDate.parse(dateStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
 
-        JButton btnSummonDatePicker = new JButton("📅");
-        btnSummonDatePicker.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 12));
-        btnSummonDatePicker.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
-        btnSummonDatePicker.setBackground(new Color(240, 240, 240));
-        btnSummonDatePicker.addActionListener(e -> showDatePicker(txtSummonDate));
-        summonPanel.add(btnSummonDatePicker, BorderLayout.EAST);
+                    // Subtract 7 days for Summon Letter
+                    LocalDate summonDate = hearingDate.minusDays(7);
+                    txtSummonDate.setText(summonDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+                } catch (Exception ex) {
+                    // Ignore parse errors if format doesn't match
+                }
+            }
+        });
+        // --- FIX END ---
 
-
+        // Label changed to "Summon Letter" as requested
         panel.add(createLabeledField("Hearing Date (Petsa):", hearingPanel));
-        panel.add(createLabeledField("Summon Date (Tawag sa Barangay):", summonPanel));
+        panel.add(createLabeledField("Summon Letter:", summonPanel));
 
-
-        // Add empty cells for the grid (2x2 grid but we only have 2 items)
+        // Add empty cells for the grid
         panel.add(new JPanel()); // Empty cell
         panel.add(new JPanel()); // Empty cell
-
 
         return panel;
     }
@@ -843,17 +847,22 @@ public class AdminBlotterTab extends JPanel implements Printable {
         JPanel panel = new JPanel(new BorderLayout(0, 8));
         panel.setBackground(SECTION_BG);
 
+
+
+
         JLabel areaLabel = new JLabel(label);
         areaLabel.setFont(LABEL_FONT);
         areaLabel.setForeground(new Color(80, 80, 80));
+
+
+
 
         JScrollPane scrollPane = new JScrollPane(textArea);
         scrollPane.setBorder(new LineBorder(BORDER_COLOR, 1));
         scrollPane.setPreferredSize(new Dimension(Integer.MAX_VALUE, textArea.getRows() * 50));
 
-        // =================================================================
-        // ✅ FIX: Stop Text Area from trapping the scroll
-        // =================================================================
+
+
         scrollPane.setWheelScrollingEnabled(false); // Disable inner scrolling via wheel
 
         // Manually pass the scroll signal to the Main Form
@@ -863,13 +872,17 @@ public class AdminBlotterTab extends JPanel implements Printable {
                 parentScroll.dispatchEvent(e);
             }
         });
-        // =================================================================
+
 
         panel.add(areaLabel, BorderLayout.NORTH);
         panel.add(scrollPane, BorderLayout.CENTER);
 
+
+
+
         return panel;
     }
+
 
 
 
@@ -1590,6 +1603,8 @@ public class AdminBlotterTab extends JPanel implements Printable {
 
         String brgyName = new SystemConfigDAO().getConfig("barangay_name");
 
+
+
         // Official Header
         sb.append("╔══════════════════════════════════════════════════════════════════════════════╗\n");
         sb.append("║                         REPUBLIC OF THE PHILIPPINES                          ║\n");
@@ -1909,6 +1924,7 @@ public class AdminBlotterTab extends JPanel implements Printable {
 
         btnExportAll.addActionListener(e->exportAllToPDF());
         actionsGrid.add(btnExportAll);
+
 
 
         // Add vertical glue at bottom
@@ -2622,21 +2638,17 @@ public class AdminBlotterTab extends JPanel implements Printable {
         dialog.setLayout(new BorderLayout());
         dialog.setLocationRelativeTo(this);
 
-
         JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
-
         // Calendar panel
         JPanel calendarPanel = new JPanel(new BorderLayout());
-
 
         // Create calendar
         JSpinner monthSpinner = new JSpinner(new SpinnerNumberModel(
                 LocalDate.now().getMonthValue(), 1, 12, 1));
         JSpinner yearSpinner = new JSpinner(new SpinnerNumberModel(
-                LocalDate.now().getYear(), 2020, 2030, 1));
-
+                LocalDate.now().getYear(), LocalDate.now().getYear(), 2030, 1));
 
         JPanel controlPanel = new JPanel(new FlowLayout());
         controlPanel.add(new JLabel("Month:"));
@@ -2644,11 +2656,9 @@ public class AdminBlotterTab extends JPanel implements Printable {
         controlPanel.add(new JLabel("Year:"));
         controlPanel.add(yearSpinner);
 
-
         // Calendar grid
         JPanel gridPanel = new JPanel(new GridLayout(0, 7, 5, 5));
         gridPanel.setBorder(new EmptyBorder(10, 0, 10, 0));
-
 
         // Day headers
         String[] days = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
@@ -2659,67 +2669,45 @@ public class AdminBlotterTab extends JPanel implements Printable {
             gridPanel.add(dayLabel);
         }
 
-
         // Load captain's available dates
         CaptainScheduleDAO scheduleDAO = new CaptainScheduleDAO();
         List<CaptainSchedule> availableSchedules = scheduleDAO.getAllSchedules();
         List<LocalDate> availableDates = new java.util.ArrayList<>();
 
-
+        // --- FIX START: Filter out past dates ---
+        LocalDate today = LocalDate.now();
         for (CaptainSchedule schedule : availableSchedules) {
-            if (schedule.isAvailable()) {
+            // Only add if available AND date is NOT before today
+            if (schedule.isAvailable() && !schedule.getScheduleDate().isBefore(today)) {
                 availableDates.add(schedule.getScheduleDate());
             }
         }
-
+        // --- FIX END ---
 
         // Create day buttons
         LocalDate currentDate = LocalDate.now();
-        LocalDate firstDayOfMonth = currentDate.withDayOfMonth(1);
-        int dayOfWeek = firstDayOfMonth.getDayOfWeek().getValue() % 7; // 0 = Sunday
 
+        // Helper to refresh grid when spinners change
+        Runnable refreshGrid = () -> {
+            gridPanel.removeAll();
+            int m = (Integer) monthSpinner.getValue();
+            int y = (Integer) yearSpinner.getValue();
+            LocalDate selectedMonthDate = LocalDate.of(y, m, 1);
 
-        // Fill empty cells for days before the first day of month
-        for (int i = 0; i < dayOfWeek; i++) {
-            gridPanel.add(new JLabel(""));
-        }
+            refreshCalendarGrid(gridPanel, selectedMonthDate, availableDates, targetField, dialog);
+            gridPanel.revalidate();
+            gridPanel.repaint();
+        };
 
+        // Add listeners to spinners
+        monthSpinner.addChangeListener(e -> refreshGrid.run());
+        yearSpinner.addChangeListener(e -> refreshGrid.run());
 
-        // Create buttons for each day of the month
-        int daysInMonth = currentDate.lengthOfMonth();
-        for (int day = 1; day <= daysInMonth; day++) {
-            LocalDate date = LocalDate.of(currentDate.getYear(), currentDate.getMonthValue(), day);
-            JButton dayButton = new JButton(String.valueOf(day));
-            dayButton.setFont(new Font("Arial", Font.PLAIN, 12));
-
-
-            // Check if date is available
-            if (availableDates.contains(date)) {
-                dayButton.setBackground(new Color(46, 204, 113));
-                dayButton.setForeground(Color.WHITE);
-                dayButton.setEnabled(true);
-                dayButton.setToolTipText("Captain is available on " + date);
-
-
-                dayButton.addActionListener(e -> {
-                    targetField.setText(date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
-                    dialog.dispose();
-                });
-            } else {
-                dayButton.setBackground(Color.LIGHT_GRAY);
-                dayButton.setForeground(Color.DARK_GRAY);
-                dayButton.setEnabled(false);
-                dayButton.setToolTipText("Captain is not available on " + date);
-            }
-
-
-            gridPanel.add(dayButton);
-        }
-
+        // Initial load
+        refreshGrid.run();
 
         calendarPanel.add(controlPanel, BorderLayout.NORTH);
         calendarPanel.add(gridPanel, BorderLayout.CENTER);
-
 
         // Info panel
         JPanel infoPanel = new JPanel(new BorderLayout());
@@ -2728,16 +2716,13 @@ public class AdminBlotterTab extends JPanel implements Printable {
                 new EmptyBorder(10, 10, 10, 10)
         ));
 
-
         JLabel infoLabel = new JLabel("<html><b>Legend:</b><br>" +
-                "<font color='#2ecc71'>● Available</font> - Captain is available for hearing<br>" +
-                "<font color='#95a5a6'>● Unavailable</font> - Captain is not available</html>");
+                "<font color='#2ecc71'>● Available</font> - Captain is available<br>" +
+                "<font color='#95a5a6'>● Unavailable/Past</font> - Cannot select</html>");
         infoPanel.add(infoLabel, BorderLayout.CENTER);
-
 
         mainPanel.add(calendarPanel, BorderLayout.CENTER);
         mainPanel.add(infoPanel, BorderLayout.SOUTH);
-
 
         dialog.add(mainPanel);
         dialog.setVisible(true);
@@ -2935,6 +2920,7 @@ public class AdminBlotterTab extends JPanel implements Printable {
 
 
     SystemLogDAO log = new SystemLogDAO();
+
     private void saveBlotter() {
         try {
             List<String> missingFields = new ArrayList<>();
@@ -3158,13 +3144,13 @@ public class AdminBlotterTab extends JPanel implements Printable {
 
             if (isEditMode) {
                 updateBlotterCaseInDatabase(blotterCase);
+                try { new SystemLogDAO().addLog("Updated Case ", "Admin", 1); } catch(Exception ex){}
                 JOptionPane.showMessageDialog(this,
                         "Case updated successfully!\nCase Number: " + caseNumber,
                         "Success", JOptionPane.INFORMATION_MESSAGE);
-                log.addLog("Added Case","Case number: " + blotterCase.getCaseNumber(),Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
             } else {
                 dao.addBlotterCase(blotterCase);
-                log.addLog("Updated Case","Case number: " + blotterCase.getCaseNumber(),Integer.parseInt(UserDataManager.getInstance().getCurrentStaff().getStaffId()));
+                try { new SystemLogDAO().addLog("Added Case ", "Admin", 1); } catch(Exception ex){}
                 JOptionPane.showMessageDialog(this,
                         "Case saved successfully!\nCase Number: " + caseNumber,
                         "Success", JOptionPane.INFORMATION_MESSAGE);
@@ -3846,6 +3832,7 @@ public class AdminBlotterTab extends JPanel implements Printable {
     }
 
 
+
     private void exportAllToPDF() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("Save Report as PDF");
@@ -3922,7 +3909,6 @@ public class AdminBlotterTab extends JPanel implements Printable {
             }
         }
     }
-
 
 
     private void exportToPDF() {
@@ -4204,13 +4190,13 @@ public class AdminBlotterTab extends JPanel implements Printable {
                 // Use default
             }
 
-            String brgyName = new SystemConfigDAO().getConfig("barangay_name");
+
             // Official Header
             sb.append("╔══════════════════════════════════════════════════════════════════════════════╗\n");
             sb.append("║                         REPUBLIC OF THE PHILIPPINES                          ║\n");
             sb.append("║                       PROVINCE OF CAMARINES NORTE                            ║\n");
             sb.append("║                          CITY OF DAET                                        ║\n");
-            sb.append("║                       "+brgyName+"                                      ║\n");
+            sb.append("║                       BARANGAY ALAWIHAO                                      ║\n");
             sb.append("║                  OFFICE OF THE PUNONG BARANGAY                               ║\n");
             sb.append("╠══════════════════════════════════════════════════════════════════════════════╣\n");
             sb.append("║                          OFFICIAL BLOTTER FORM                               ║\n");
@@ -4819,8 +4805,9 @@ public class AdminBlotterTab extends JPanel implements Printable {
         String city = "CITY OF DAET";
         g2d.drawString(city, margin + (pageWidth - margin * 2 - g2d.getFontMetrics().stringWidth(city)) / 2, y);
         y += 20;
-        String brgy = new SystemConfigDAO().getConfig("barangay_name");
 
+
+        String brgy = "BARANGAY ALAWIHAO";
         g2d.drawString(brgy, margin + (pageWidth - margin * 2 - g2d.getFontMetrics().stringWidth(brgy)) / 2, y);
         y += 20;
 

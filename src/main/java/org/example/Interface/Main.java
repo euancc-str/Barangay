@@ -294,8 +294,8 @@ public class Main {
         btnExit.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnExit.setOpaque(true);
         btnExit.setContentAreaFilled(true);
-
         // Hover Effect
+
         btnExit.addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) { btnExit.setBackground(new Color(192, 57, 43)); }
             public void mouseExited(MouseEvent e) { btnExit.setBackground(new Color(231, 76, 60)); }

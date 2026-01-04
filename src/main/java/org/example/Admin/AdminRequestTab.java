@@ -94,6 +94,7 @@ public class AdminRequestTab extends JPanel {
                 if (refresher != null) {
                     refresher.stop();
                 }
+                loadRequestData();
                 refresher = new AutoRefresher("Document", AdminRequestTab.this::loadRequestData);
                 System.out.println("Tab opened/active. Auto-refresh started.");
             }
@@ -117,9 +118,6 @@ public class AdminRequestTab extends JPanel {
 
 
     private AutoRefresher refresher;
-    private javax.swing.Timer lightTimer;
-    private static volatile long lastGlobalUpdate = System.currentTimeMillis();
-    private long lastKnownCount = -1;
 
 
     public void loadRequestData() {
