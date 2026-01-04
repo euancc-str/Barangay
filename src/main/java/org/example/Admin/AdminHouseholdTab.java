@@ -1,6 +1,5 @@
 package org.example.Admin;
 
-
 import com.lowagie.text.Document;
 import com.lowagie.text.PageSize;
 import com.lowagie.text.Paragraph;
@@ -16,7 +15,6 @@ import org.example.Users.Resident;
 import org.example.Admin.SystemLogDAO;
 import org.example.utils.AutoRefresher;
 
-
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
@@ -24,6 +22,7 @@ import java.io.FileOutputStream;
 import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
@@ -56,6 +55,16 @@ public class AdminHouseholdTab extends JPanel {
     private final Color PRIMARY_COLOR = new Color(59, 130, 246);
     private final Color SUCCESS_COLOR = new Color(34, 197, 94);
 
+    // --- ADD DATE FILTER VARIABLES (COPIED FROM SecretaryPrintDocument) ---
+    private JButton dateFilterBtn; // Changed from JComboBox to JButton
+    private Date selectedDate; // Added for calendar selection
+
+    // --- ADD CALENDAR COLOR VARIABLES (COPIED FROM SecretaryPrintDocument) ---
+    private final Color MODERN_BLUE = new Color(66, 133, 244);
+    private final Color LIGHT_GREY = new Color(248, 249, 250);
+    private final Color DARK_GREY = new Color(52, 58, 64);
+    private JComboBox<String> periodFilterBox;
+    private JComboBox<String> yearFilterBox;
 
     public AdminHouseholdTab() {
         setLayout(new BorderLayout(0, 0));
@@ -1397,36 +1406,28 @@ public class AdminHouseholdTab extends JPanel {
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
         p.setBackground(BG_COLOR);
-        p.setBorder(new EmptyBorder(30, 50, 30, 50));
+        p.setBorder(new EmptyBorder(30, 50, 30, 50)); // Keeping the nice padding from Old Code
 
-
-        // --- 1. ACTION BUTTONS ---
+        // --- 1. ACTION BUTTONS (From Old Code) ---
         JPanel btns = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
         btns.setBackground(BG_COLOR);
-        // (Important for BoxLayout alignment consistency)
         btns.setAlignmentX(Component.LEFT_ALIGNMENT);
-        btns.setMaximumSize(new Dimension(Integer.MAX_VALUE, 45)); // Limit height of button row
-
+        btns.setMaximumSize(new Dimension(Integer.MAX_VALUE, 45));
 
         JButton btnAdd = createModernButton("+ New Household", BTN_ADD_COLOR);
         btnAdd.addActionListener(e -> handleAdd());
 
-
         JButton btnEdit = createModernButton("Edit Details", BTN_UPDATE_COLOR);
         btnEdit.addActionListener(e -> handleUpdate());
-
 
         JButton btnDelete = createModernButton("Delete", BTN_DELETE_COLOR);
         btnDelete.addActionListener(e -> handleDelete());
 
-
         JButton btnPrint = createModernButton("📊 Print Report", new Color(155, 89, 182));
         btnPrint.addActionListener(e -> handlePrint());
 
-
         JButton btnRefresh = createModernButton("🔄 Refresh", new Color(52, 152, 219));
         btnRefresh.addActionListener(e -> loadData());
-
 
         btns.add(btnAdd);
         btns.add(btnEdit);
@@ -1434,38 +1435,28 @@ public class AdminHouseholdTab extends JPanel {
         btns.add(btnRefresh);
         btns.add(btnPrint);
 
-
         p.add(btns);
         p.add(Box.createVerticalStrut(20));
 
-
-        // --- 2. SEARCH PANEL (SHORT & COMPACT) ---
+        // --- 2. SEARCH PANEL (From Old Code) ---
         JPanel searchPanel = new JPanel(new BorderLayout(10, 0));
         searchPanel.setBackground(BG_COLOR);
-
-
-        // --- FIX HERE: Set FIXED WIDTH (300px) and FIXED HEIGHT (35px) ---
         searchPanel.setMaximumSize(new Dimension(300, 35));
         searchPanel.setPreferredSize(new Dimension(300, 35));
-        searchPanel.setAlignmentX(Component.LEFT_ALIGNMENT); // Align to left edge
-
+        searchPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel searchLabel = new JLabel("Search:");
         searchLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
         searchLabel.setForeground(new Color(60, 60, 60));
 
-
-        // White box container for Field + Clear Button
         JPanel fieldWrapper = new JPanel(new BorderLayout());
         fieldWrapper.setBackground(Color.WHITE);
         fieldWrapper.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200)));
-
 
         searchField = new JTextField();
         searchField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         searchField.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
         searchField.setBackground(Color.WHITE);
-
 
         JButton btnClear = new JButton("x");
         btnClear.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -1476,56 +1467,152 @@ public class AdminHouseholdTab extends JPanel {
         btnClear.setContentAreaFilled(false);
         btnClear.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-
         btnClear.addActionListener(e -> {
             searchField.setText("");
-            if (sorter != null)
-                sorter.setRowFilter(null);
+            applyFilters(); // Changed to use new filter logic
         });
-
 
         searchField.addKeyListener(new KeyAdapter() {
             public void keyReleased(KeyEvent e) {
-                if (sorter != null) {
-                    sorter.setRowFilter(RowFilter.regexFilter("(?i)" + searchField.getText()));
-                }
+                applyFilters(); // Changed to use new filter logic
             }
         });
 
-
         fieldWrapper.add(searchField, BorderLayout.CENTER);
         fieldWrapper.add(btnClear, BorderLayout.EAST);
-
-
         searchPanel.add(searchLabel, BorderLayout.WEST);
         searchPanel.add(fieldWrapper, BorderLayout.CENTER);
-
 
         p.add(searchPanel);
         p.add(Box.createVerticalStrut(10));
 
+        // --- 3. FILTER PANEL (INJECTED FROM NEW CODE) ---
+        JPanel dateFilterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        dateFilterPanel.setBackground(BG_COLOR);
+        // Important: Match alignment to the rest of the layout
+        dateFilterPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        dateFilterPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 45));
 
-        // --- 3. DATA TABLE ---
+        JLabel lblPeriod = new JLabel("Filter:");
+        lblPeriod.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        dateFilterPanel.add(lblPeriod);
+
+        String[] periods = {"All Periods", "This Week", "This Month"};
+        periodFilterBox = new JComboBox<>(periods);
+        periodFilterBox.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        periodFilterBox.setBackground(Color.WHITE);
+        periodFilterBox.setFocusable(false);
+        periodFilterBox.addActionListener(e -> {
+            if (!periodFilterBox.getSelectedItem().equals("All Periods")) {
+                yearFilterBox.setSelectedIndex(0);
+                selectedDate = null;
+                dateFilterBtn.setText("📅 Select Date");
+                dateFilterBtn.setForeground(Color.DARK_GRAY);
+            }
+            applyFilters();
+        });
+        dateFilterPanel.add(periodFilterBox);
+
+        dateFilterPanel.add(Box.createHorizontalStrut(10));
+
+        JLabel lblYear = new JLabel("Year:");
+        lblYear.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        dateFilterPanel.add(lblYear);
+
+        yearFilterBox = new JComboBox<>();
+        yearFilterBox.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        yearFilterBox.setBackground(Color.WHITE);
+        yearFilterBox.setFocusable(false);
+        yearFilterBox.addItem("All Years");
+        int currentYear = Calendar.getInstance().get(Calendar.YEAR);
+        for (int i = 0; i <= 5; i++) {
+            yearFilterBox.addItem(String.valueOf(currentYear - i));
+        }
+        yearFilterBox.addActionListener(e -> {
+            if (!yearFilterBox.getSelectedItem().equals("All Years")) {
+                periodFilterBox.setSelectedIndex(0);
+                selectedDate = null;
+                dateFilterBtn.setText("📅 Select Date");
+                dateFilterBtn.setForeground(Color.DARK_GRAY);
+            }
+            applyFilters();
+        });
+        dateFilterPanel.add(yearFilterBox);
+
+        dateFilterPanel.add(Box.createHorizontalStrut(10));
+
+        // Custom Date Button
+        dateFilterBtn = new JButton("📅 Select Date") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                if (selectedDate == null) {
+                    g2d.setColor(new Color(233, 236, 239));
+                    g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                } else {
+                    GradientPaint gradient = new GradientPaint(0, 0, MODERN_BLUE, getWidth(), getHeight(), new Color(26, 115, 232));
+                    g2d.setPaint(gradient);
+                    g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                }
+                super.paintComponent(g2d);
+            }
+        };
+        dateFilterBtn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        dateFilterBtn.setForeground(selectedDate == null ? Color.DARK_GRAY : Color.WHITE);
+        dateFilterBtn.setFocusPainted(false);
+        dateFilterBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        dateFilterBtn.setBorder(new RoundBorder(8, new Color(206, 212, 218)));
+        dateFilterBtn.setContentAreaFilled(false);
+        dateFilterBtn.setOpaque(false);
+        dateFilterBtn.setPreferredSize(new Dimension(140, 35));
+        dateFilterBtn.addActionListener(e -> showModernDatePicker());
+
+        JButton clearDateBtn = new JButton("Clear") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setColor(new Color(233, 236, 239));
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                super.paintComponent(g2d);
+            }
+        };
+        clearDateBtn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        clearDateBtn.setForeground(Color.DARK_GRAY);
+        clearDateBtn.setFocusPainted(false);
+        clearDateBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        clearDateBtn.setBorder(new RoundBorder(8, new Color(206, 212, 218)));
+        clearDateBtn.setContentAreaFilled(false);
+        clearDateBtn.setOpaque(false);
+        clearDateBtn.setPreferredSize(new Dimension(80, 35));
+        clearDateBtn.addActionListener(e -> {
+            selectedDate = null;
+            dateFilterBtn.setText("📅 Select Date");
+            dateFilterBtn.setForeground(Color.DARK_GRAY);
+            applyFilters();
+        });
+
+        dateFilterPanel.add(dateFilterBtn);
+        dateFilterPanel.add(Box.createHorizontalStrut(5));
+        dateFilterPanel.add(clearDateBtn);
+
+        p.add(dateFilterPanel);
+        p.add(Box.createVerticalStrut(10));
+
+        // --- 4. DATA TABLE (From Old Code - Keeps the better layout) ---
         String[] cols = { "ID", "Household No", "Purok", "Street", "Address", "Head ID",
                 "Members", "Notes", "4Ps", "Ownership", "Income", "Family Type",
                 "Electricity", "Created", "Updated" };
 
-
         tableModel = new DefaultTableModel(cols, 0) {
-            public boolean isCellEditable(int r, int c) {
-                return false;
-            }
-
-
+            public boolean isCellEditable(int r, int c) { return false; }
             public Class<?> getColumnClass(int c) {
-                if (c == 0 || c == 5 || c == 6)
-                    return Integer.class;
-                if (c == 8)
-                    return Boolean.class;
+                if (c == 0 || c == 5 || c == 6) return Integer.class;
+                if (c == 8) return Boolean.class;
                 return String.class;
             }
         };
-
 
         table = new JTable(tableModel);
         table.setRowHeight(40);
@@ -1534,8 +1621,11 @@ public class AdminHouseholdTab extends JPanel {
         table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
         table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
 
+        // Ensure table fills the width (Old Code logic implies this via ScrollPane layout)
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+        table.setFillsViewportHeight(true);
 
-        // Column widths
+        // Column widths (From Old Code)
         table.getColumnModel().getColumn(0).setPreferredWidth(50);
         table.getColumnModel().getColumn(1).setPreferredWidth(100);
         table.getColumnModel().getColumn(2).setPreferredWidth(80);
@@ -1552,15 +1642,11 @@ public class AdminHouseholdTab extends JPanel {
         table.getColumnModel().getColumn(13).setPreferredWidth(120);
         table.getColumnModel().getColumn(14).setPreferredWidth(120);
 
-
         sorter = new TableRowSorter<>(tableModel);
         Comparator<Integer> intComp = (o1, o2) -> {
-            if (o1 == null && o2 == null)
-                return 0;
-            if (o1 == null)
-                return -1;
-            if (o2 == null)
-                return 1;
+            if (o1 == null && o2 == null) return 0;
+            if (o1 == null) return -1;
+            if (o2 == null) return 1;
             return o1.compareTo(o2);
         };
         sorter.setComparator(0, intComp);
@@ -1568,10 +1654,8 @@ public class AdminHouseholdTab extends JPanel {
         sorter.setComparator(6, intComp);
         table.setRowSorter(sorter);
 
-
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-
 
         table.setDefaultRenderer(Boolean.class, new DefaultTableCellRenderer() {
             @Override
@@ -1593,45 +1677,589 @@ public class AdminHouseholdTab extends JPanel {
             }
         });
 
-
         for (int i = 0; i < table.getColumnCount(); i++) {
             if (i == 0 || i == 5 || i == 6 || i == 8) {
                 table.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
             }
         }
 
-
         table.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2)
-                    handleUpdate();
+                if (e.getClickCount() == 2) handleUpdate();
             }
         });
-
 
         JScrollPane tableScroll = new JScrollPane(table);
         tableScroll.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200)));
         tableScroll.getViewport().setBackground(Color.WHITE);
-        // Align table to left as well
         tableScroll.setAlignmentX(Component.LEFT_ALIGNMENT);
-
 
         p.add(tableScroll);
 
-
         JPanel recordPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         recordPanel.setBackground(BG_COLOR);
-        recordPanel.setAlignmentX(Component.LEFT_ALIGNMENT); // Align footer
+        recordPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         lblRecordCount = new JLabel("Total Households: 0");
         lblRecordCount.setFont(new Font("Segoe UI", Font.BOLD, 13));
         lblRecordCount.setForeground(PRIMARY_COLOR);
         recordPanel.add(lblRecordCount);
         p.add(recordPanel);
 
-
         return p;
     }
+    // =========================================================================
+    //  FILTER LOGIC (ADAPTED FROM SecretaryPrintDocument)
+    // =========================================================================
+    private void applyFilters() {
+        if (sorter == null) return;
 
+        String text = searchField.getText();
+        String selectedPeriod = (String) periodFilterBox.getSelectedItem();
+        String selectedYear = (String) yearFilterBox.getSelectedItem();
+
+        List<RowFilter<Object, Object>> filters = new ArrayList<>();
+
+        // 1. Text Search Filter
+        if (text != null && !text.trim().isEmpty()) {
+            String regexPattern = "(?i)" + java.util.regex.Pattern.quote(text.trim());
+            filters.add(new RowFilter<Object, Object>() {
+                @Override
+                public boolean include(Entry<? extends Object, ? extends Object> entry) {
+                    for (int i = 0; i < entry.getValueCount(); i++) {
+                        Object value = entry.getValue(i);
+                        if (value != null && value.toString().toLowerCase().contains(text.trim().toLowerCase())) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+            });
+        }
+
+        // 2. Specific Date Filter (Calendar Picker - Column 13)
+        if (selectedDate != null) {
+            final Date finalSelectedDate = selectedDate;
+            filters.add(new RowFilter<Object, Object>() {
+                @Override
+                public boolean include(Entry<?, ?> entry) {
+                    try {
+                        Object val = entry.getValue(13); // Created At Column
+                        if (val == null || !(val instanceof String)) return false;
+
+                        String dateStr = (String) val; // Format: yyyy-MM-dd HH:mm:ss
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+
+                        // Compare string prefixes (yyyy-MM-dd)
+                        return dateStr.startsWith(sdf.format(finalSelectedDate));
+
+                    } catch (Exception e) { return false; }
+                }
+            });
+        }
+
+        // 3. Period Filter (This Week / This Month)
+        if (selectedPeriod != null && !selectedPeriod.equals("All Periods") && selectedDate == null) {
+            filters.add(new RowFilter<Object, Object>() {
+                @Override
+                public boolean include(Entry<?, ?> entry) {
+                    try {
+                        Object val = entry.getValue(13); // Created At Column
+                        if (val == null || !(val instanceof String)) return false;
+
+                        // Parse String to LocalDate
+                        String dateStr = ((String) val).substring(0, 10);
+                        java.time.LocalDate rowDate = java.time.LocalDate.parse(dateStr);
+                        java.time.LocalDate now = java.time.LocalDate.now();
+
+                        if (selectedPeriod.equals("This Week")) {
+                            java.time.temporal.TemporalField fieldISO = java.time.temporal.WeekFields.of(java.util.Locale.FRANCE).dayOfWeek();
+                            java.time.LocalDate startOfWeek = now.with(fieldISO, 1);
+                            java.time.LocalDate endOfWeek = now.with(fieldISO, 7);
+                            return !rowDate.isBefore(startOfWeek) && !rowDate.isAfter(endOfWeek);
+                        } else if (selectedPeriod.equals("This Month")) {
+                            return rowDate.getMonth() == now.getMonth() && rowDate.getYear() == now.getYear();
+                        }
+                        return true;
+                    } catch (Exception e) { return false; }
+                }
+            });
+        }
+
+        // 4. Year Filter (2025, 2024...)
+        if (selectedYear != null && !selectedYear.equals("All Years") && selectedDate == null) {
+            filters.add(new RowFilter<Object, Object>() {
+                @Override
+                public boolean include(Entry<?, ?> entry) {
+                    try {
+                        Object val = entry.getValue(13); // Created At Column
+                        if (val == null || !(val instanceof String)) return false;
+
+                        String dateStr = ((String) val).substring(0, 10);
+                        java.time.LocalDate rowDate = java.time.LocalDate.parse(dateStr);
+                        int targetYear = Integer.parseInt(selectedYear);
+
+                        return rowDate.getYear() == targetYear;
+                    } catch (Exception e) { return false; }
+                }
+            });
+        }
+
+        sorter.setRowFilter(filters.isEmpty() ? null : RowFilter.andFilter(filters));
+        if (lblRecordCount != null)
+            lblRecordCount.setText("Total Households: " + sorter.getViewRowCount());
+    }
+    // =========================================================================
+    //  COPIED CALENDAR/COMPONENT STYLING CLASSES
+    // =========================================================================
+
+    private static class RoundBorder extends AbstractBorder {
+        private final int radius;
+        private final Color color;
+
+        RoundBorder(int radius, Color color) {
+            this.radius = radius;
+            this.color = color;
+        }
+
+        public void paintBorder(Component c, Graphics g, int x, int y, int w, int h) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(color);
+            g2.drawRoundRect(x, y, w-1, h-1, radius, radius);
+            g2.dispose();
+        }
+
+        public Insets getBorderInsets(Component c) {
+            return new Insets(2, 8, 2, 8);
+        }
+    }
+
+    // =========================================================================
+    //  COPIED CALENDAR IMPLEMENTATION (EXACT COPY FROM SecretaryPrintDocument)
+    // =========================================================================
+    private void showModernDatePicker() {
+        // Create a modern popup window for calendar
+        JDialog dateDialog = new JDialog((Frame)SwingUtilities.getWindowAncestor(this), "Select Date", true);
+        dateDialog.setLayout(new BorderLayout());
+        dateDialog.setResizable(false);
+        dateDialog.getContentPane().setBackground(LIGHT_GREY);
+
+        // Main container panel
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        mainPanel.setBackground(LIGHT_GREY);
+
+        // Create modern calendar panel with shadow effect
+        JPanel calendarPanel = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                // Draw shadow
+                g2d.setColor(new Color(0, 0, 0, 20));
+                g2d.fillRoundRect(2, 2, getWidth()-4, getHeight()-4, 15, 15);
+
+                // Draw main panel
+                g2d.setColor(Color.WHITE);
+                g2d.fillRoundRect(0, 0, getWidth()-4, getHeight()-4, 15, 15);
+            }
+        };
+        calendarPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        calendarPanel.setOpaque(false);
+        calendarPanel.setPreferredSize(new Dimension(350, 400));
+
+        // Create month navigation with compact styling
+        JPanel monthPanel = new JPanel(new BorderLayout());
+        monthPanel.setOpaque(false);
+        monthPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+
+        // Navigation buttons with modern icons
+        JButton prevMonthBtn = createCompactNavButton("◀");
+        JButton nextMonthBtn = createCompactNavButton("▶");
+
+        // Year and Month Selection Panel
+        JPanel yearMonthPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
+        yearMonthPanel.setOpaque(false);
+
+        // Month ComboBox
+        String[] months = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+        JComboBox<String> monthComboBox = new JComboBox<>(months);
+        monthComboBox.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        monthComboBox.setBackground(Color.WHITE);
+        monthComboBox.setBorder(new RoundBorder(4, new Color(206, 212, 218)));
+        monthComboBox.setFocusable(false);
+        monthComboBox.setPreferredSize(new Dimension(70, 25));
+
+        // Year ComboBox
+        JComboBox<Integer> yearComboBox = new JComboBox<>();
+        yearComboBox.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        yearComboBox.setBackground(Color.WHITE);
+        yearComboBox.setBorder(new RoundBorder(4, new Color(206, 212, 218)));
+        yearComboBox.setFocusable(false);
+        yearComboBox.setPreferredSize(new Dimension(65, 25));
+
+        // Populate years (from 2000 to current year + 10)
+        int currentYear = Calendar.getInstance().get(Calendar.YEAR);
+        for (int year = 2000; year <= currentYear + 10; year++) {
+            yearComboBox.addItem(year);
+        }
+
+        // Initialize calendar
+        final Calendar calendar = Calendar.getInstance();
+        if (selectedDate != null) {
+            calendar.setTime(selectedDate);
+        }
+
+        // Set initial values for comboboxes
+        monthComboBox.setSelectedIndex(calendar.get(Calendar.MONTH));
+        yearComboBox.setSelectedItem(calendar.get(Calendar.YEAR));
+
+        // Create days panel with compact grid
+        JPanel daysPanel = new JPanel(new GridLayout(6, 7, 2, 2));
+        daysPanel.setOpaque(false);
+        daysPanel.setBorder(BorderFactory.createEmptyBorder(5, 0, 0, 0));
+        daysPanel.setPreferredSize(new Dimension(300, 180));
+
+        // Function to rebuild calendar days
+        java.util.function.Consumer<Void> rebuildCalendarDays = v -> {
+            daysPanel.removeAll();
+
+            // Get current date for comparison
+            final Calendar today = Calendar.getInstance();
+            Calendar tempCal = (Calendar) calendar.clone();
+            tempCal.set(Calendar.DAY_OF_MONTH, 1);
+            int firstDayOfWeek = tempCal.get(Calendar.DAY_OF_WEEK);
+            int daysInMonth = tempCal.getActualMaximum(Calendar.DAY_OF_MONTH);
+
+            // Add empty cells for days before first day of month
+            for (int i = 1; i < firstDayOfWeek; i++) {
+                daysPanel.add(createEmptyDayLabel());
+            }
+
+            // Add day buttons
+            for (int dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+                final int day = dayNum;
+                JButton dayBtn = createDayButton(day, calendar, today, dateDialog);
+                daysPanel.add(dayBtn);
+            }
+
+            // Add empty cells for remaining spots
+            int totalCells = daysInMonth + (firstDayOfWeek - 1);
+            int remainingCells = 42 - totalCells;
+            for (int i = 0; i < remainingCells; i++) {
+                daysPanel.add(createEmptyDayLabel());
+            }
+
+            daysPanel.revalidate();
+            daysPanel.repaint();
+        };
+
+        // Build initial calendar
+        rebuildCalendarDays.accept(null);
+
+        // Add action listeners to comboboxes
+        monthComboBox.addActionListener(e -> {
+            int selectedMonth = monthComboBox.getSelectedIndex();
+            calendar.set(Calendar.MONTH, selectedMonth);
+            rebuildCalendarDays.accept(null);
+        });
+
+        yearComboBox.addActionListener(e -> {
+            int selectedYear = (int) yearComboBox.getSelectedItem();
+            calendar.set(Calendar.YEAR, selectedYear);
+            rebuildCalendarDays.accept(null);
+        });
+
+        prevMonthBtn.addActionListener(e -> {
+            calendar.add(Calendar.MONTH, -1);
+            monthComboBox.setSelectedIndex(calendar.get(Calendar.MONTH));
+            yearComboBox.setSelectedItem(calendar.get(Calendar.YEAR));
+            rebuildCalendarDays.accept(null);
+        });
+
+        nextMonthBtn.addActionListener(e -> {
+            calendar.add(Calendar.MONTH, 1);
+            monthComboBox.setSelectedIndex(calendar.get(Calendar.MONTH));
+            yearComboBox.setSelectedItem(calendar.get(Calendar.YEAR));
+            rebuildCalendarDays.accept(null);
+        });
+
+        yearMonthPanel.add(monthComboBox);
+        yearMonthPanel.add(yearComboBox);
+
+        // Today button
+        JButton todayBtn = new JButton("Today") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setColor(new Color(233, 236, 239));
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 4, 4);
+                super.paintComponent(g2d);
+            }
+        };
+        todayBtn.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        todayBtn.setForeground(MODERN_BLUE);
+        todayBtn.setFocusPainted(false);
+        todayBtn.setBorder(new RoundBorder(4, new Color(206, 212, 218)));
+        todayBtn.setContentAreaFilled(false);
+        todayBtn.setOpaque(false);
+        todayBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        todayBtn.setPreferredSize(new Dimension(60, 25));
+        todayBtn.addActionListener(e -> {
+            calendar.setTime(new Date());
+            monthComboBox.setSelectedIndex(calendar.get(Calendar.MONTH));
+            yearComboBox.setSelectedItem(calendar.get(Calendar.YEAR));
+            rebuildCalendarDays.accept(null);
+        });
+
+        // Navigation panel
+        JPanel navPanel = new JPanel(new BorderLayout());
+        navPanel.setOpaque(false);
+
+        JPanel leftNavPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
+        leftNavPanel.setOpaque(false);
+        leftNavPanel.add(prevMonthBtn);
+        leftNavPanel.add(nextMonthBtn);
+
+        JPanel rightNavPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
+        rightNavPanel.setOpaque(false);
+        rightNavPanel.add(todayBtn);
+
+        navPanel.add(leftNavPanel, BorderLayout.WEST);
+        navPanel.add(yearMonthPanel, BorderLayout.CENTER);
+        navPanel.add(rightNavPanel, BorderLayout.EAST);
+
+        monthPanel.add(navPanel, BorderLayout.CENTER);
+
+        // Create compact day headers panel
+        JPanel dayHeaderPanel = new JPanel(new GridLayout(1, 7, 2, 2));
+        dayHeaderPanel.setOpaque(false);
+        dayHeaderPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
+        dayHeaderPanel.setPreferredSize(new Dimension(300, 25));
+
+        String[] dayNames = {"S", "M", "T", "W", "T", "F", "S"};
+        for (String day : dayNames) {
+            JLabel dayLabel = new JLabel(day, SwingConstants.CENTER);
+            dayLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            dayLabel.setForeground(new Color(108, 117, 125));
+            dayHeaderPanel.add(dayLabel);
+        }
+
+        // Add footer with action buttons
+        JPanel footerPanel = new JPanel(new BorderLayout());
+        footerPanel.setOpaque(false);
+        footerPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        buttonPanel.setOpaque(false);
+
+        JButton cancelBtn = createCompactDialogButton("Cancel", new Color(108, 117, 125));
+        cancelBtn.addActionListener(e -> dateDialog.dispose());
+
+        JButton selectBtn = createCompactDialogButton("Select", MODERN_BLUE);
+        selectBtn.addActionListener(e -> {
+            if (selectedDate == null) {
+                // If no date selected, use current date
+                selectedDate = calendar.getTime();
+            }
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+            dateFilterBtn.setText("📅 " + sdf.format(selectedDate));
+            dateFilterBtn.setForeground(Color.WHITE);
+            dateFilterBtn.repaint();
+            dateDialog.dispose();
+            applyFilters();
+        });
+
+        buttonPanel.add(cancelBtn);
+        buttonPanel.add(selectBtn);
+        footerPanel.add(buttonPanel, BorderLayout.EAST);
+
+        calendarPanel.add(monthPanel, BorderLayout.NORTH);
+        calendarPanel.add(dayHeaderPanel, BorderLayout.CENTER);
+        calendarPanel.add(daysPanel, BorderLayout.SOUTH);
+
+        mainPanel.add(calendarPanel, BorderLayout.CENTER);
+        mainPanel.add(footerPanel, BorderLayout.SOUTH);
+
+        dateDialog.add(mainPanel, BorderLayout.CENTER);
+        dateDialog.pack();
+
+        // Center the dialog on screen
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        Dimension dialogSize = dateDialog.getSize();
+        int x = (screenSize.width - dialogSize.width) / 2;
+        int y = (screenSize.height - dialogSize.height) / 2;
+        dateDialog.setLocation(x, y);
+
+        dateDialog.setVisible(true);
+    }
+
+    private JLabel createEmptyDayLabel() {
+        JLabel label = new JLabel("");
+        label.setOpaque(false);
+        return label;
+    }
+
+    private JButton createDayButton(int day, Calendar calendar, Calendar today, JDialog dateDialog) {
+        final boolean isSelectedForThisButton;
+        if (selectedDate != null) {
+            Calendar selectedCal = Calendar.getInstance();
+            selectedCal.setTime(selectedDate);
+            isSelectedForThisButton = calendar.get(Calendar.YEAR) == selectedCal.get(Calendar.YEAR) &&
+                    calendar.get(Calendar.MONTH) == selectedCal.get(Calendar.MONTH) &&
+                    day == selectedCal.get(Calendar.DAY_OF_MONTH);
+        } else {
+            isSelectedForThisButton = false;
+        }
+
+        final boolean isTodayForThisButton = calendar.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+                calendar.get(Calendar.MONTH) == today.get(Calendar.MONTH) &&
+                day == today.get(Calendar.DAY_OF_MONTH);
+
+        JButton dayBtn = new JButton(String.valueOf(day)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (isTodayForThisButton) {
+                    g2d.setColor(new Color(66, 133, 244, 30));
+                    g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                    g2d.setColor(MODERN_BLUE);
+                    g2d.setStroke(new BasicStroke(1));
+                    g2d.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 12, 12);
+                }
+
+                if (isSelectedForThisButton) {
+                    GradientPaint gradient = new GradientPaint(
+                            0, 0, MODERN_BLUE,
+                            getWidth(), getHeight(), new Color(26, 115, 232)
+                    );
+                    g2d.setPaint(gradient);
+                    g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                }
+
+                super.paintComponent(g2d);
+            }
+        };
+
+        dayBtn.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        dayBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        dayBtn.setFocusPainted(false);
+        dayBtn.setBorderPainted(false);
+        dayBtn.setContentAreaFilled(false);
+        dayBtn.setOpaque(false);
+        dayBtn.setBorder(new EmptyBorder(1, 1, 1, 1));
+        dayBtn.setPreferredSize(new Dimension(40, 30));
+
+        // Set foreground color
+        if (isSelectedForThisButton) {
+            dayBtn.setForeground(Color.WHITE);
+        } else if (isTodayForThisButton) {
+            dayBtn.setForeground(MODERN_BLUE);
+        } else {
+            dayBtn.setForeground(DARK_GREY);
+        }
+
+        // Add hover effect
+        final JButton finalDayBtn = dayBtn;
+        dayBtn.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                if (!isSelectedForThisButton) {
+                    finalDayBtn.setBackground(new Color(66, 133, 244, 15));
+                    finalDayBtn.repaint();
+                }
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                finalDayBtn.setBackground(null);
+                finalDayBtn.repaint();
+            }
+        });
+
+        dayBtn.addActionListener(e -> {
+            calendar.set(Calendar.DAY_OF_MONTH, day);
+            selectedDate = calendar.getTime();
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+            dateFilterBtn.setText("📅 " + sdf.format(selectedDate));
+            dateFilterBtn.setForeground(Color.WHITE);
+            dateFilterBtn.repaint();
+            dateDialog.dispose();
+            applyFilters();
+        });
+
+        return dayBtn;
+    }
+
+    private JButton createCompactNavButton(String text) {
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (getModel().isPressed()) {
+                    g2d.setColor(new Color(66, 133, 244, 150));
+                } else if (getModel().isRollover()) {
+                    g2d.setColor(new Color(66, 133, 244, 30));
+                } else {
+                    g2d.setColor(new Color(233, 236, 239));
+                }
+
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                super.paintComponent(g2d);
+            }
+        };
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btn.setForeground(MODERN_BLUE);
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setOpaque(false);
+        btn.setPreferredSize(new Dimension(30, 25));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
+    }
+
+    private JButton createCompactDialogButton(String text, Color color) {
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (getModel().isPressed()) {
+                    g2d.setColor(color.darker());
+                } else if (getModel().isRollover()) {
+                    GradientPaint gradient = new GradientPaint(
+                            0, 0, color,
+                            getWidth(), getHeight(), color.darker()
+                    );
+                    g2d.setPaint(gradient);
+                } else {
+                    g2d.setColor(color);
+                }
+
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 4, 4);
+                super.paintComponent(g2d);
+            }
+        };
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btn.setForeground(Color.WHITE);
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setOpaque(false);
+        btn.setPreferredSize(new Dimension(70, 28));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
+    }
 
     private void handlePrint() {
         JFileChooser fileChooser = new JFileChooser();
@@ -1843,8 +2471,4 @@ public class AdminHouseholdTab extends JPanel {
         });
     }
 }
-
-
-
-
 

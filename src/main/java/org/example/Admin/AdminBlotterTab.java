@@ -1588,14 +1588,14 @@ public class AdminBlotterTab extends JPanel implements Printable {
         StringBuilder sb = new StringBuilder();
 
 
-
+        String brgyName = new SystemConfigDAO().getConfig("barangay_name");
 
         // Official Header
         sb.append("╔══════════════════════════════════════════════════════════════════════════════╗\n");
         sb.append("║                         REPUBLIC OF THE PHILIPPINES                          ║\n");
         sb.append("║                       PROVINCE OF CAMARINES NORTE                            ║\n");
         sb.append("║                          CITY OF DAET                                        ║\n");
-        sb.append("║                       BARANGAY ALAWIHAO                                      ║\n");
+        sb.append("║                       "+brgyName+"                                      ║\n");
         sb.append("║                  OFFICE OF THE PUNONG BARANGAY                               ║\n");
         sb.append("╠══════════════════════════════════════════════════════════════════════════════╣\n");
         sb.append("║                          OFFICIAL BLOTTER FORM                               ║\n");
@@ -4204,13 +4204,13 @@ public class AdminBlotterTab extends JPanel implements Printable {
                 // Use default
             }
 
-
+            String brgyName = new SystemConfigDAO().getConfig("barangay_name");
             // Official Header
             sb.append("╔══════════════════════════════════════════════════════════════════════════════╗\n");
             sb.append("║                         REPUBLIC OF THE PHILIPPINES                          ║\n");
             sb.append("║                       PROVINCE OF CAMARINES NORTE                            ║\n");
             sb.append("║                          CITY OF DAET                                        ║\n");
-            sb.append("║                       BARANGAY ALAWIHAO                                      ║\n");
+            sb.append("║                       "+brgyName+"                                      ║\n");
             sb.append("║                  OFFICE OF THE PUNONG BARANGAY                               ║\n");
             sb.append("╠══════════════════════════════════════════════════════════════════════════════╣\n");
             sb.append("║                          OFFICIAL BLOTTER FORM                               ║\n");
@@ -4819,9 +4819,8 @@ public class AdminBlotterTab extends JPanel implements Printable {
         String city = "CITY OF DAET";
         g2d.drawString(city, margin + (pageWidth - margin * 2 - g2d.getFontMetrics().stringWidth(city)) / 2, y);
         y += 20;
+        String brgy = new SystemConfigDAO().getConfig("barangay_name");
 
-
-        String brgy = "BARANGAY ALAWIHAO";
         g2d.drawString(brgy, margin + (pageWidth - margin * 2 - g2d.getFontMetrics().stringWidth(brgy)) / 2, y);
         y += 20;
 

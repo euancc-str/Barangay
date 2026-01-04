@@ -86,7 +86,8 @@ public class DocumentPrinter implements Printable {
         drawCenteredText(g2d, "Municipality of Daet", new Font("Serif", Font.PLAIN, 12), centerX, y); y += 15;
 
         g2d.setFont(new Font("Serif", Font.BOLD, 16));
-        drawCenteredText(g2d, "BARANGAY ALAWIHAO", new Font("Serif", Font.BOLD, 16), centerX, y); y += 20;
+        String brgyName = new SystemConfigDAO().getConfig("barangay_name");
+        drawCenteredText(g2d, brgyName, new Font("Serif", Font.BOLD, 16), centerX, y); y += 20;
 
         g2d.setFont(new Font("Serif", Font.BOLD, 24));
         drawCenteredText(g2d, "OFFICE OF THE PUNONG BARANGAY", new Font("Serif", Font.BOLD, 14), centerX, y); y += 20;
@@ -122,9 +123,9 @@ public class DocumentPrinter implements Printable {
         }
         String amountDataStore = amount > 0? "with annual income of("+amount+").":"and has no fixed source of income.";
         String p1 = "TO WHOM IT MAY CONCERN:";
-
+        String brgyNameFullPath = new SystemConfigDAO().getConfig("defaultCtcPlace");
         String p2 = "This is to certify that " + residentName.toUpperCase() + ", " + ageStatus + ", " +
-                "is a bonafide resident of " + purok.toUpperCase() + ", Brgy. Alawihao, Daet, Camarines Norte.";
+                "is a bonafide resident of " + purok.toUpperCase() + ", "+brgyNameFullPath+".";
 
         String p3;
 
@@ -135,7 +136,7 @@ public class DocumentPrinter implements Printable {
             p3 = "This certification is issued upon the request of the above-named person for the purpose of: " + purpose.toUpperCase() + ".";
         }
 
-        String p4 = "Given this " + dateStr + " at Barangay Alawihao, Daet, Camarines Norte.";
+        String p4 = "Given this " + dateStr + " at "+brgyNameFullPath+".";
 
         // Draw Paragraphs
         int leftMargin = 50;

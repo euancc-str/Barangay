@@ -385,11 +385,14 @@ public class BusinessClearanceForm extends JPanel {
 
         // Set fields as non-editable
         cbSex.setEditable(false);
-        txtPurok.setEditable(false);
+        txtPurok.setEnabled(false);
         txtAge.setEditable(false);
         txtBirthDate.setEditable(false);
         txtFirstName.setEditable(false);
+        street.setEditable(false);
+        txtSuffix.setEditable(false);
         txtLastName.setEditable(false);
+        txtCivilStatus.setEditable(false);
         txtMiddleName.setEditable(false);
         txtCurrentAddress.setEditable(false);
 

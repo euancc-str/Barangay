@@ -3,6 +3,7 @@ package org.example.Admin;
 
 
 
+import org.example.Admin.AdminSettings.SystemConfigDAO;
 import org.example.BusinessDAO;
 import org.example.ResidentDAO;
 import org.example.Users.BusinessEstablishment;
@@ -1170,12 +1171,16 @@ public class AdminBusinessTab extends JPanel {
         locationPanel.setBorder(BorderFactory.createTitledBorder("Location Information"));
 
 
-        JTextField txtPurok = new JTextField();
+
         JTextField txtAddress = new JTextField();
 
 
         locationPanel.add(new JLabel("Purok:"));
-        locationPanel.add(txtPurok);
+
+
+        String [] puroks = new SystemConfigDAO().getOptionsNature("purok");
+        JComboBox<String> cbPurok = new JComboBox<>(puroks);
+        locationPanel.add(cbPurok);
         locationPanel.add(new JLabel("Street Address:"));
         locationPanel.add(txtAddress);
 
@@ -1268,7 +1273,12 @@ public class AdminBusinessTab extends JPanel {
 
 
             // Location info
-            txtPurok.setText(fullBusiness.getPurok() != null ? fullBusiness.getPurok() : "");
+            if(fullBusiness.getPurok() != null){
+                cbPurok.setSelectedItem(fullBusiness.getPurok());
+            }else{
+                cbPurok.setSelectedIndex(0);
+            }
+
             txtAddress.setText(fullBusiness.getStreetAddress() != null ? fullBusiness.getStreetAddress() : "");
 
 
@@ -1345,7 +1355,7 @@ public class AdminBusinessTab extends JPanel {
             String ownerIdStr = txtOwnerId.getText().trim();
             String businessNature = txtNature.getText().trim();
             String permitNo = txtPermitNo.getText().trim();
-            String purok = txtPurok.getText().trim();
+            String purok = cbPurok.getSelectedItem().toString();
             String address = txtAddress.getText().trim();
             String capitalStr = txtCapital.getText().trim();
             String employeeCountStr = txtEmployeeCount.getText().trim();

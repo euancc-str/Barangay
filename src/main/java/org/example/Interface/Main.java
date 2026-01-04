@@ -3,25 +3,7 @@ package org.example.Interface;
 
 
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.Frame;
-import java.awt.GradientPaint;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.GraphicsDevice;
-import java.awt.GraphicsEnvironment;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.GridLayout;
-import java.awt.Image;
-import java.awt.Insets;
-import java.awt.Rectangle;
-import java.awt.RenderingHints;
+import java.awt.*;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.MouseAdapter;
@@ -79,16 +61,10 @@ public class Main {
             g2.dispose();
         }
 
-
-
-
         @Override
         public Insets getBorderInsets(Component c) {
             return new Insets(4, 8, 4, 8);
         }
-
-
-
 
         @Override
         public Insets getBorderInsets(Component c, Insets insets) {
@@ -278,7 +254,10 @@ public class Main {
     public static void main(String[] args) {
         loadPropertiesToSystem();
 
-        JFrame frame = new JFrame("Serbisyong Barangay");
+        // 1. CHECK CONNECTION FIRST (From your previous fix)
+        performStartupConnectionCheck();
+
+        JFrame frame = new JFrame("Serbisyong Barangay\n");
         frame.setUndecorated(true);
         frame.setSize(800, 500);
         frame.setExtendedState(Frame.MAXIMIZED_BOTH);
@@ -286,32 +265,61 @@ public class Main {
         frame.setLocationRelativeTo(null);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        // Set frame icon (optional)
+        // 2. Load Logo (From your previous fix)
         dao = new SystemConfigDAO();
-        String logoPath = dao.getLogoPath();
-        System.out.println(logoPath);
-
         try {
+            String logoPath = dao.getLogoPath();
             ImageIcon icon = new ImageIcon(logoPath);
             frame.setIconImage(icon.getImage());
         } catch (Exception e) {
             System.out.println("Icon not found");
         }
 
-        // Set gradient background for the main frame
+        // 3. MAIN LAYOUT SETUP
         frame.setContentPane(new GradientPanel());
-        frame.setLayout(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
+        frame.setLayout(new BorderLayout()); // ✅ Changed to BorderLayout
 
-        // CENTERED CONTAINER PANEL - This will hold both logo and login form
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.weightx = 1.0;
-        gbc.weighty = 1.0;
-        gbc.fill = GridBagConstraints.BOTH;
+        // --- ✅ NEW: TOP RIGHT EXIT BUTTON ---
+        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        topPanel.setOpaque(false); // Make transparent
+        topPanel.setBorder(BorderFactory.createEmptyBorder(15, 10, 0, 20)); // Padding
 
+        JButton btnExit = new JButton("Exit System");
+        btnExit.setPreferredSize(new Dimension(120, 35));
+        btnExit.setFont(new Font("Arial", Font.BOLD, 12));
+        btnExit.setForeground(Color.WHITE);
+        btnExit.setBackground(new Color(231, 76, 60)); // Red Color
+        btnExit.setBorder(new RoundedBorder(15, new Color(192, 57, 43))); // Darker Red Border
+        btnExit.setFocusPainted(false);
+        btnExit.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnExit.setOpaque(true);
+        btnExit.setContentAreaFilled(true);
+
+        // Hover Effect
+        btnExit.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { btnExit.setBackground(new Color(192, 57, 43)); }
+            public void mouseExited(MouseEvent e) { btnExit.setBackground(new Color(231, 76, 60)); }
+        });
+
+        // Action: Exit
+        btnExit.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(frame,
+                    "Are you sure you want to exit the application?",
+                    "Exit System",
+                    JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                System.exit(0);
+            }
+        });
+
+        topPanel.add(btnExit);
+        frame.add(topPanel, BorderLayout.NORTH);
+        // -------------------------------------
+
+        // 4. CENTER CONTAINER (Logo & Login Form)
+        // We keep the internal GridBagLayout so the form stays centered in the middle of the screen
         JPanel centerContainer = new JPanel();
-        centerContainer.setOpaque(false); // Make transparent to show gradient background
+        centerContainer.setOpaque(false);
         centerContainer.setLayout(new GridBagLayout());
 
         GridBagConstraints containerGbc = new GridBagConstraints();
@@ -319,7 +327,7 @@ public class Main {
         containerGbc.anchor = GridBagConstraints.CENTER;
         containerGbc.insets = new Insets(0, 0, 0, 0);
 
-        // LOGO AT THE TOP - CENTERED
+        // --- (EXISTING LOGO & TITLE CODE) ---
         containerGbc.gridy = 0;
         containerGbc.insets = new Insets(20, 0, 20, 0);
 
@@ -327,40 +335,38 @@ public class Main {
             String bigLogo = dao.getBigLogoPath();
             ImageIcon originalIcon = new ImageIcon(bigLogo);
             Image originalImage = originalIcon.getImage();
-            // Adjust logo size as needed
             Image resizedImage = originalImage.getScaledInstance(100, 100, Image.SCALE_SMOOTH);
             ImageIcon resizedIcon = new ImageIcon(resizedImage);
             JLabel logoLabel = new JLabel(resizedIcon);
             logoLabel.setHorizontalAlignment(SwingConstants.CENTER);
             centerContainer.add(logoLabel, containerGbc);
         } catch (Exception e) {
-            System.out.println("Logo not found, using placeholder");
             JLabel placeholder = new JLabel("[LOGO]");
             placeholder.setFont(new Font("Arial", Font.BOLD, 16));
             placeholder.setForeground(Color.WHITE);
-            placeholder.setHorizontalAlignment(SwingConstants.CENTER);
             centerContainer.add(placeholder, containerGbc);
         }
 
-        // MAIN TITLE - CENTERED
         containerGbc.gridy = 1;
         containerGbc.insets = new Insets(0, 0, 5, 0);
+
         JLabel mainTitle = new JLabel("Serbisyong Barangay");
+
         mainTitle.setFont(new Font("Arial", Font.BOLD, 28));
         mainTitle.setForeground(Color.WHITE);
         mainTitle.setHorizontalAlignment(SwingConstants.CENTER);
         centerContainer.add(mainTitle, containerGbc);
 
-        // SUBTITLE - CENTERED
         containerGbc.gridy = 2;
         containerGbc.insets = new Insets(0, 0, 30, 0);
-        JLabel subTitle = new JLabel("Documentary Request System");
+        String brgyNameFullPath = new SystemConfigDAO().getConfig("defaultCtcPlace");
+        JLabel subTitle = new JLabel(brgyNameFullPath);
         subTitle.setFont(new Font("Arial", Font.PLAIN, 16));
         subTitle.setForeground(Color.WHITE);
         subTitle.setHorizontalAlignment(SwingConstants.CENTER);
         centerContainer.add(subTitle, containerGbc);
 
-        // LOGIN FORM PANEL - CENTERED
+        // --- (EXISTING LOGIN FORM CODE) ---
         containerGbc.gridy = 3;
         containerGbc.fill = GridBagConstraints.NONE;
         containerGbc.insets = new Insets(0, 0, 0, 0);
@@ -369,14 +375,14 @@ public class Main {
         loginFormPanel.setOpaque(false);
         loginFormPanel.setLayout(new GridBagLayout());
         loginFormPanel.setBorder(BorderFactory.createEmptyBorder(20, 40, 20, 40));
-        loginFormPanel.setBackground(new Color(255, 255, 255, 30)); // Semi-transparent white
+        loginFormPanel.setBackground(new Color(255, 255, 255, 30));
 
         GridBagConstraints formGbc = new GridBagConstraints();
         formGbc.gridx = 0;
         formGbc.fill = GridBagConstraints.HORIZONTAL;
         formGbc.insets = new Insets(5, 20, 5, 20);
 
-        // WELCOME LABEL
+        // Welcome Label
         formGbc.gridy = 0;
         formGbc.insets = new Insets(0, 20, 20, 20);
         JLabel welcomeLabel = new JLabel("WELCOME!");
@@ -395,22 +401,16 @@ public class Main {
 
         formGbc.gridy = 2;
         formGbc.insets = new Insets(0, 20, 15, 20);
-        // Create a panel for icon + text field
         JPanel usernamePanel = new JPanel(new BorderLayout(5, 0));
         usernamePanel.setOpaque(false);
-
-        // Add icon on the left
         JLabel usernameIcon = new JLabel(createIcon("profile.png", 32, 32));
         usernamePanel.add(usernameIcon, BorderLayout.WEST);
-
-        // Add text field on the right with placeholder
         PlaceholderTextField usernameField = new PlaceholderTextField("Enter your username");
         usernameField.setPreferredSize(new Dimension(200, 35));
         usernameField.setBorder(new RoundedBorder(15, Color.WHITE));
         usernameField.setOpaque(true);
         usernameField.setBackground(Color.WHITE);
         usernamePanel.add(usernameField, BorderLayout.CENTER);
-
         loginFormPanel.add(usernamePanel, formGbc);
 
         // Password
@@ -423,27 +423,19 @@ public class Main {
 
         formGbc.gridy = 4;
         formGbc.insets = new Insets(0, 20, 20, 20);
-        // Create a panel for icon + password field
         JPanel passwordPanel = new JPanel(new BorderLayout(5, 0));
         passwordPanel.setOpaque(false);
-
-        // Add icon on the left
         JLabel passwordIcon = new JLabel(createIcon("password.png", 32, 32));
         passwordPanel.add(passwordIcon, BorderLayout.WEST);
-
-        // Add password field on the right
         JPasswordField passwordField = new JPasswordField();
         passwordField.setPreferredSize(new Dimension(200, 35));
         passwordField.setBorder(new RoundedBorder(15, Color.WHITE));
         passwordField.setOpaque(true);
         passwordField.setBackground(Color.WHITE);
-        // Set placeholder for password field using echo char trick
         passwordField.setEchoChar((char) 0);
         passwordField.setText("Enter your password");
         passwordField.setForeground(Color.GRAY);
-
         passwordField.addFocusListener(new FocusAdapter() {
-            @Override
             public void focusGained(FocusEvent e) {
                 if (String.valueOf(passwordField.getPassword()).equals("Enter your password")) {
                     passwordField.setText("");
@@ -451,8 +443,6 @@ public class Main {
                     passwordField.setEchoChar('•');
                 }
             }
-
-            @Override
             public void focusLost(FocusEvent e) {
                 if (passwordField.getPassword().length == 0) {
                     passwordField.setEchoChar((char) 0);
@@ -461,7 +451,6 @@ public class Main {
                 }
             }
         });
-
         passwordPanel.add(passwordField, BorderLayout.CENTER);
         loginFormPanel.add(passwordPanel, formGbc);
 
@@ -477,84 +466,45 @@ public class Main {
         loginButton.setOpaque(true);
         loginButton.setContentAreaFilled(true);
         loginButton.setFocusPainted(false);
-
         loginButton.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                loginButton.setBackground(new Color(80, 80, 80));
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                loginButton.setBackground(new Color(50, 50, 50));
-            }
+            public void mouseEntered(MouseEvent e) { loginButton.setBackground(new Color(80, 80, 80)); }
+            public void mouseExited(MouseEvent e) { loginButton.setBackground(new Color(50, 50, 50)); }
         });
-        // LOGIN ACTION LISTENER
+
         loginButton.addActionListener(e -> {
             String username = usernameField.getText().trim();
             String password = new String(passwordField.getPassword()).trim();
-
-            if (username.isEmpty()) {
-                JOptionPane.showMessageDialog(frame,
-                        "Please enter your username.",
-                        "Username Required",
-                        JOptionPane.WARNING_MESSAGE);
+            if (username.isEmpty() || password.isEmpty()) {
+                JOptionPane.showMessageDialog(frame, "Please enter your credentials.", "Required", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
-            if (password.isEmpty()) {
-                JOptionPane.showMessageDialog(frame,
-                        "Please enter your password.",
-                        "Password Required",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
             BarangayStaff staff = UserDataManager.getInstance().validateStaffLogin(username, password);
             if (staff != null && staff.getStatus().equals("Active")) {
-                // 1. Show Loading Screen
                 JDialog loader = createLoadingDialog(frame);
-                // 2. Use SwingWorker to handle the transition smoothly
                 SwingWorker<Void, Void> worker = new SwingWorker<>() {
-                    @Override
-                    protected Void doInBackground() throws Exception {
-                        Thread.sleep(1750);
-                        return null;
-                    }
-
-                    @Override
+                    protected Void doInBackground() throws Exception { Thread.sleep(1750); return null; }
                     protected void done() {
                         try {
                             UserDataManager.getInstance().setCurrentStaff(staff);
-
-                            if (staff.getRole().equals("Brgy.Secretary")) {
-                                openSecretaryWithLoader(frame, staff);
-                            } else if (staff.getRole().equals("Brgy.Captain")) {
-                                openCaptainDashboard(staff);
-                            } else if (staff.getRole().equals("Brgy.Treasurer")) {
-                                openTreasurerDashboard(staff);
-                            } else {
-                                new Main().openAdminDashboard(staff);
-                            }
-
+                            if (staff.getRole().equals("Brgy.Secretary")) openSecretaryWithLoader(frame, staff);
+                            else if (staff.getRole().equals("Brgy.Captain")) openCaptainDashboard(staff);
+                            else if (staff.getRole().equals("Brgy.Treasurer")) openTreasurerDashboard(staff);
+                            else new Main().openAdminDashboard(staff);
                             loader.dispose();
                             frame.dispose();
-
-                        } catch (Exception ex) {
-                            ex.printStackTrace();
-                        }
+                        } catch (Exception ex) { ex.printStackTrace(); }
                     }
                 };
-
                 worker.execute();
                 loader.setVisible(true);
             } else {
                 JOptionPane.showMessageDialog(frame, "Invalid username or password", "Login Failed", JOptionPane.ERROR_MESSAGE);
             }
         });
-
         loginFormPanel.add(loginButton, formGbc);
 
-        // Server Settings Button
+        // Settings Button
         formGbc.gridy = 6;
         formGbc.insets = new Insets(10, 20, 10, 20);
         JButton btnSettings = new JButton("⚙ Server Settings");
@@ -567,17 +517,14 @@ public class Main {
         btnSettings.addActionListener(e -> showServerSettings());
         loginFormPanel.add(btnSettings, formGbc);
 
-        // Add the login form panel to the center container
         centerContainer.add(loginFormPanel, containerGbc);
 
-        // Add the center container to the frame
-        frame.add(centerContainer, gbc);
-
-        // Perform startup connection check
-        performStartupConnectionCheck();
+        // ✅ Add Center Container to BORDER LAYOUT CENTER
+        frame.add(centerContainer, BorderLayout.CENTER);
 
         frame.setVisible(true);
     }
+
     private static void openSecretaryWithLoader(JFrame loginFrame, BarangayStaff staff) {
         // 1. Create a transparent, undecorated dialog
         JDialog loader = new JDialog(loginFrame, true);

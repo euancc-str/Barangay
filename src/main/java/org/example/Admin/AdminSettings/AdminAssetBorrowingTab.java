@@ -1,12 +1,5 @@
 package org.example.Admin.AdminSettings;
 
-
-
-
-
-
-
-
 import org.example.Admin.SystemLogDAO;
 import org.example.BorrowingDAO;
 import org.example.BarangayAssetDAO;
@@ -14,13 +7,6 @@ import org.example.ResidentDAO;
 import org.example.Users.BarangayAsset;
 import org.example.Users.BorrowRecord;
 import org.example.Users.Resident;
-
-
-
-
-
-
-
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -33,27 +19,20 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.Date;
 import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.DayOfWeek;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.ArrayList;
-
-
-
-
-
-
+import java.util.Calendar;
+import java.awt.print.*;
+import java.text.MessageFormat;
+import java.util.*; // Add this import for java.util.Date
 
 
 public class AdminAssetBorrowingTab extends JPanel {
-
-
-
-
-
-
-
 
     // Enhanced Color scheme
     private final Color PRIMARY_COLOR = new Color(0, 102, 204);      // Blue
@@ -67,12 +46,10 @@ public class AdminAssetBorrowingTab extends JPanel {
     private final Color TABLE_HEADER_COLOR = new Color(52, 73, 94);  // Dark Blue
     private final Color SHADOW_COLOR = new Color(0, 0, 0, 20);
 
-
-
-
-
-
-
+    // Calendar color variables (copied from SecretaryPrintDocument)
+    private final Color MODERN_BLUE = new Color(66, 133, 244);
+    private final Color LIGHT_GREY = new Color(248, 249, 250);
+    private final Color DARK_GREY = new Color(52, 58, 64);
 
     // Enhanced Fonts
     private final Font HEADER_FONT = new Font("Segoe UI", Font.BOLD, 28);
@@ -83,13 +60,6 @@ public class AdminAssetBorrowingTab extends JPanel {
     private final Font TABLE_FONT = new Font("Segoe UI", Font.PLAIN, 13);
     private final Font TABLE_HEADER_FONT = new Font("Segoe UI Semibold", Font.BOLD, 13);
     private final Font WARNING_FONT = new Font("Segoe UI", Font.BOLD, 14);
-
-
-
-
-
-
-
 
     private JTabbedPane tabbedPane;
     private JTable assetTable;
@@ -105,12 +75,20 @@ public class AdminAssetBorrowingTab extends JPanel {
     private JLabel borrowingStatsLabel;
     private JLabel historyStatsLabel;
 
+    // Date filter fields for each tab
+    private JButton dateFilterBtn; // For history tab
+    private JButton assetDateFilterBtn; // For asset tab
+    private JButton borrowingDateFilterBtn; // For borrowing tab
 
+    // Selected dates for each tab
+    private java.util.Date selectedDate; // History tab
+    private java.util.Date selectedAssetDate; // Asset tab
+    private java.util.Date selectedBorrowingDate; // Borrowing tab
 
-
-
-
-
+    // Add missing combo box declaration
+    private JComboBox<String> historyFilterCombo;
+    private JComboBox<String> assetDateTypeCombo;
+    private JComboBox<String> borrowingDateTypeCombo;
 
     // Regex patterns for validation
     private final String NAME_REGEX = "^[a-zA-Z0-9\\s\\-\\.,&()]+$";
@@ -122,43 +100,18 @@ public class AdminAssetBorrowingTab extends JPanel {
     private final String CUSTODIAN_REGEX = "^[A-Za-z\\s\\.,]+$";
 
 
-
-
-
-
-
-
     public AdminAssetBorrowingTab() {
         setLayout(new BorderLayout());
         setBackground(BG_COLOR);
         setBorder(new EmptyBorder(10, 10, 10, 10));
-
-
-
-
-
-
-
 
         SwingUtilities.invokeLater(this::initializeUI);
         startSmartPolling();
     }
 
 
-
-
-
-
-
-
     private javax.swing.Timer smartTimer;
     private int lastAssetMaxId = 0;
-
-
-
-
-
-
 
 
     private void startSmartPolling() {
@@ -170,12 +123,6 @@ public class AdminAssetBorrowingTab extends JPanel {
         });
         smartTimer.start();
     }
-
-
-
-
-
-
 
 
     private void initializeLastAssetMaxId() {
@@ -191,12 +138,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             }
 
 
-
-
-
-
-
-
             @Override
             protected void done() {
                 try {
@@ -207,12 +148,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             }
         }.execute();
     }
-
-
-
-
-
-
 
 
     private void checkForAssetUpdates() {
@@ -231,13 +166,6 @@ public class AdminAssetBorrowingTab extends JPanel {
                 return false;
             }
 
-
-
-
-
-
-
-
             @Override
             protected void done() {
                 try {
@@ -250,12 +178,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             }
         }.execute();
     }
-
-
-
-
-
-
 
 
     private void updateLastAssetMaxId() {
@@ -271,12 +193,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             }
 
 
-
-
-
-
-
-
             @Override
             protected void done() {
                 try {
@@ -289,22 +205,9 @@ public class AdminAssetBorrowingTab extends JPanel {
     }
 
 
-
-
-
-
-
-
     private void initializeUI() {
         // Create gradient header panel
         JPanel headerPanel = createHeaderPanel();
-
-
-
-
-
-
-
 
         // Create tabbed pane with modern styling
         tabbedPane = new JTabbedPane(JTabbedPane.TOP);
@@ -315,22 +218,9 @@ public class AdminAssetBorrowingTab extends JPanel {
                 new EmptyBorder(0, 0, 0, 0)
         ));
 
-
-
-
-
-
-
-
         // Tab 1: Asset Management
         JPanel assetPanel = createAssetPanel();
         tabbedPane.addTab("📦 Assets & Inventory", assetPanel);
-
-
-
-
-
-
 
 
         // Tab 2: Borrowing Management
@@ -338,21 +228,9 @@ public class AdminAssetBorrowingTab extends JPanel {
         tabbedPane.addTab("📝 Borrowing Transactions", borrowingPanel);
 
 
-
-
-
-
-
-
         // Tab 3: Borrowing History
         JPanel historyPanel = createHistoryPanel();
         tabbedPane.addTab("📊 Borrowing History", historyPanel);
-
-
-
-
-
-
 
 
         // Custom tab colors
@@ -360,12 +238,6 @@ public class AdminAssetBorrowingTab extends JPanel {
             tabbedPane.setBackgroundAt(i, Color.WHITE);
             tabbedPane.setForegroundAt(i, TABLE_HEADER_COLOR);
         }
-
-
-
-
-
-
 
 
         // Main container with shadow effect
@@ -378,21 +250,8 @@ public class AdminAssetBorrowingTab extends JPanel {
         mainContainer.add(tabbedPane, BorderLayout.CENTER);
 
 
-
-
-
-
-
-
         add(headerPanel, BorderLayout.NORTH);
         add(mainContainer, BorderLayout.CENTER);
-
-
-
-
-
-
-
 
         // Load initial data
         loadAssetData();
@@ -402,21 +261,10 @@ public class AdminAssetBorrowingTab extends JPanel {
 
 
 
-
-
-
-
-
     private JPanel createHeaderPanel() {
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(new Color(52, 73, 94));
         headerPanel.setBorder(new EmptyBorder(20, 30, 20, 30));
-
-
-
-
-
-
 
 
         JLabel titleLabel = new JLabel("🏢 Asset & Borrowing Management");
@@ -556,6 +404,85 @@ public class AdminAssetBorrowingTab extends JPanel {
 
 
 
+        // DATE FILTER SECTION FOR ASSETS
+        JLabel dateLabel = new JLabel("  Date:");
+        dateLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
+        // Date type combo for assets
+        assetDateTypeCombo = new JComboBox<>(new String[]{
+                "Date Acquired", "Purchase Date"
+        });
+        assetDateTypeCombo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        assetDateTypeCombo.setBackground(Color.WHITE);
+        assetDateTypeCombo.setBorder(new RoundBorder(4, new Color(206, 212, 218)));
+        assetDateTypeCombo.setPreferredSize(new Dimension(120, 35));
+
+        // Modern date filter button for assets
+        assetDateFilterBtn = new JButton("📅 Select Date") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (selectedAssetDate == null) {
+                    g2d.setColor(new Color(233, 236, 239));
+                    g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                } else {
+                    GradientPaint gradient = new GradientPaint(
+                            0, 0, MODERN_BLUE,
+                            getWidth(), getHeight(), new Color(26, 115, 232)
+                    );
+                    g2d.setPaint(gradient);
+                    g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                }
+                super.paintComponent(g2d);
+            }
+        };
+        assetDateFilterBtn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        assetDateFilterBtn.setForeground(selectedAssetDate == null ? Color.DARK_GRAY : Color.WHITE);
+        assetDateFilterBtn.setFocusPainted(false);
+        assetDateFilterBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        assetDateFilterBtn.setBorder(new RoundBorder(8, new Color(206, 212, 218)));
+        assetDateFilterBtn.setContentAreaFilled(false);
+        assetDateFilterBtn.setOpaque(false);
+        assetDateFilterBtn.setPreferredSize(new Dimension(140, 35));
+        assetDateFilterBtn.addActionListener(e -> showModernDatePickerForAsset());
+
+        // Clear date button for assets
+        JButton clearAssetDateBtn = new JButton("Clear") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setColor(new Color(233, 236, 239));
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                super.paintComponent(g2d);
+            }
+        };
+        clearAssetDateBtn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        clearAssetDateBtn.setForeground(Color.DARK_GRAY);
+        clearAssetDateBtn.setFocusPainted(false);
+        clearAssetDateBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        clearAssetDateBtn.setBorder(new RoundBorder(8, new Color(206, 212, 218)));
+        clearAssetDateBtn.setContentAreaFilled(false);
+        clearAssetDateBtn.setOpaque(false);
+        clearAssetDateBtn.setPreferredSize(new Dimension(80, 35));
+        clearAssetDateBtn.addActionListener(e -> {
+            selectedAssetDate = null;
+            assetDateFilterBtn.setText("📅 Select Date");
+            assetDateFilterBtn.setForeground(Color.DARK_GRAY);
+            assetDateFilterBtn.repaint();
+            clearAssetDateBtn.repaint();
+            filterAssetTable();
+        });
+
+
+
+
+
+
+
+
         JButton btnClearSearch = createIconButton("✕", "Clear search");
         btnClearSearch.addActionListener(e -> {
             assetSearchField.setText("");
@@ -573,6 +500,11 @@ public class AdminAssetBorrowingTab extends JPanel {
         searchComponents.setBackground(Color.WHITE);
         searchComponents.add(assetSearchField);
         searchComponents.add(searchFilterCombo);
+        searchComponents.add(dateLabel);
+        searchComponents.add(assetDateTypeCombo);
+        searchComponents.add(assetDateFilterBtn);
+        searchComponents.add(Box.createHorizontalStrut(5));
+        searchComponents.add(clearAssetDateBtn);
         searchComponents.add(btnClearSearch);
 
 
@@ -810,9 +742,93 @@ public class AdminAssetBorrowingTab extends JPanel {
 
 
 
+        // DATE FILTER SECTION FOR BORROWING
+        JLabel borrowingDateLabel = new JLabel("  Date:");
+        borrowingDateLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
+        // Date type combo for borrowing
+        borrowingDateTypeCombo = new JComboBox<>(new String[]{
+                "Date Borrowed", "Due Date"
+        });
+        borrowingDateTypeCombo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        borrowingDateTypeCombo.setBackground(Color.WHITE);
+        borrowingDateTypeCombo.setBorder(new RoundBorder(4, new Color(206, 212, 218)));
+        borrowingDateTypeCombo.setPreferredSize(new Dimension(120, 35));
+
+        // Modern date filter button for borrowing
+        borrowingDateFilterBtn = new JButton("📅 Select Date") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (selectedBorrowingDate == null) {
+                    g2d.setColor(new Color(233, 236, 239));
+                    g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                } else {
+                    GradientPaint gradient = new GradientPaint(
+                            0, 0, MODERN_BLUE,
+                            getWidth(), getHeight(), new Color(26, 115, 232)
+                    );
+                    g2d.setPaint(gradient);
+                    g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                }
+                super.paintComponent(g2d);
+            }
+        };
+        borrowingDateFilterBtn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        borrowingDateFilterBtn.setForeground(selectedBorrowingDate == null ? Color.DARK_GRAY : Color.WHITE);
+        borrowingDateFilterBtn.setFocusPainted(false);
+        borrowingDateFilterBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        borrowingDateFilterBtn.setBorder(new RoundBorder(8, new Color(206, 212, 218)));
+        borrowingDateFilterBtn.setContentAreaFilled(false);
+        borrowingDateFilterBtn.setOpaque(false);
+        borrowingDateFilterBtn.setPreferredSize(new Dimension(140, 35));
+        borrowingDateFilterBtn.addActionListener(e -> showModernDatePickerForBorrowing());
+
+        // Clear date button for borrowing
+        JButton clearBorrowingDateBtn = new JButton("Clear") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setColor(new Color(233, 236, 239));
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                super.paintComponent(g2d);
+            }
+        };
+        clearBorrowingDateBtn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        clearBorrowingDateBtn.setForeground(Color.DARK_GRAY);
+        clearBorrowingDateBtn.setFocusPainted(false);
+        clearBorrowingDateBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        clearBorrowingDateBtn.setBorder(new RoundBorder(8, new Color(206, 212, 218)));
+        clearBorrowingDateBtn.setContentAreaFilled(false);
+        clearBorrowingDateBtn.setOpaque(false);
+        clearBorrowingDateBtn.setPreferredSize(new Dimension(80, 35));
+        clearBorrowingDateBtn.addActionListener(e -> {
+            selectedBorrowingDate = null;
+            borrowingDateFilterBtn.setText("📅 Select Date");
+            borrowingDateFilterBtn.setForeground(Color.DARK_GRAY);
+            borrowingDateFilterBtn.repaint();
+            clearBorrowingDateBtn.repaint();
+            filterBorrowingTable();
+        });
+
+
+
+
+
+
+
+
         JPanel searchComponents = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         searchComponents.setBackground(Color.WHITE);
         searchComponents.add(borrowingSearchField);
+        searchComponents.add(borrowingDateLabel);
+        searchComponents.add(borrowingDateTypeCombo);
+        searchComponents.add(borrowingDateFilterBtn);
+        searchComponents.add(Box.createHorizontalStrut(5));
+        searchComponents.add(clearBorrowingDateBtn);
         searchComponents.add(btnClearBorrowingSearch);
 
 
@@ -1029,7 +1045,8 @@ public class AdminAssetBorrowingTab extends JPanel {
 
 
 
-        JComboBox<String> historyFilterCombo = new JComboBox<>(new String[]{
+        // FIXED: Use class field instead of local variable
+        historyFilterCombo = new JComboBox<>(new String[]{
                 "All", "Good Condition", "Damaged", "Lost", "Overdue Returns"
         });
         historyFilterCombo.setFont(FIELD_FONT);
@@ -1042,10 +1059,84 @@ public class AdminAssetBorrowingTab extends JPanel {
 
 
 
+        // DATE FILTER SECTION (copied from SecretaryPrintDocument)
+        JLabel dateLabel = new JLabel("  Date:");
+        dateLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
+        // Modern date filter button
+        dateFilterBtn = new JButton("📅 Select Date") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (selectedDate == null) {
+                    g2d.setColor(new Color(233, 236, 239));
+                    g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                } else {
+                    GradientPaint gradient = new GradientPaint(
+                            0, 0, MODERN_BLUE,
+                            getWidth(), getHeight(), new Color(26, 115, 232)
+                    );
+                    g2d.setPaint(gradient);
+                    g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                }
+                super.paintComponent(g2d);
+            }
+        };
+        dateFilterBtn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        dateFilterBtn.setForeground(selectedDate == null ? Color.DARK_GRAY : Color.WHITE);
+        dateFilterBtn.setFocusPainted(false);
+        dateFilterBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        dateFilterBtn.setBorder(new RoundBorder(8, new Color(206, 212, 218)));
+        dateFilterBtn.setContentAreaFilled(false);
+        dateFilterBtn.setOpaque(false);
+        dateFilterBtn.setPreferredSize(new Dimension(140, 35));
+        dateFilterBtn.addActionListener(e -> showModernDatePickerForHistory());
+
+        // Clear date button
+        JButton clearDateBtn = new JButton("Clear") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setColor(new Color(233, 236, 239));
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                super.paintComponent(g2d);
+            }
+        };
+        clearDateBtn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        clearDateBtn.setForeground(Color.DARK_GRAY);
+        clearDateBtn.setFocusPainted(false);
+        clearDateBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        clearDateBtn.setBorder(new RoundBorder(8, new Color(206, 212, 218)));
+        clearDateBtn.setContentAreaFilled(false);
+        clearDateBtn.setOpaque(false);
+        clearDateBtn.setPreferredSize(new Dimension(80, 35));
+        clearDateBtn.addActionListener(e -> {
+            selectedDate = null;
+            dateFilterBtn.setText("📅 Select Date");
+            dateFilterBtn.setForeground(Color.DARK_GRAY);
+            dateFilterBtn.repaint();
+            clearDateBtn.repaint();
+            filterHistoryTable();
+        });
+
+
+
+
+
+
+
+
         JPanel searchComponents = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         searchComponents.setBackground(Color.WHITE);
         searchComponents.add(historySearchField);
         searchComponents.add(historyFilterCombo);
+        searchComponents.add(dateLabel);
+        searchComponents.add(dateFilterBtn);
+        searchComponents.add(Box.createHorizontalStrut(5));
+        searchComponents.add(clearDateBtn);
         searchComponents.add(btnClearHistorySearch);
 
 
@@ -1205,6 +1296,504 @@ public class AdminAssetBorrowingTab extends JPanel {
 
 
         return panel;
+    }
+
+    // =========================================================================
+    //  CALENDAR IMPLEMENTATION FOR EACH TAB
+    // =========================================================================
+
+    private void showModernDatePickerForHistory() {
+        showModernDatePicker(dateFilterBtn, (date) -> {
+            selectedDate = date;
+            filterHistoryTable();
+        });
+    }
+
+    private void showModernDatePickerForAsset() {
+        showModernDatePicker(assetDateFilterBtn, (date) -> {
+            selectedAssetDate = date;
+            filterAssetTable();
+        });
+    }
+
+    private void showModernDatePickerForBorrowing() {
+        showModernDatePicker(borrowingDateFilterBtn, (date) -> {
+            selectedBorrowingDate = date;
+            filterBorrowingTable();
+        });
+    }
+
+    private void showModernDatePicker(JButton targetButton, java.util.function.Consumer<java.util.Date> dateSetter) {
+        // Create a modern popup window for calendar
+        JDialog dateDialog = new JDialog((Frame)SwingUtilities.getWindowAncestor(this), "Select Date", true);
+        dateDialog.setLayout(new BorderLayout());
+        dateDialog.setResizable(false);
+        dateDialog.getContentPane().setBackground(LIGHT_GREY);
+
+        // Main container panel
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        mainPanel.setBackground(LIGHT_GREY);
+
+        // Create modern calendar panel with shadow effect
+        JPanel calendarPanel = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                // Draw shadow
+                g2d.setColor(new Color(0, 0, 0, 20));
+                g2d.fillRoundRect(2, 2, getWidth()-4, getHeight()-4, 15, 15);
+
+                // Draw main panel
+                g2d.setColor(Color.WHITE);
+                g2d.fillRoundRect(0, 0, getWidth()-4, getHeight()-4, 15, 15);
+            }
+        };
+        calendarPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        calendarPanel.setOpaque(false);
+        calendarPanel.setPreferredSize(new Dimension(350, 400));
+
+        // Create month navigation with compact styling
+        JPanel monthPanel = new JPanel(new BorderLayout());
+        monthPanel.setOpaque(false);
+        monthPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+
+        // Navigation buttons with modern icons
+        JButton prevMonthBtn = createCompactNavButton("◀");
+        JButton nextMonthBtn = createCompactNavButton("▶");
+
+        // Year and Month Selection Panel
+        JPanel yearMonthPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
+        yearMonthPanel.setOpaque(false);
+
+        // Month ComboBox
+        String[] months = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+        JComboBox<String> monthComboBox = new JComboBox<>(months);
+        monthComboBox.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        monthComboBox.setBackground(Color.WHITE);
+        monthComboBox.setBorder(new RoundBorder(4, new Color(206, 212, 218)));
+        monthComboBox.setFocusable(false);
+        monthComboBox.setPreferredSize(new Dimension(70, 25));
+
+        // Year ComboBox
+        JComboBox<Integer> yearComboBox = new JComboBox<>();
+        yearComboBox.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        yearComboBox.setBackground(Color.WHITE);
+        yearComboBox.setBorder(new RoundBorder(4, new Color(206, 212, 218)));
+        yearComboBox.setFocusable(false);
+        yearComboBox.setPreferredSize(new Dimension(65, 25));
+
+        // Populate years (from 2000 to current year + 10)
+        int currentYear = Calendar.getInstance().get(Calendar.YEAR);
+        for (int year = 2000; year <= currentYear + 10; year++) {
+            yearComboBox.addItem(year);
+        }
+
+        // Initialize calendar
+        final Calendar calendar = Calendar.getInstance();
+        if (targetButton == dateFilterBtn && selectedDate != null) {
+            calendar.setTime(selectedDate);
+        } else if (targetButton == assetDateFilterBtn && selectedAssetDate != null) {
+            calendar.setTime(selectedAssetDate);
+        } else if (targetButton == borrowingDateFilterBtn && selectedBorrowingDate != null) {
+            calendar.setTime(selectedBorrowingDate);
+        }
+
+        // Set initial values for comboboxes
+        monthComboBox.setSelectedIndex(calendar.get(Calendar.MONTH));
+        yearComboBox.setSelectedItem(calendar.get(Calendar.YEAR));
+
+        // Create days panel with compact grid
+        JPanel daysPanel = new JPanel(new GridLayout(6, 7, 2, 2));
+        daysPanel.setOpaque(false);
+        daysPanel.setBorder(BorderFactory.createEmptyBorder(5, 0, 0, 0));
+        daysPanel.setPreferredSize(new Dimension(300, 180));
+
+        // Function to rebuild calendar days
+        java.util.function.Consumer<Void> rebuildCalendarDays = v -> {
+            daysPanel.removeAll();
+
+            // Get current date for comparison
+            final Calendar today = Calendar.getInstance();
+            Calendar tempCal = (Calendar) calendar.clone();
+            tempCal.set(Calendar.DAY_OF_MONTH, 1);
+            int firstDayOfWeek = tempCal.get(Calendar.DAY_OF_WEEK);
+            int daysInMonth = tempCal.getActualMaximum(Calendar.DAY_OF_MONTH);
+
+            // Add empty cells for days before first day of month
+            for (int i = 1; i < firstDayOfWeek; i++) {
+                daysPanel.add(createEmptyDayLabel());
+            }
+
+            // Add day buttons
+            for (int dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+                final int day = dayNum;
+                JButton dayBtn = createDayButton(day, calendar, today, dateDialog, targetButton, dateSetter);
+                daysPanel.add(dayBtn);
+            }
+
+            // Add empty cells for remaining spots
+            int totalCells = daysInMonth + (firstDayOfWeek - 1);
+            int remainingCells = 42 - totalCells;
+            for (int i = 0; i < remainingCells; i++) {
+                daysPanel.add(createEmptyDayLabel());
+            }
+
+            daysPanel.revalidate();
+            daysPanel.repaint();
+        };
+
+        // Build initial calendar
+        rebuildCalendarDays.accept(null);
+
+        // Add action listeners to comboboxes
+        monthComboBox.addActionListener(e -> {
+            int selectedMonth = monthComboBox.getSelectedIndex();
+            calendar.set(Calendar.MONTH, selectedMonth);
+            rebuildCalendarDays.accept(null);
+        });
+
+        yearComboBox.addActionListener(e -> {
+            int selectedYear = (int) yearComboBox.getSelectedItem();
+            calendar.set(Calendar.YEAR, selectedYear);
+            rebuildCalendarDays.accept(null);
+        });
+
+        prevMonthBtn.addActionListener(e -> {
+            calendar.add(Calendar.MONTH, -1);
+            monthComboBox.setSelectedIndex(calendar.get(Calendar.MONTH));
+            yearComboBox.setSelectedItem(calendar.get(Calendar.YEAR));
+            rebuildCalendarDays.accept(null);
+        });
+
+        nextMonthBtn.addActionListener(e -> {
+            calendar.add(Calendar.MONTH, 1);
+            monthComboBox.setSelectedIndex(calendar.get(Calendar.MONTH));
+            yearComboBox.setSelectedItem(calendar.get(Calendar.YEAR));
+            rebuildCalendarDays.accept(null);
+        });
+
+        yearMonthPanel.add(monthComboBox);
+        yearMonthPanel.add(yearComboBox);
+
+        // Today button - FIXED: Use java.util.Date
+        JButton todayBtn = new JButton("Today") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setColor(new Color(233, 236, 239));
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 4, 4);
+                super.paintComponent(g2d);
+            }
+        };
+        todayBtn.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        todayBtn.setForeground(MODERN_BLUE);
+        todayBtn.setFocusPainted(false);
+        todayBtn.setBorder(new RoundBorder(4, new Color(206, 212, 218)));
+        todayBtn.setContentAreaFilled(false);
+        todayBtn.setOpaque(false);
+        todayBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        todayBtn.setPreferredSize(new Dimension(60, 25));
+        todayBtn.addActionListener(e -> {
+            calendar.setTime(new java.util.Date()); // FIXED: Use java.util.Date
+            monthComboBox.setSelectedIndex(calendar.get(Calendar.MONTH));
+            yearComboBox.setSelectedItem(calendar.get(Calendar.YEAR));
+            rebuildCalendarDays.accept(null);
+        });
+
+        // Navigation panel
+        JPanel navPanel = new JPanel(new BorderLayout());
+        navPanel.setOpaque(false);
+
+        JPanel leftNavPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
+        leftNavPanel.setOpaque(false);
+        leftNavPanel.add(prevMonthBtn);
+        leftNavPanel.add(nextMonthBtn);
+
+        JPanel rightNavPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
+        rightNavPanel.setOpaque(false);
+        rightNavPanel.add(todayBtn);
+
+        navPanel.add(leftNavPanel, BorderLayout.WEST);
+        navPanel.add(yearMonthPanel, BorderLayout.CENTER);
+        navPanel.add(rightNavPanel, BorderLayout.EAST);
+
+        monthPanel.add(navPanel, BorderLayout.CENTER);
+
+        // Create compact day headers panel
+        JPanel dayHeaderPanel = new JPanel(new GridLayout(1, 7, 2, 2));
+        dayHeaderPanel.setOpaque(false);
+        dayHeaderPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
+        dayHeaderPanel.setPreferredSize(new Dimension(300, 25));
+
+        String[] dayNames = {"S", "M", "T", "W", "T", "F", "S"};
+        for (String day : dayNames) {
+            JLabel dayLabel = new JLabel(day, SwingConstants.CENTER);
+            dayLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            dayLabel.setForeground(new Color(108, 117, 125));
+            dayHeaderPanel.add(dayLabel);
+        }
+
+        // Add footer with action buttons
+        JPanel footerPanel = new JPanel(new BorderLayout());
+        footerPanel.setOpaque(false);
+        footerPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        buttonPanel.setOpaque(false);
+
+        JButton cancelBtn = createCompactDialogButton("Cancel", new Color(108, 117, 125));
+        cancelBtn.addActionListener(e -> dateDialog.dispose());
+
+        JButton selectBtn = createCompactDialogButton("Select", MODERN_BLUE);
+        selectBtn.addActionListener(e -> {
+            // Use the current calendar date if no specific day was selected
+            if (targetButton == dateFilterBtn && selectedDate == null) {
+                selectedDate = calendar.getTime();
+            } else if (targetButton == assetDateFilterBtn && selectedAssetDate == null) {
+                selectedAssetDate = calendar.getTime();
+            } else if (targetButton == borrowingDateFilterBtn && selectedBorrowingDate == null) {
+                selectedBorrowingDate = calendar.getTime();
+            }
+
+            // Update the button text
+            java.util.Date dateToUse = targetButton == dateFilterBtn ? selectedDate :
+                    targetButton == assetDateFilterBtn ? selectedAssetDate :
+                            selectedBorrowingDate;
+
+            if (dateToUse != null) {
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+                targetButton.setText("📅 " + sdf.format(dateToUse));
+                targetButton.setForeground(Color.WHITE);
+                targetButton.repaint();
+                dateDialog.dispose();
+
+                // Call the appropriate filter method
+                if (targetButton == dateFilterBtn) {
+                    filterHistoryTable();
+                } else if (targetButton == assetDateFilterBtn) {
+                    filterAssetTable();
+                } else if (targetButton == borrowingDateFilterBtn) {
+                    filterBorrowingTable();
+                }
+            }
+        });
+
+        buttonPanel.add(cancelBtn);
+        buttonPanel.add(selectBtn);
+        footerPanel.add(buttonPanel, BorderLayout.EAST);
+
+        calendarPanel.add(monthPanel, BorderLayout.NORTH);
+        calendarPanel.add(dayHeaderPanel, BorderLayout.CENTER);
+        calendarPanel.add(daysPanel, BorderLayout.SOUTH);
+
+        mainPanel.add(calendarPanel, BorderLayout.CENTER);
+        mainPanel.add(footerPanel, BorderLayout.SOUTH);
+
+        dateDialog.add(mainPanel, BorderLayout.CENTER);
+        dateDialog.pack();
+
+        // Center the dialog on screen
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        Dimension dialogSize = dateDialog.getSize();
+        int x = (screenSize.width - dialogSize.width) / 2;
+        int y = (screenSize.height - dialogSize.height) / 2;
+        dateDialog.setLocation(x, y);
+
+        dateDialog.setVisible(true);
+    }
+
+    private JLabel createEmptyDayLabel() {
+        JLabel label = new JLabel("");
+        label.setOpaque(false);
+        return label;
+    }
+
+    private JButton createDayButton(int day, Calendar calendar, Calendar today, JDialog dateDialog,
+                                    JButton targetButton, java.util.function.Consumer<java.util.Date> dateSetter) {
+        // Determine if this day is selected
+        java.util.Date currentSelectedDate = null;
+        if (targetButton == dateFilterBtn) {
+            currentSelectedDate = selectedDate;
+        } else if (targetButton == assetDateFilterBtn) {
+            currentSelectedDate = selectedAssetDate;
+        } else if (targetButton == borrowingDateFilterBtn) {
+            currentSelectedDate = selectedBorrowingDate;
+        }
+
+        final boolean isSelectedForThisButton;
+        if (currentSelectedDate != null) {
+            Calendar selectedCal = Calendar.getInstance();
+            selectedCal.setTime(currentSelectedDate);
+            isSelectedForThisButton = calendar.get(Calendar.YEAR) == selectedCal.get(Calendar.YEAR) &&
+                    calendar.get(Calendar.MONTH) == selectedCal.get(Calendar.MONTH) &&
+                    day == selectedCal.get(Calendar.DAY_OF_MONTH);
+        } else {
+            isSelectedForThisButton = false;
+        }
+
+        final boolean isTodayForThisButton = calendar.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+                calendar.get(Calendar.MONTH) == today.get(Calendar.MONTH) &&
+                day == today.get(Calendar.DAY_OF_MONTH);
+
+        JButton dayBtn = new JButton(String.valueOf(day)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (isTodayForThisButton) {
+                    g2d.setColor(new Color(66, 133, 244, 30));
+                    g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                    g2d.setColor(MODERN_BLUE);
+                    g2d.setStroke(new BasicStroke(1));
+                    g2d.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 12, 12);
+                }
+
+                if (isSelectedForThisButton) {
+                    GradientPaint gradient = new GradientPaint(
+                            0, 0, MODERN_BLUE,
+                            getWidth(), getHeight(), new Color(26, 115, 232)
+                    );
+                    g2d.setPaint(gradient);
+                    g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                }
+
+                super.paintComponent(g2d);
+            }
+        };
+
+        dayBtn.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        dayBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        dayBtn.setFocusPainted(false);
+        dayBtn.setBorderPainted(false);
+        dayBtn.setContentAreaFilled(false);
+        dayBtn.setOpaque(false);
+        dayBtn.setBorder(new EmptyBorder(1, 1, 1, 1));
+        dayBtn.setPreferredSize(new Dimension(40, 30));
+
+        // Set foreground color
+        if (isSelectedForThisButton) {
+            dayBtn.setForeground(Color.WHITE);
+        } else if (isTodayForThisButton) {
+            dayBtn.setForeground(MODERN_BLUE);
+        } else {
+            dayBtn.setForeground(DARK_GREY);
+        }
+
+        // Add hover effect
+        final JButton finalDayBtn = dayBtn;
+        dayBtn.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                if (!isSelectedForThisButton) {
+                    finalDayBtn.setBackground(new Color(66, 133, 244, 15));
+                    finalDayBtn.repaint();
+                }
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                finalDayBtn.setBackground(null);
+                finalDayBtn.repaint();
+            }
+        });
+
+        dayBtn.addActionListener(e -> {
+            calendar.set(Calendar.DAY_OF_MONTH, day);
+            // FIXED: Use java.util.Date
+            java.util.Date newDate = calendar.getTime();
+
+            // Set the date using the provided consumer
+            dateSetter.accept(newDate);
+
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+            targetButton.setText("📅 " + sdf.format(newDate));
+            targetButton.setForeground(Color.WHITE);
+            targetButton.repaint();
+            dateDialog.dispose();
+
+            // Call the appropriate filter method
+            if (targetButton == dateFilterBtn) {
+                filterHistoryTable();
+            } else if (targetButton == assetDateFilterBtn) {
+                filterAssetTable();
+            } else if (targetButton == borrowingDateFilterBtn) {
+                filterBorrowingTable();
+            }
+        });
+
+        return dayBtn;
+    }
+
+    private JButton createCompactNavButton(String text) {
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (getModel().isPressed()) {
+                    g2d.setColor(new Color(66, 133, 244, 150));
+                } else if (getModel().isRollover()) {
+                    g2d.setColor(new Color(66, 133, 244, 30));
+                } else {
+                    g2d.setColor(new Color(233, 236, 239));
+                }
+
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                super.paintComponent(g2d);
+            }
+        };
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btn.setForeground(MODERN_BLUE);
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setOpaque(false);
+        btn.setPreferredSize(new Dimension(30, 25));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
+    }
+
+    private JButton createCompactDialogButton(String text, Color color) {
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (getModel().isPressed()) {
+                    g2d.setColor(color.darker());
+                } else if (getModel().isRollover()) {
+                    GradientPaint gradient = new GradientPaint(
+                            0, 0, color,
+                            getWidth(), getHeight(), color.darker()
+                    );
+                    g2d.setPaint(gradient);
+                    g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 4, 4);
+                } else {
+                    g2d.setColor(color);
+                }
+
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 4, 4);
+                super.paintComponent(g2d);
+            }
+        };
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btn.setForeground(Color.WHITE);
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setOpaque(false);
+        btn.setPreferredSize(new Dimension(70, 28));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
     }
 
 
@@ -1839,18 +2428,61 @@ public class AdminAssetBorrowingTab extends JPanel {
         TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(assetTableModel);
         assetTable.setRowSorter(sorter);
 
+        List<RowFilter<Object, Object>> filters = new ArrayList<>();
 
-
-
-
-
-
-
-        if (searchText.isEmpty()) {
-            sorter.setRowFilter(null);
-        } else {
-            sorter.setRowFilter(RowFilter.regexFilter("(?i)" + searchText));
+        // Text search with regex for all columns
+        if (searchText != null && !searchText.trim().isEmpty()) {
+            String regexPattern = "(?i)" + java.util.regex.Pattern.quote(searchText.trim());
+            filters.add(new RowFilter<Object, Object>() {
+                @Override
+                public boolean include(Entry<? extends Object, ? extends Object> entry) {
+                    for (int i = 0; i < entry.getValueCount(); i++) {
+                        Object value = entry.getValue(i);
+                        if (value != null && value.toString().toLowerCase().contains(searchText.trim().toLowerCase())) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+            });
         }
+
+        // Date filter for assets (Date Acquired column - index 3)
+        if (selectedAssetDate != null) {
+            final java.util.Date finalSelectedDate = selectedAssetDate;
+            final String dateType = (String) assetDateTypeCombo.getSelectedItem();
+
+            filters.add(new RowFilter<Object, Object>() {
+                @Override
+                public boolean include(Entry<?, ?> entry) {
+                    try {
+                        // Determine which column to check based on date type
+                        int dateColumnIndex = 3; // Default: Date Acquired (index 3)
+
+                        Object val = entry.getValue(dateColumnIndex);
+                        if (!(val instanceof String)) return false;
+
+                        String dateStr = (String) val;
+                        if (dateStr.equals("N/A") || dateStr.isEmpty()) return false;
+
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+                        String selectedDateStr = sdf.format(finalSelectedDate);
+
+                        // Compare date strings (format is yyyy-MM-dd)
+                        return dateStr.startsWith(selectedDateStr);
+
+                    } catch (Exception e) {
+                        return false;
+                    }
+                }
+            });
+        }
+
+        sorter.setRowFilter(filters.isEmpty() ? null : RowFilter.andFilter(filters));
+
+        // Update stats label
+        int count = assetTable.getRowCount();
+        assetStatsLabel.setText("Filtered Assets: " + count);
     }
 
 
@@ -1865,18 +2497,61 @@ public class AdminAssetBorrowingTab extends JPanel {
         TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(borrowingTableModel);
         borrowingTable.setRowSorter(sorter);
 
+        List<RowFilter<Object, Object>> filters = new ArrayList<>();
 
-
-
-
-
-
-
-        if (searchText.isEmpty()) {
-            sorter.setRowFilter(null);
-        } else {
-            sorter.setRowFilter(RowFilter.regexFilter("(?i)" + searchText));
+        // Text search with regex for all columns
+        if (searchText != null && !searchText.trim().isEmpty()) {
+            String regexPattern = "(?i)" + java.util.regex.Pattern.quote(searchText.trim());
+            filters.add(new RowFilter<Object, Object>() {
+                @Override
+                public boolean include(Entry<? extends Object, ? extends Object> entry) {
+                    for (int i = 0; i < entry.getValueCount(); i++) {
+                        Object value = entry.getValue(i);
+                        if (value != null && value.toString().toLowerCase().contains(searchText.trim().toLowerCase())) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+            });
         }
+
+        // Date filter for borrowing
+        if (selectedBorrowingDate != null) {
+            final java.util.Date finalSelectedDate = selectedBorrowingDate;
+            final String dateType = (String) borrowingDateTypeCombo.getSelectedItem();
+
+            filters.add(new RowFilter<Object, Object>() {
+                @Override
+                public boolean include(Entry<?, ?> entry) {
+                    try {
+                        // Determine which column to check based on date type
+                        int dateColumnIndex = dateType.equals("Date Borrowed") ? 3 : 4; // 3=Date Borrowed, 4=Due Date
+
+                        Object val = entry.getValue(dateColumnIndex);
+                        if (!(val instanceof String)) return false;
+
+                        String dateStr = (String) val;
+                        if (dateStr.equals("N/A") || dateStr.isEmpty()) return false;
+
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+                        String selectedDateStr = sdf.format(finalSelectedDate);
+
+                        // Compare date strings (format is yyyy-MM-dd)
+                        return dateStr.startsWith(selectedDateStr);
+
+                    } catch (Exception e) {
+                        return false;
+                    }
+                }
+            });
+        }
+
+        sorter.setRowFilter(filters.isEmpty() ? null : RowFilter.andFilter(filters));
+
+        // Update stats label
+        int count = borrowingTable.getRowCount();
+        borrowingStatsLabel.setText("Filtered Transactions: " + count);
     }
 
 
@@ -1887,22 +2562,68 @@ public class AdminAssetBorrowingTab extends JPanel {
 
 
     private void filterHistoryTable() {
-        String searchText = historySearchField.getText().toLowerCase();
+        String text = historySearchField.getText().toLowerCase();
+        String condition = (String) historyFilterCombo.getSelectedItem(); // FIXED: Now accessible
         TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(historyTableModel);
         historyTable.setRowSorter(sorter);
 
+        List<RowFilter<Object, Object>> filters = new ArrayList<>();
 
-
-
-
-
-
-
-        if (searchText.isEmpty()) {
-            sorter.setRowFilter(null);
-        } else {
-            sorter.setRowFilter(RowFilter.regexFilter("(?i)" + searchText));
+        // Text search with regex for all columns
+        if (text != null && !text.trim().isEmpty()) {
+            String regexPattern = "(?i)" + java.util.regex.Pattern.quote(text.trim());
+            filters.add(new RowFilter<Object, Object>() {
+                @Override
+                public boolean include(Entry<? extends Object, ? extends Object> entry) {
+                    for (int i = 0; i < entry.getValueCount(); i++) {
+                        Object value = entry.getValue(i);
+                        if (value != null && value.toString().toLowerCase().contains(text.trim().toLowerCase())) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+            });
         }
+
+        // Condition filter with exact match regex
+        if (condition != null && !condition.equals("All")) {
+            filters.add(RowFilter.regexFilter("(?i)^" + java.util.regex.Pattern.quote(condition) + "$", 6));
+        }
+
+        // Date filter using selectedDate (for Date Borrowed column - index 3)
+        if (selectedDate != null) {
+            final java.util.Date finalSelectedDate = selectedDate;
+            filters.add(new RowFilter<Object, Object>() {
+                @Override
+                public boolean include(Entry<?, ?> entry) {
+                    try {
+                        Object val = entry.getValue(3); // Date Borrowed column
+                        if (!(val instanceof String)) return false;
+
+                        String dateStr = (String) val;
+                        if (dateStr.equals("N/A") || dateStr.isEmpty()) return false;
+
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+                        String selectedDateStr = sdf.format(finalSelectedDate);
+
+                        // Compare date strings (format is yyyy-MM-dd)
+                        return dateStr.startsWith(selectedDateStr);
+
+                    } catch (Exception e) {
+                        return false;
+                    }
+                }
+            });
+        }
+
+        sorter.setRowFilter(filters.isEmpty() ? null : RowFilter.andFilter(filters));
+        updateHistoryRecordCount();
+    }
+
+    private void updateHistoryRecordCount() {
+        int count = historyTable.getRowCount();
+        historyStatsLabel.setText("Total Records: " + count);
     }
 
 
@@ -4369,6 +5090,31 @@ public class AdminAssetBorrowingTab extends JPanel {
         }
     }
 
+    // =========================================================================
+    //  HELPER CLASSES FOR STYLING (copied from SecretaryPrintDocument)
+    // =========================================================================
+    private static class RoundBorder extends AbstractBorder {
+        private final int radius;
+        private final Color color;
+
+        RoundBorder(int radius, Color color) {
+            this.radius = radius;
+            this.color = color;
+        }
+
+        public void paintBorder(Component c, Graphics g, int x, int y, int w, int h) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(color);
+            g2.drawRoundRect(x, y, w-1, h-1, radius, radius);
+            g2.dispose();
+        }
+
+        public Insets getBorderInsets(Component c) {
+            return new Insets(2, 8, 2, 8);
+        }
+    }
+
 
 
 
@@ -4411,10 +5157,4 @@ public class AdminAssetBorrowingTab extends JPanel {
         });
     }
 }
-
-
-
-
-
-
 

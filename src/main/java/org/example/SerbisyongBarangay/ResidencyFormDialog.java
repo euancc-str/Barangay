@@ -396,7 +396,17 @@ public class ResidencyFormDialog extends JDialog {
         gbc.fill = GridBagConstraints.VERTICAL;
         formPanel.add(Box.createVerticalGlue(), gbc);
 
-
+        txtName.setEditable(false);
+        txtLastName.setEditable(false);
+        txtMiddleName.setEditable(false);
+        txtSuffix.setEditable(false);
+        txtAge.setEditable(false);
+        txtCivilStatus.setEditable(false);
+        txtCitizenship.setEditable(false);
+        street.setEditable(false);
+        txtCurrentAddress.setEditable(false);
+        txtPurok.setEnabled(false);
+        cmbSex.setEnabled(false);
         return formPanel;
     }
 

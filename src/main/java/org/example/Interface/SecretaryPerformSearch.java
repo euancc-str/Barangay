@@ -234,7 +234,7 @@ public class SecretaryPerformSearch extends JPanel {
         cbGender.setSelectedItem(gender);
         cbGender.setEnabled(false);
         cbGender.setBackground(Color.WHITE);
-        addStyledRow(detailsPanel, "Gender:", cbGender);
+        addStyledRow(detailsPanel, "Sex:", cbGender);
 
 
         JTextField txtAge = createStyledTextField(age);
@@ -506,7 +506,7 @@ public class SecretaryPerformSearch extends JPanel {
 
 
         // --- TABLE SETUP ---
-        String[] columnNames = {"ID", "Full Name", "Gender", "Age", "Address"};
+        String[] columnNames = {"ID", "Full Name", "Sex", "Age", "Address"};
 
 
         tableModel = new DefaultTableModel(columnNames, 0) {

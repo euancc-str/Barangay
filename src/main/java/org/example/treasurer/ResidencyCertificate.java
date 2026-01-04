@@ -1,5 +1,7 @@
 package org.example.treasurer;
 
+import org.example.Admin.AdminSettings.SystemConfigDAO;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -30,8 +32,10 @@ public class ResidencyCertificate extends JDialog {
         JLabel h2 = centerLabel("Province of Camarines Norte");
         h2.setFont(new Font("Serif", Font.PLAIN, 12));
         JLabel h3 = centerLabel("Municipality of Daet");
+
         h3.setFont(new Font("Serif", Font.PLAIN, 12));
-        JLabel h4 = centerLabel("BARANGAY ALAWIHAO");
+        String brgyName = new SystemConfigDAO().getConfig("barangay_name");
+        JLabel h4 = centerLabel(brgyName);
         h4.setFont(new Font("Serif", Font.BOLD, 14));
 
         // 2. OFFICE TITLE
@@ -49,17 +53,17 @@ public class ResidencyCertificate extends JDialog {
         // 4. BODY TEXT (The Legal Part)
         JTextArea body = new JTextArea();
         String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("MMMM dd, yyyy"));
-
+        String brgyNameFullPath = new SystemConfigDAO().getConfig("defaultCtcPlace");
         body.setText(
                 "\nTO WHOM IT MAY CONCERN:\n\n" +
                         "      THIS IS TO CERTIFY that " + name.toUpperCase() + ", " + age + " years old, " +
                         status + ", " + citizenship + ", is a bonafide resident of " + address + ", " +
-                        "Barangay Alawihao, Daet, Camarines Norte.\n\n" +
+                        brgyNameFullPath+".\n\n" +
                         "      THIS IS TO CERTIFY FURTHER that he/she is a law-abiding citizen of this " +
                         "community and has no derogatory record on file as of this date.\n\n" +
                         "      This certification is issued upon the request of the interested party for " +
                         "the requirement of: " + purpose.toUpperCase() + ".\n\n" +
-                        "      ISSUED this " + dateStr + " at Barangay Alawihao, Daet, Camarines Norte."
+                        "      ISSUED this " + dateStr + " at "+brgyNameFullPath+"."
         );
 
         body.setFont(new Font("Serif", Font.PLAIN, 14));

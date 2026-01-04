@@ -440,8 +440,8 @@ public class AdminResidentTab extends JPanel {
         String[] genders = new SystemConfigDAO().getOptionsNature("sex");
         JComboBox<String> cbGender = new JComboBox<>(genders);
         cbGender.setBackground(Color.WHITE);
-
-        JTextField txtAddress = createStyledTextField("Barangay Alawihao ");
+        String brgyName = new SystemConfigDAO().getConfig("barangay_name");
+        JTextField txtAddress = createStyledTextField(brgyName);
         String [] dao = new SystemConfigDAO().getOptionsNature("purok");
 
         JComboBox<String> purok = new JComboBox<>(dao);

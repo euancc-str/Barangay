@@ -93,7 +93,7 @@ public class CaptainDashboard extends JFrame {
         contentContainer.add(art, "approved");
         treasurerReportsTab = new TreasurerReportsTab();
         contentContainer.add(treasurerReportsTab, "total");
-        contentContainer.add(new BarangayOfficialProfile(), "profile");
+
         captainScheduleTab = new CaptainScheduleTab();
         contentContainer.add(captainScheduleTab,"schedule");
         captainPWDTab = new CaptainPWDTab();
@@ -186,7 +186,6 @@ public class CaptainDashboard extends JFrame {
 
         sidebar.add(createMenuItem("approved", "Approved Request", false));
         sidebar.add(createMenuItem("total", "Total Transaction", true));
-        sidebar.add(createMenuItem("profile", "Barangay Official Profile", false));
         sidebar.add(createMenuItem("schedule","Schedule",false));
         sidebar.add(createMenuItem("pwd","PWD Tracker",false));
         sidebar.add(createMenuItem("4ps","4ps Tracker",false));

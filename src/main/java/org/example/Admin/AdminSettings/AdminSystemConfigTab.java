@@ -216,6 +216,7 @@ public class AdminSystemConfigTab extends JPanel {
                 JOptionPane.showMessageDialog(this, "Image Updated Successfully!");
             }
         }
+
     }
 
 

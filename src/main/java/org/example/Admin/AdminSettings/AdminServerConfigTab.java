@@ -149,6 +149,8 @@ public class AdminServerConfigTab extends JPanel {
         }
     }
 
+    // In AdminServerConfigTab.java
+
     private void saveSettings() {
         Properties props = new Properties();
         String fullUrl = getGeneratedUrl();
@@ -157,13 +159,21 @@ public class AdminServerConfigTab extends JPanel {
         props.setProperty("db.username", txtUsername.getText());
         props.setProperty("db.password", new String(txtPassword.getPassword()));
 
-        // Escape backslashes for properties file
-        // FIXED: Do NOT manually escape. Properties.store() does it automatically.
         String path = txtImagePath.getText();
         props.setProperty("asset.image.base-path", path);
+
         try (FileOutputStream out = new FileOutputStream(CONFIG_FILE)) {
             props.store(out, "Database Configuration - Updated by Admin");
-            JOptionPane.showMessageDialog(this, "Settings Saved!\nPlease restart the application for changes to take effect.");
+
+            // ✅ FIX: Close the window instead of asking to restart
+            JOptionPane.showMessageDialog(this, "Settings Saved! Reconnecting...", "Success", JOptionPane.INFORMATION_MESSAGE);
+
+            // Get the parent window (JDialog) and close it
+            Window parentWindow = SwingUtilities.getWindowAncestor(this);
+            if (parentWindow != null) {
+                parentWindow.dispose();
+            }
+
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, "Error saving file: " + e.getMessage(), "Save Error", JOptionPane.ERROR_MESSAGE);
         }

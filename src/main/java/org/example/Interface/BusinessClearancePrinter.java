@@ -84,7 +84,8 @@ public class BusinessClearancePrinter implements Printable {
         drawCenteredText(g2d, "Republic of the Philippines", FONT_HEADER, width / 2, y); y += 15;
         drawCenteredText(g2d, "Province of Camarines Norte", FONT_HEADER, width / 2, y); y += 15;
         drawCenteredText(g2d, "Municipality of Daet", FONT_HEADER, width / 2, y); y += 20;
-        drawCenteredText(g2d, "BARANGAY ALAWIHAO", new Font("Arial", Font.BOLD, 16), width / 2, y); y += 30;
+        String brgyName = new SystemConfigDAO().getConfig("barangay_name");
+        drawCenteredText(g2d, brgyName, new Font("Arial", Font.BOLD, 16), width / 2, y); y += 30;
         drawCenteredText(g2d, "OFFICE OF THE PUNONG BARANGAY", FONT_OFFICE, width / 2, y); y += 10;
 
         g2d.setStroke(new BasicStroke(2));

@@ -124,8 +124,8 @@ public class BarangayClearancePrinter implements Printable {
         this.street = addressParts[0];
         this.purok = addressParts[1];
 
-
-        this.barangay = "Alawihao";
+        String brgyName = new SystemConfigDAO().getConfig("barangay_name");
+        this.barangay = brgyName;
         this.municipality = "Municipality of Daet";
         this.province = "Camarines Norte";
 
@@ -267,7 +267,8 @@ public class BarangayClearancePrinter implements Printable {
         drawCenteredText(g2d, "Republic of the Philippines", FONT_HEADER, width / 2, y + 15);
         drawCenteredText(g2d, "Province of Camarines Norte", FONT_HEADER, width / 2, y + 30);
         drawCenteredText(g2d, "Municipality of Daet", FONT_HEADER, width / 2, y + 45);
-        drawCenteredText(g2d, "Barangay Alawihao", FONT_HEADER, width / 2, y + 60);
+        String brgyName = new SystemConfigDAO().getConfig("barangay_name");
+        drawCenteredText(g2d, brgyName, FONT_HEADER, width / 2, y + 60);
         y += 80;
 
         // ==========================================================

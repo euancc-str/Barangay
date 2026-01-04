@@ -342,6 +342,18 @@ public class BClearanceForm extends JDialog {
         row = addField(formPanel, gbc, "Place Issued:", txtCtcPlaceIssued, row, 1, 3, labelFont, labelColor);
 
         // Row 15: Photo Section
+        txtAge.setEditable(false);
+        txtDate.setEditable(false);
+        txtLastName.setEditable(false);
+        txtSuffix.setEditable(false);
+        cmbBirthDate.setEnabled(false);
+        txtCurrentAddress.setEditable(false);
+        cmbSex.setEnabled(false);
+        street.setEditable(false);
+        txtPurok.setEnabled(false);
+        txtCivilStatus.setEditable(false);
+        txtMiddleName.setEditable(false);
+        txtName.setEditable(false);
         addPhotoSection(formPanel, gbc, row);
 
         return formPanel;

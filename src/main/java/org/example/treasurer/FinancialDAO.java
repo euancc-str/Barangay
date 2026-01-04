@@ -1,10 +1,14 @@
 package org.example.treasurer;
 
 
+
+
 import org.example.DatabaseConnection;
 import org.example.Admin.SystemLogDAO;
 import org.example.UserDataManager;
 import org.example.Users.BarangayStaff;
+
+
 
 
 import java.sql.*;
@@ -14,14 +18,22 @@ import java.util.Date;
 import java.util.List;
 
 
+
+
 public class FinancialDAO {
+
+
 
 
     private SystemLogDAO systemLogDAO = new SystemLogDAO();
 
 
+
+
     public double getTotalIncome(String timeframe) {
         String sql = "SELECT SUM(amount) FROM payment WHERE status = 'Approved'";
+
+
 
 
         switch (timeframe) {
@@ -40,9 +52,13 @@ public class FinancialDAO {
         }
 
 
+
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
+
+
 
 
             if (rs.next()) {
@@ -55,6 +71,71 @@ public class FinancialDAO {
     }
 
 
+    public double getTotalAssetsValue() {
+        String sql = "SELECT SUM(value) FROM barangay_asset WHERE status NOT IN ('Lost', 'Disposed')";
+
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+
+            if (rs.next()) {
+                return rs.getDouble(1);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0.0;
+    }
+
+
+    // Get total paid amount for all time
+    public double getTotalPaidAmount() {
+        String sql = "SELECT SUM(totalFee) FROM document_request WHERE paymentStatus = 'Paid'";
+
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+
+            if (rs.next()) {
+                return rs.getDouble(1);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0.0;
+    }
+
+
+    // Add this method to FinancialDAO.java
+    public double getTotalIncomeByDateRange(Date fromDate, Date toDate) {
+        String sql = "SELECT SUM(totalFee) FROM document_request " +
+                "WHERE paymentStatus = 'Paid' " +
+                "AND DATE(updatedAt) BETWEEN ? AND ?";
+
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+
+            stmt.setDate(1, new java.sql.Date(fromDate.getTime()));
+            stmt.setDate(2, new java.sql.Date(toDate.getTime()));
+
+
+            ResultSet rs = stmt.executeQuery();
+
+
+            if (rs.next()) {
+                return rs.getDouble(1);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0.0;
+    }
     // Get daily summary for last 30 days
     public List<Object[]> getDailySummary() {
         List<Object[]> list = new ArrayList<>();
@@ -68,18 +149,26 @@ public class FinancialDAO {
                 "ORDER BY payment_date DESC";
 
 
+
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
 
 
+
+
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+
+
 
 
             while (rs.next()) {
                 Date paymentDate = rs.getDate("payment_date");
                 int transactionCount = rs.getInt("transaction_count");
                 double dailyTotal = rs.getDouble("daily_total");
+
+
 
 
                 list.add(new Object[]{
@@ -93,6 +182,8 @@ public class FinancialDAO {
         }
         return list;
     }
+
+
 
 
     public List<Object[]> getPaymentsByDate(Date date) {
@@ -110,15 +201,23 @@ public class FinancialDAO {
                 "ORDER BY r.updatedAt DESC";
 
 
+
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+
 
 
             java.sql.Date sqlDate = new java.sql.Date(date.getTime());
             stmt.setDate(1, sqlDate);
 
 
+
+
             ResultSet rs = stmt.executeQuery();
+
+
 
 
             while (rs.next()) {
@@ -135,6 +234,7 @@ public class FinancialDAO {
         }
         return list;
     }
+
 
     public List<Object[]> getTodaysPayments() {
         List<Object[]> list = new ArrayList<>();
@@ -151,9 +251,13 @@ public class FinancialDAO {
                 "ORDER BY r.updatedAt DESC";
 
 
+
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
+
+
 
 
             while (rs.next()) {
@@ -172,6 +276,8 @@ public class FinancialDAO {
     }
 
 
+
+
     // Get monthly summary
     public List<Object[]> getMonthlySummary() {
         List<Object[]> list = new ArrayList<>();
@@ -184,9 +290,13 @@ public class FinancialDAO {
                 "ORDER BY YEAR(updatedAt) DESC, MONTH(updatedAt) DESC";
 
 
+
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
+
+
 
 
             while (rs.next()) {
@@ -203,6 +313,8 @@ public class FinancialDAO {
     }
 
 
+
+
     // Get yearly summary
     public List<Object[]> getYearlySummary() {
         List<Object[]> list = new ArrayList<>();
@@ -215,9 +327,13 @@ public class FinancialDAO {
                 "ORDER BY year DESC";
 
 
+
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
+
+
 
 
             while (rs.next()) {
@@ -232,6 +348,7 @@ public class FinancialDAO {
         }
         return list;
     }
+
 
     public List<Object[]> getTransactionsByMonthYear(int year, int month) {
         List<Object[]> list = new ArrayList<>();
@@ -250,15 +367,23 @@ public class FinancialDAO {
                 "ORDER BY r.updatedAt DESC";
 
 
+
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+
 
 
             stmt.setInt(1, year);
             stmt.setInt(2, month);
 
 
+
+
             ResultSet rs = stmt.executeQuery();
+
+
 
 
             while (rs.next()) {
@@ -278,6 +403,8 @@ public class FinancialDAO {
     }
 
 
+
+
     // Get total income for specific month
     public double getTotalIncomeForMonth(int year, int month) {
         String sql = "SELECT SUM(totalFee) FROM document_request " +
@@ -286,15 +413,23 @@ public class FinancialDAO {
                 "AND MONTH(updatedAt) = ?";
 
 
+
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+
 
 
             stmt.setInt(1, year);
             stmt.setInt(2, month);
 
 
+
+
             ResultSet rs = stmt.executeQuery();
+
+
 
 
             if (rs.next()) {
@@ -307,15 +442,21 @@ public class FinancialDAO {
     }
 
 
+
+
     // Delete a document request
     public boolean deleteRequest(int requestId) {
         Connection conn = null;
         PreparedStatement stmt = null;
 
 
+
+
         try {
             conn = DatabaseConnection.getConnection();
             conn.setAutoCommit(false); // Start transaction
+
+
 
 
             // First, delete from payments table if exists
@@ -326,6 +467,8 @@ public class FinancialDAO {
             stmt.close();
 
 
+
+
             // Then delete from document_request table
             String deleteRequestSQL = "DELETE FROM document_request WHERE requestId = ?";
             stmt = conn.prepareStatement(deleteRequestSQL);
@@ -333,7 +476,11 @@ public class FinancialDAO {
             int rowsAffected = stmt.executeUpdate();
 
 
+
+
             conn.commit(); // Commit transaction
+
+
 
 
             // Log the deletion
@@ -351,7 +498,11 @@ public class FinancialDAO {
             }
 
 
+
+
             return false;
+
+
 
 
         } catch (SQLException e) {
@@ -374,6 +525,8 @@ public class FinancialDAO {
     }
 
 
+
+
     // Get request details before deletion (for confirmation)
     public String getRequestDetails(int requestId) {
         String sql = "SELECT CONCAT(r.firstName, ' ', r.lastName) as resident_name, " +
@@ -384,12 +537,18 @@ public class FinancialDAO {
                 "WHERE dr.requestId = ?";
 
 
+
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
 
+
+
             stmt.setInt(1, requestId);
             ResultSet rs = stmt.executeQuery();
+
+
 
 
             if (rs.next()) {
@@ -399,9 +558,13 @@ public class FinancialDAO {
                 String purpose = rs.getString("purpose");
 
 
+
+
                 return String.format("Resident: %s\nDocument: %s\nAmount: ₱%.2f\nPurpose: %s",
                         residentName, documentType, totalFee, purpose);
             }
+
+
 
 
         } catch (SQLException e) {
@@ -409,8 +572,12 @@ public class FinancialDAO {
         }
 
 
+
+
         return "Request details not found";
     }
+
+
 
 
     // Check if request exists
@@ -418,12 +585,18 @@ public class FinancialDAO {
         String sql = "SELECT COUNT(*) FROM document_request WHERE requestId = ?";
 
 
+
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
 
+
+
             stmt.setInt(1, requestId);
             ResultSet rs = stmt.executeQuery();
+
+
 
 
             if (rs.next()) {
@@ -431,12 +604,18 @@ public class FinancialDAO {
             }
 
 
+
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
 
+
+
         return false;
     }
 }
+
+
 
